@@ -1,0 +1,23 @@
+[
+  {
+    "overlayId": "overlay_1C3C4EFE_0791_7944_416E_EDC6F40AE7F4",
+    "panoramaKey": "panorama_13FA417F_0793_4B44_418A_DCC97236EFFF",
+    "inventoryIds": ["MJ 1"],
+    "location": "Sub-coro da Igreja",
+    "title": "Túmulo de Luís de Camões"
+  },
+  {
+    "overlayId": "overlay_1CC89463_0792_C97D_4185_C3B656028982",
+    "panoramaKey": "panorama_1481C0FC_0793_494B_417B_BEBD341643F7",
+    "inventoryIds": ["MJ 2"],
+    "location": "Claustro inferior",
+    "title": "Túmulo de Fernando Pessoa"
+  },
+  {
+    "overlayId": "overlay_03FC84DE_1004_2665_4192_BB3FF8E23664",
+    "panoramaKey": "panorama_1DA12CBA_1004_262D_41A9_0D6D412BA534",
+    "inventoryIds": ["MJ 3"],
+    "location": "Sala do Capítulo",
+    "title": "Túmulo de Alexandre Herculano de Carvalho e Araújo"
+  }
+]

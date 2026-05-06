@@ -1,0 +1,817 @@
+[
+  {
+    "overlayId": "overlay_4713A8F4_D458_CEE9_41DB_392D224D7CE0",
+    "panoramaKey": "panorama_35E6A0A9_03C6_E585_4145_43F45438133B",
+    "inventoryIds": [
+      "38746"
+    ],
+    "location": "Sala Chinioiserie",
+    "title": "Matiné"
+  },
+  {
+    "overlayId": "overlay_5DD2EE80_D447_C52A_41E4_F898BF255D0F",
+    "panoramaKey": "panorama_407F15ED_FD46_870F_41DD_9043C20C12D9",
+    "inventoryIds": [
+      "19663"
+    ],
+    "location": "Sala da Música",
+    "title": "Barrete de fumador"
+  },
+  {
+    "overlayId": "overlay_57528A36_41B6_747D_41CF_7C9760167234",
+    "panoramaKey": "panorama_C1F0EB38_E356_68D1_41E2_C0DC89DE9B65",
+    "inventoryIds": [
+      "4703",
+      "4704"
+    ],
+    "location": "Hall",
+    "title": "Botões (dois)"
+  },
+  {
+    "overlayId": "overlay_540834BD_41AA_DC6F_41A3_A9B825BFF16D",
+    "panoramaKey": "panorama_C1F0EB38_E356_68D1_41E2_C0DC89DE9B65",
+    "inventoryIds": [
+      "6869"
+    ],
+    "location": "Hall",
+    "title": "Ligas (par)"
+  },
+  {
+    "overlayId": "overlay_56E371EF_40F9_29E2_41B4_FB947B6C94CC",
+    "panoramaKey": "panorama_C1F0EB38_E356_68D1_41E2_C0DC89DE9B65",
+    "inventoryIds": [
+      "4270"
+    ],
+    "location": "Hall",
+    "title": "Sapatos (par)"
+  },
+  {
+    "overlayId": "overlay_54C877EA_41AB_BC15_41A8_F5D126179F89",
+    "panoramaKey": "panorama_C1F0EB38_E356_68D1_41E2_C0DC89DE9B65",
+    "inventoryIds": [
+      "26738"
+    ],
+    "location": "Hall",
+    "title": "Leque"
+  },
+  {
+    "overlayId": "overlay_5725812E_41B5_D46D_41CE_6AA4ED3B6210",
+    "panoramaKey": "panorama_C7C1A9AA_E356_2BF0_41E2_CAFD0F832012",
+    "inventoryIds": [
+      "3998"
+    ],
+    "location": "Hall",
+    "title": "Véstia"
+  },
+  {
+    "overlayId": "overlay_544D26C3_41B6_BC1B_41B8_91CD54C5888C",
+    "panoramaKey": "panorama_C7C1A9AA_E356_2BF0_41E2_CAFD0F832012",
+    "inventoryIds": [
+      "4130"
+    ],
+    "location": "Hall",
+    "title": "Capa indo-portuguesa"
+  },
+  {
+    "overlayId": "overlay_57B0AB6D_41B7_F4EE_41AE_C224ECA84E37",
+    "panoramaKey": "panorama_C7C1A9AA_E356_2BF0_41E2_CAFD0F832012",
+    "inventoryIds": [
+      "8699"
+    ],
+    "location": "Hall",
+    "title": "Bolsa"
+  },
+  {
+    "overlayId": "overlay_6B4E6A68_41D6_D415_41C1_33C5E6D2287D",
+    "panoramaKey": "panorama_CB2F8990_E34E_EBD5_41DB_6DD4D679D479",
+    "inventoryIds": [
+      "7617"
+    ],
+    "location": "Salão Nobre",
+    "title": "Véstia de criança"
+  },
+  {
+    "overlayId": "overlay_6876F335_41D5_D47F_41BF_53F10D081DED",
+    "panoramaKey": "panorama_CB2F8990_E34E_EBD5_41DB_6DD4D679D479",
+    "inventoryIds": [
+      "4045"
+    ],
+    "location": "Salão Nobre",
+    "title": "Véstia"
+  },
+  {
+    "overlayId": "overlay_6AEDDF2B_41EA_CC6A_41A2_3555D6652F72",
+    "panoramaKey": "panorama_CD2D0C99_E356_2907_41E3_CDD26DFE1030",
+    "inventoryIds": [
+      "33879"
+    ],
+    "location": "Salão Nobre",
+    "title": "Casaquinha"
+  },
+  {
+    "overlayId": "overlay_6B23C2F3_41D5_F5FB_41AA_E923F182A6E9",
+    "panoramaKey": "panorama_CD2D0C99_E356_2907_41E3_CDD26DFE1030",
+    "inventoryIds": [
+      "3969",
+      "3970",
+      "3971"
+    ],
+    "location": "Salão Nobre",
+    "title": "Casaca, colete e calção"
+  },
+  {
+    "overlayId": "overlay_6ACD0292_41EB_B435_4192_DE86D877B914",
+    "panoramaKey": "panorama_CD2D0C99_E356_2907_41E3_CDD26DFE1030",
+    "inventoryIds": [
+      "4186"
+    ],
+    "location": "Salão Nobre",
+    "title": "Casaquinha"
+  },
+  {
+    "overlayId": "overlay_68C6700C_41D6_B42D_41C4_B559F1259E64",
+    "panoramaKey": "panorama_CD2D0C99_E356_2907_41E3_CDD26DFE1030",
+    "inventoryIds": [
+      "1013"
+    ],
+    "location": "Salão Nobre",
+    "title": "Elemento de vestido (plis Watteau)"
+  },
+  {
+    "overlayId": "overlay_52949B7C_D44F_C3DA_41BB_5C70146BDED9",
+    "panoramaKey": "panorama_CD7B92B9_E34E_5E11_41E1_66FF3B43359D",
+    "inventoryIds": [
+      "15255"
+    ],
+    "location": "Sala Vitrine",
+    "title": "Visite"
+  },
+  {
+    "overlayId": "overlay_75486B39_D449_C35A_41E3_C57CF2A15202",
+    "panoramaKey": "panorama_CD7B92B9_E34E_5E11_41E1_66FF3B43359D",
+    "inventoryIds": [
+      "6376"
+    ],
+    "location": "Sala Vitrine",
+    "title": "Visite"
+  },
+  {
+    "overlayId": "overlay_4ACBF7B3_D447_436E_41C9_FC0748FB26DD",
+    "panoramaKey": "panorama_CD7B92B9_E34E_5E11_41E1_66FF3B43359D",
+    "inventoryIds": [
+      "9343"
+    ],
+    "location": "Sala Vitrine",
+    "title": "Capa"
+  },
+  {
+    "overlayId": "overlay_40CD1025_D459_DD6B_41DB_2B7D054AE97D",
+    "panoramaKey": "panorama_CD8A49C0_E35A_2A7E_41D7_BEBB2A080117",
+    "inventoryIds": [
+      "16415"
+    ],
+    "location": "Sala Chinioiserie",
+    "title": "Saiote"
+  },
+  {
+    "overlayId": "overlay_B12F507D_9442_B573_41B7_9288FE1DDAC6",
+    "panoramaKey": "panorama_CE41B4DE_E37E_3BE5_41E9_7B0289316552",
+    "inventoryIds": [
+      "77"
+    ],
+    "location": "Sala do Arco",
+    "title": "Sapatos (par)"
+  },
+  {
+    "overlayId": "overlay_4E96E18F_D4D8_BF36_41D6_D0FCDC0E3F6F",
+    "panoramaKey": "panorama_CE41B4DE_E37E_3BE5_41E9_7B0289316552",
+    "inventoryIds": [
+      "15592"
+    ],
+    "location": "Sala do Arco",
+    "title": "Três Gerações"
+  },
+  {
+    "overlayId": "overlay_76569627_D4D9_4577_41E7_07CFF7F5C5A5",
+    "panoramaKey": "panorama_CE5422C2_E34A_5FC0_41D7_B3C760927E20",
+    "inventoryIds": [
+      "38127"
+    ],
+    "location": "Sala do Arco",
+    "title": "Carteira"
+  },
+  {
+    "overlayId": "overlay_7F12F667_D4C7_45F6_41D5_B9A6D25652BA",
+    "panoramaKey": "panorama_CE5422C2_E34A_5FC0_41D7_B3C760927E20",
+    "inventoryIds": [
+      "22958"
+    ],
+    "location": "Sala do Arco",
+    "title": "Chapéu"
+  },
+  {
+    "overlayId": "overlay_47F93612_D4C9_C529_41E3_82ADEFBA9584",
+    "panoramaKey": "panorama_CE5BA6FF_E34E_27D2_41E8_8E99B7E0DAFC",
+    "inventoryIds": [
+      "28668"
+    ],
+    "location": "Sala 1920-1930",
+    "title": "Chapéu (canotier)"
+  },
+  {
+    "overlayId": "overlay_75483579_D439_47DA_41E1_8F2844F9F3E4",
+    "panoramaKey": "panorama_CE63103B_E34A_3AF5_41E2_F46562944142",
+    "inventoryIds": [
+      "38538"
+    ],
+    "location": "Sala do Arco",
+    "title": "Sandálias (par)"
+  },
+  {
+    "overlayId": "overlay_662C5EE1_D43B_42EA_41E8_6D231E650A28",
+    "panoramaKey": "panorama_CE63103B_E34A_3AF5_41E2_F46562944142",
+    "inventoryIds": [
+      "38567"
+    ],
+    "location": "Sala do Arco",
+    "title": "Porta-moedas"
+  },
+  {
+    "overlayId": "overlay_7E9D224A_D439_BD3E_41E8_4BABC970EBA9",
+    "panoramaKey": "panorama_CE63103B_E34A_3AF5_41E2_F46562944142",
+    "inventoryIds": [
+      "38458"
+    ],
+    "location": "Sala do Arco",
+    "title": "Sapatos de criança (par) e caixa"
+  },
+  {
+    "overlayId": "overlay_4282D298_D4D9_DD5A_41E3_2C8BAE85E59C",
+    "panoramaKey": "panorama_CE67E72E_E37A_66BD_41D2_C43DD735FB27",
+    "inventoryIds": [
+      "23392"
+    ],
+    "location": "Sala do Arco",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_40F1516F_D4DB_DFF6_41D8_04676102F694",
+    "panoramaKey": "panorama_CE67E72E_E37A_66BD_41D2_C43DD735FB27",
+    "inventoryIds": [
+      "20025"
+    ],
+    "location": "Sala do Arco",
+    "title": "Casaco e saia"
+  },
+  {
+    "overlayId": "overlay_753799B3_D4D9_4F6E_41DA_542CE118E7B3",
+    "panoramaKey": "panorama_CE67E72E_E37A_66BD_41D2_C43DD735FB27",
+    "inventoryIds": [
+      "19673"
+    ],
+    "location": "Sala do Arco",
+    "title": "Casaquinha"
+  },
+  {
+    "overlayId": "overlay_70884C5D_D4DB_C5DA_41E0_8E1E84421912",
+    "panoramaKey": "panorama_CE67E72E_E37A_66BD_41D2_C43DD735FB27",
+    "inventoryIds": [
+      "32487"
+    ],
+    "location": "Sala do Arco",
+    "title": "Vestido e casaco"
+  },
+  {
+    "overlayId": "overlay_474F436F_D449_C3F7_41CE_47517E520E87",
+    "panoramaKey": "panorama_CE7CB9E8_E356_6DEF_41E8_45AE4674C843",
+    "inventoryIds": [
+      "5642"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_47BFF8DB_D447_4EDE_41E6_CE8AE3FEF143",
+    "panoramaKey": "panorama_CE7CB9E8_E356_6DEF_41E8_45AE4674C843",
+    "inventoryIds": [
+      "14835"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_77362BEA_D439_C2FE_41E2_64ECD3B8441F",
+    "panoramaKey": "panorama_CE838904_E34A_6A91_41C5_D5F5C7B66401",
+    "inventoryIds": [
+      "18247"
+    ],
+    "location": "Sala do Arco",
+    "title": "Chapéu"
+  },
+  {
+    "overlayId": "overlay_7A72D06E_D43F_5DF6_41D5_E375C730664F",
+    "panoramaKey": "panorama_CE838904_E34A_6A91_41C5_D5F5C7B66401",
+    "inventoryIds": [
+      "31711"
+    ],
+    "location": "Sala do Arco",
+    "title": "Touca e caixa"
+  },
+  {
+    "overlayId": "overlay_47C01F5E_D4C9_43D6_41DB_7C613F60C36B",
+    "panoramaKey": "panorama_CE88CDE9_E34E_65F0_41E2_CBAD042A96EE",
+    "inventoryIds": [
+      "14807"
+    ],
+    "location": "Sala 1920-1930",
+    "title": "Retrato de Maria Luísa Cabral Metelo"
+  },
+  {
+    "overlayId": "overlay_479FEE1C_D4C7_455A_41E5_979DBE1BFFAC",
+    "panoramaKey": "panorama_CE959235_E34A_3E56_41E0_0233DED973FB",
+    "inventoryIds": [
+      "38264"
+    ],
+    "location": "Sala 1920-1930",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_49302F11_D4C7_432A_41E1_C522AEE63490",
+    "panoramaKey": "panorama_CE959235_E34A_3E56_41E0_0233DED973FB",
+    "inventoryIds": [
+      "11773"
+    ],
+    "location": "Sala 1920-1930",
+    "title": "No Parque"
+  },
+  {
+    "overlayId": "overlay_733081E4_D4C9_7EE9_41AC_D34565A5B71E",
+    "panoramaKey": "panorama_CE9F2C50_E34E_6A84_41E4_2B4FCD87765F",
+    "inventoryIds": [
+      "37654"
+    ],
+    "location": "Sala do Arco",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_76759002_D4D8_BD2E_41DD_EB3F4C9DFC9B",
+    "panoramaKey": "panorama_CEA847AE_E37A_25BA_41DB_7B867420B82F",
+    "inventoryIds": [
+      "22525"
+    ],
+    "location": "Sala do Arco",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_75579C64_D4C8_C5EA_41D5_91E29C8C76EE",
+    "panoramaKey": "panorama_CEB3BAEC_E34E_2F9E_41D8_EDD4D7969A51",
+    "inventoryIds": [
+      "38727"
+    ],
+    "location": "Sala do Arco",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_782625FF_D4C9_46D6_41D6_A4B4AABA8DD2",
+    "panoramaKey": "panorama_CEB3BAEC_E34E_2F9E_41D8_EDD4D7969A51",
+    "inventoryIds": [
+      "38848"
+    ],
+    "location": "Sala do Arco",
+    "title": "Casaco, saia e blusa"
+  },
+  {
+    "overlayId": "overlay_64355EC0_D439_452A_41E7_E25B5F3DDB95",
+    "panoramaKey": "panorama_CEB3BAEC_E34E_2F9E_41D8_EDD4D7969A51",
+    "inventoryIds": [
+      "38853"
+    ],
+    "location": "Sala do Arco",
+    "title": "Vestido de criança"
+  },
+  {
+    "overlayId": "overlay_499F7C4F_D447_4536_41E8_5072EDFD354B",
+    "panoramaKey": "panorama_CEE48DE3_E356_2A1C_41E0_AED8FC577D4F",
+    "inventoryIds": [
+      "15748"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Casaco e saia"
+  },
+  {
+    "overlayId": "overlay_422B11C3_D448_BF2E_41E3_B00C5D822E96",
+    "panoramaKey": "panorama_CEE48DE3_E356_2A1C_41E0_AED8FC577D4F",
+    "inventoryIds": [
+      "15075"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Conjunto 'à marinheiro'"
+  },
+  {
+    "overlayId": "overlay_477183FC_D449_C2DA_41E5_349A71614214",
+    "panoramaKey": "panorama_CEE5C75F_E357_E622_41CC_091F092C4402",
+    "inventoryIds": [
+      "12846"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Chapéu"
+  },
+  {
+    "overlayId": "overlay_49AC1535_D44B_476B_41DD_1131911FCA35",
+    "panoramaKey": "panorama_CEE5C75F_E357_E622_41CC_091F092C4402",
+    "inventoryIds": [
+      "12049"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Bolsa"
+  },
+  {
+    "overlayId": "overlay_47425919_D44F_4F5A_41E2_D7AB5D9F8529",
+    "panoramaKey": "panorama_CEE722B7_E356_5E63_4191_082254950417",
+    "inventoryIds": [
+      "16572"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Fato de banho (casaco e calção)"
+  },
+  {
+    "overlayId": "overlay_47CD7E29_D439_C57A_41E2_BD02B3965C00",
+    "panoramaKey": "panorama_CEE91A45_E356_2E20_41DC_3D30FF7685DE",
+    "inventoryIds": [
+      "32709"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Botins (par)"
+  },
+  {
+    "overlayId": "overlay_473A9A16_D438_CD29_41BA_EB773FFFBE48",
+    "panoramaKey": "panorama_CEEBEE63_E356_E6E7_41E3_5BD2E9A5FA35",
+    "inventoryIds": [
+      "3375"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_4A62C6D3_D439_452E_41C7_A1C0104BFFE2",
+    "panoramaKey": "panorama_CEEBEE63_E356_E6E7_41E3_5BD2E9A5FA35",
+    "inventoryIds": [
+      "24112"
+    ],
+    "location": "Sala 1910-1918",
+    "title": "Capa"
+  },
+  {
+    "overlayId": "overlay_41424E11_D459_C52B_41E9_71609B418185",
+    "panoramaKey": "panorama_CEFF3C42_E35A_6A02_41C7_CC2B8050A889",
+    "inventoryIds": [
+      "12726",
+      "12727",
+      "12728",
+      "12729"
+    ],
+    "location": "Sala Chinioiserie",
+    "title": "Conjunto (camisa de dia, camisa de noite, corpete e culottes)"
+  },
+  {
+    "overlayId": "overlay_6F7D50D7_5C3E_4C71_41D3_6F253F6CE84E",
+    "panoramaKey": "panorama_CF057C31_E3BA_6A24_41E7_48B84632EEC6",
+    "inventoryIds": [
+      "16925"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_7F8AAB48_5C32_7C5E_41C7_4439C56B866E",
+    "panoramaKey": "panorama_CF057C31_E3BA_6A24_41E7_48B84632EEC6",
+    "inventoryIds": [
+      "1408",
+      "1409"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Casaca e calção"
+  },
+  {
+    "overlayId": "overlay_78FD753F_5C32_D432_41C7_A1B642000316",
+    "panoramaKey": "panorama_CF057C31_E3BA_6A24_41E7_48B84632EEC6",
+    "inventoryIds": [
+      "4184"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Spencer"
+  },
+  {
+    "overlayId": "overlay_426A8345_D439_432A_41DB_ED621908CB8E",
+    "panoramaKey": "panorama_CF27364D_E34A_2634_41D7_448557C9A5A5",
+    "inventoryIds": [
+      "30148"
+    ],
+    "location": "Sala 1920-1930",
+    "title": "Leque"
+  },
+  {
+    "overlayId": "overlay_4C5DB75D_D43B_43DB_41D5_8A6C9AE3BDC2",
+    "panoramaKey": "panorama_CF27364D_E34A_2634_41D7_448557C9A5A5",
+    "inventoryIds": [
+      "29432"
+    ],
+    "location": "Sala 1920-1930",
+    "title": "Chapéu"
+  },
+  {
+    "overlayId": "overlay_12C57860_5C7E_DC14_41C9_AC0E0B3B9BE2",
+    "panoramaKey": "panorama_CF3DEE7E_E3BA_2619_41D3_6F6D313D4314",
+    "inventoryIds": [
+      "12045"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_AD818901_D459_4F2A_41E9_8E05C92308E8",
+    "panoramaKey": "panorama_CF4719C5_E34A_EA76_41CD_E7E37BAC6C7B",
+    "inventoryIds": [
+      "5622"
+    ],
+    "location": "Sala da Música",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_A809704C_D459_7D3A_41D7_61796F5FBCE9",
+    "panoramaKey": "panorama_CF94401F_E34A_7A13_41D0_622885740E6A",
+    "inventoryIds": [
+      "28519"
+    ],
+    "location": "Sala da Música",
+    "title": "Vestido de criança"
+  },
+  {
+    "overlayId": "overlay_09F68A97_93D5_04A1_41DD_CA2544EF117F",
+    "panoramaKey": "panorama_CF950255_E3BA_DE6C_41E0_F15CD4CB4DF7",
+    "inventoryIds": [
+      "38461"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Colete"
+  },
+  {
+    "overlayId": "overlay_4B891A01_5C32_DFD1_41D3_CC2652837659",
+    "panoramaKey": "panorama_CF950255_E3BA_DE6C_41E0_F15CD4CB4DF7",
+    "inventoryIds": [
+      "12179"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_095649BA_93DD_04DE_41B2_967B2666256A",
+    "panoramaKey": "panorama_CFE554C4_E3BB_DA6D_41CE_01D737528E24",
+    "inventoryIds": [
+      "9396"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Bolsa para moedas"
+  },
+  {
+    "overlayId": "overlay_6EBBD8D8_5C32_DC7F_41CE_7BCF61921D74",
+    "panoramaKey": "panorama_CFE554C4_E3BB_DA6D_41CE_01D737528E24",
+    "inventoryIds": [
+      "4705",
+      "4706"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Botões (dois)"
+  },
+  {
+    "overlayId": "overlay_6CC6A60C_5C52_37D3_41D3_EB58163C3C2A",
+    "panoramaKey": "panorama_CFE554C4_E3BB_DA6D_41CE_01D737528E24",
+    "inventoryIds": [
+      "4989"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Bicórnio"
+  },
+  {
+    "overlayId": "overlay_6E1E49AD_5C32_7CD1_41A8_5235FEC06AA9",
+    "panoramaKey": "panorama_CFE554C4_E3BB_DA6D_41CE_01D737528E24",
+    "inventoryIds": [
+      "4935"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Cartola"
+  },
+  {
+    "overlayId": "overlay_6D74E487_5C2E_D4D0_41C1_16DAE5D2D1E8",
+    "panoramaKey": "panorama_CFE554C4_E3BB_DA6D_41CE_01D737528E24",
+    "inventoryIds": [
+      "4657",
+      "4658",
+      "4659"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Botões (três)"
+  },
+  {
+    "overlayId": "overlay_6DE32CC3_5C31_D450_41C7_A0DF28AC7F15",
+    "panoramaKey": "panorama_CFE554C4_E3BB_DA6D_41CE_01D737528E24",
+    "inventoryIds": [
+      "967"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Bolsa"
+  },
+  {
+    "overlayId": "overlay_6D711AE7_5C2E_FC5F_41D4_ABD57D1ADA64",
+    "panoramaKey": "panorama_CFE554C4_E3BB_DA6D_41CE_01D737528E24",
+    "inventoryIds": [
+      "992"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Bolsa"
+  },
+  {
+    "overlayId": "overlay_7384B55F_5C36_D471_41C5_8A3AD35B548A",
+    "panoramaKey": "panorama_CFE554C4_E3BB_DA6D_41CE_01D737528E24",
+    "inventoryIds": [
+      "3200"
+    ],
+    "location": "Sala Cantonal",
+    "title": "Leque"
+  },
+  {
+    "overlayId": "overlay_D4A3CA4E_D47F_4D36_41E4_74C6D5946500",
+    "panoramaKey": "panorama_CFEA419B_E3BA_FA1E_41D6_E9880645B03D",
+    "inventoryIds": [
+      "26510"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Retrato de Famíilia"
+  },
+  {
+    "overlayId": "overlay_122F46F7_5C72_55F8_41C3_378BC9EC017D",
+    "panoramaKey": "panorama_CFEC4CF2_E3BA_2A2E_41EB_E931E9C5BBD6",
+    "inventoryIds": [
+      "11957"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Vestido (duas peças)"
+  },
+  {
+    "overlayId": "overlay_097CE99C_93D3_04CF_41DE_436BCDE6F2FB",
+    "panoramaKey": "panorama_CFEC4CF2_E3BA_2A2E_41EB_E931E9C5BBD6",
+    "inventoryIds": [
+      "3546"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Vestido de criança"
+  },
+  {
+    "overlayId": "overlay_082497EA_5C56_73CA_41AD_3B0380954DEE",
+    "panoramaKey": "panorama_CFEC4CF2_E3BA_2A2E_41EB_E931E9C5BBD6",
+    "inventoryIds": [
+      "38072"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Vestido (três peças)"
+  },
+  {
+    "overlayId": "overlay_D4A2341B_D478_C55D_41E2_8185D9470E62",
+    "panoramaKey": "panorama_CFEC4CF2_E3BA_2A2E_41EB_E931E9C5BBD6",
+    "inventoryIds": [
+      "11459"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Retrato de Senhora"
+  },
+  {
+    "overlayId": "overlay_E1705778_D3C7_43D9_41E6_442A55B21312",
+    "panoramaKey": "panorama_CFF180EE_E34A_5A35_41E4_729A3B00C0D8",
+    "inventoryIds": [
+      "5626"
+    ],
+    "location": "Sala da Música",
+    "title": "Vestido (duas peças)"
+  },
+  {
+    "overlayId": "overlay_12C87120_5C7E_4C16_41AF_ED76039BBD35",
+    "panoramaKey": "panorama_CFFB3B0A_E3BA_6FF9_41D7_FA02782EFA22",
+    "inventoryIds": [
+      "63"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Sapatos (par)"
+  },
+  {
+    "overlayId": "overlay_A8ADBACA_D449_4D3E_41E9_19C5FB0252C5",
+    "panoramaKey": "panorama_CFFC5373_E34B_DE12_41D8_613DD6D179B6",
+    "inventoryIds": [
+      "7619"
+    ],
+    "location": "Sala da Música",
+    "title": "Visite"
+  },
+  {
+    "overlayId": "overlay_AE2666F3_D458_C2EE_41D7_7AA0F857BBCE",
+    "panoramaKey": "panorama_CFFC5373_E34B_DE12_41D8_613DD6D179B6",
+    "inventoryIds": [
+      "11595"
+    ],
+    "location": "Sala da Música",
+    "title": "Capa"
+  },
+  {
+    "overlayId": "overlay_0C8C51BF_5C52_4C42_41D2_73784AD9A876",
+    "panoramaKey": "panorama_CFFF047D_E3B6_3A15_41DE_6AC9D19EA67A",
+    "inventoryIds": [
+      "26143"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Chapéu (capota)"
+  },
+  {
+    "overlayId": "overlay_12FC95DB_5C52_D7CD_41D5_90F40EB2E804",
+    "panoramaKey": "panorama_CFFF047D_E3B6_3A15_41DE_6AC9D19EA67A",
+    "inventoryIds": [
+      "10429",
+      "10430"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Alfinete e brincos (par)"
+  },
+  {
+    "overlayId": "overlay_D4A0348D_D478_C53B_41D6_C271430F5C4D",
+    "panoramaKey": "panorama_CFFFF3ED_E3BB_DE3B_41EB_6DA84A0C1EEB",
+    "inventoryIds": [
+      "11460"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Retrato de Homem"
+  },
+  {
+    "overlayId": "overlay_D4A043E9_D479_42FB_41D6_4183004FA06B",
+    "panoramaKey": "panorama_CFFFF3ED_E3BB_DE3B_41EB_6DA84A0C1EEB",
+    "inventoryIds": [
+      "11459"
+    ],
+    "location": "Sala das Bandeiras",
+    "title": "Retrato de Senhora"
+  },
+  {
+    "overlayId": "overlay_68E8560C_41EA_7C2D_41CD_118A28A2B5AA",
+    "panoramaKey": "panorama_D134C7B7_E35A_2708_41D0_F9BDABDB2875",
+    "inventoryIds": [
+      "3966",
+      "3967",
+      "3968"
+    ],
+    "location": "Salão Nobre",
+    "title": "Casaca, colete e calção"
+  },
+  {
+    "overlayId": "overlay_7580EF68_D4C9_43F9_41CA_A8CE1B7E340C",
+    "panoramaKey": "panorama_D6DDB635_E376_2698_41EB_FB4CF5A2C3BD",
+    "inventoryIds": [
+      "30701"
+    ],
+    "location": "Sala do Arco",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_68EC124E_41EE_742D_41C4_00CB04DF7DF6",
+    "panoramaKey": "panorama_DB444F38_E35E_6772_41E4_4B3D34D5671B",
+    "inventoryIds": [
+      "3972"
+    ],
+    "location": "Salão Nobre",
+    "title": "Casaca"
+  },
+  {
+    "overlayId": "overlay_5E909771_D449_43EB_41C1_15C3655A02FF",
+    "panoramaKey": "panorama_EF736EF4_FCC7_84C4_41E3_40FD35A141DC",
+    "inventoryIds": [
+      "29018",
+      "32065"
+    ],
+    "location": "Sala da Música",
+    "title": "Blusa e saia"
+  },
+  {
+    "overlayId": "overlay_A9686315_D44B_432A_41E6_C5E82DD13D72",
+    "panoramaKey": "panorama_EF736EF4_FCC7_84C4_41E3_40FD35A141DC",
+    "inventoryIds": [
+      "20426"
+    ],
+    "location": "Sala da Música",
+    "title": "Vestido"
+  },
+  {
+    "overlayId": "overlay_5FF083FB_D44B_42DF_41E9_996E19870ED9",
+    "panoramaKey": "panorama_EF736EF4_FCC7_84C4_41E3_40FD35A141DC",
+    "inventoryIds": [
+      "38783"
+    ],
+    "location": "Sala da Música",
+    "title": "Vestido"
+  }
+]

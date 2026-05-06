@@ -1,0 +1,13 @@
+{
+  "name": "patrimonio360-multiview-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "puppeteer": "^23.11.1"
+  }
+}

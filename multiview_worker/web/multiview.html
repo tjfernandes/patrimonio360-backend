@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="utf-8" />
+    <title>Multiview Worker</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.168.0/build/three.module.js",
+          "three/examples/jsm/": "https://unpkg.com/three@0.168.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from "three";
+      import { GLTFLoader } from "https://unpkg.com/three@0.168.0/examples/jsm/loaders/GLTFLoader.js";
+      import { KTX2Loader } from "https://unpkg.com/three@0.168.0/examples/jsm/loaders/KTX2Loader.js";
+      import { DRACOLoader } from "https://unpkg.com/three@0.168.0/examples/jsm/loaders/DRACOLoader.js";
+      import { OBJLoader } from "https://unpkg.com/three@0.168.0/examples/jsm/loaders/OBJLoader.js";
+      import { RoomEnvironment } from "https://unpkg.com/three@0.168.0/examples/jsm/environments/RoomEnvironment.js";
+      import { MeshoptDecoder } from "https://unpkg.com/three@0.168.0/examples/jsm/libs/meshopt_decoder.module.js";
+
+      const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      function base64ToArrayBuffer(base64Value) {
+        const binary = atob(base64Value);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) {
+          bytes[index] = binary.charCodeAt(index);
+        }
+        return bytes.buffer;
+      }
+
+      function detectExtension(fileName) {
+        const parts = String(fileName || "").toLowerCase().split(".");
+        return parts.length > 1 ? parts.at(-1) : "";
+      }
+
+      function detectExtensionFromUrl(url) {
+        const cleanUrl = String(url || "").split("?")[0];
+        const parts = cleanUrl.toLowerCase().split(".");
+        return parts.length > 1 ? parts.at(-1) : "";
+      }
+
+      function createConfiguredGltfLoader(renderer) {
+        const loader = new GLTFLoader();
+        loader.setMeshoptDecoder(MeshoptDecoder);
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath("https://unpkg.com/three@0.168.0/examples/jsm/libs/draco/");
+        loader.setDRACOLoader(dracoLoader);
+        if (!renderer) {
+          return { loader, ktx2Loader: null, dracoLoader };
+        }
+
+        const ktx2Loader = new KTX2Loader();
+        // Required for models that use KHR_texture_basisu (KTX2/BasisU textures).
+        ktx2Loader.setTranscoderPath("https://unpkg.com/three@0.168.0/examples/jsm/libs/basis/");
+        ktx2Loader.detectSupport(renderer);
+        loader.setKTX2Loader(ktx2Loader);
+        return { loader, ktx2Loader, dracoLoader };
+      }
+
+      function loadGltfFromUrl(modelUrl, renderer) {
+        const { loader, ktx2Loader, dracoLoader } = createConfiguredGltfLoader(renderer);
+        return new Promise((resolve, reject) => {
+          loader.load(modelUrl, (gltf) => resolve(gltf.scene), undefined, reject);
+        }).finally(() => {
+          ktx2Loader?.dispose?.();
+          dracoLoader?.dispose?.();
+        });
+      }
+
+      function loadObjFromUrl(modelUrl) {
+        const loader = new OBJLoader();
+        return new Promise((resolve, reject) => {
+          loader.load(modelUrl, (obj) => resolve(obj), undefined, reject);
+        });
+      }
+
+      async function loadModel({ fileName, modelUrl, fileBytesBase64, renderer }) {
+        const extension = detectExtension(fileName);
+
+        if (modelUrl) {
+          const urlExtension = extension || detectExtensionFromUrl(modelUrl);
+          if (urlExtension === "glb" || urlExtension === "gltf") {
+            return loadGltfFromUrl(modelUrl, renderer);
+          }
+          if (urlExtension === "obj") {
+            return loadObjFromUrl(modelUrl);
+          }
+        }
+
+        if (!fileBytesBase64) {
+          throw new Error("Missing model payload.");
+        }
+        const bytes = base64ToArrayBuffer(fileBytesBase64);
+
+        if (extension === "glb") {
+          const { loader, ktx2Loader, dracoLoader } = createConfiguredGltfLoader(renderer);
+          return new Promise((resolve, reject) => {
+            loader.parse(bytes, "", (gltf) => resolve(gltf.scene), reject);
+          }).finally(() => {
+            ktx2Loader?.dispose?.();
+            dracoLoader?.dispose?.();
+          });
+        }
+
+        if (extension === "gltf") {
+          const { loader, ktx2Loader, dracoLoader } = createConfiguredGltfLoader(renderer);
+          const text = new TextDecoder().decode(bytes);
+          return new Promise((resolve, reject) => {
+            loader.parse(text, "", (gltf) => resolve(gltf.scene), reject);
+          }).finally(() => {
+            ktx2Loader?.dispose?.();
+            dracoLoader?.dispose?.();
+          });
+        }
+
+        if (extension === "obj") {
+          const loader = new OBJLoader();
+          const text = new TextDecoder().decode(bytes);
+          return loader.parse(text);
+        }
+
+        throw new Error(
+          `Unsupported 3D model format '${extension}'. Supported formats: .glb, .gltf, .obj.`,
+        );
+      }
+
+      function sphericalFibonacciPoint(index, total) {
+        const goldenRatio = (1 + Math.sqrt(5)) / 2;
+        const theta = (2 * Math.PI * index) / goldenRatio;
+        const z = 1 - (2 * (index + 0.5)) / total;
+        const radius = Math.sqrt(Math.max(0, 1 - z * z));
+        const x = radius * Math.cos(theta);
+        const y = radius * Math.sin(theta);
+        return new THREE.Vector3(x, z, y).normalize();
+      }
+
+      function sphericalFpsDirections({ count = 5, oversample = 320, ensureTop = true } = {}) {
+        const samples = [];
+        const total = Math.max(oversample, count * 40);
+        for (let index = 0; index < total; index += 1) {
+          samples.push(sphericalFibonacciPoint(index, total));
+        }
+
+        const selected = [];
+        const take = (index) => {
+          selected.push(samples[index]);
+          samples.splice(index, 1);
+        };
+
+        if (ensureTop && samples.length) {
+          let topIndex = 0;
+          for (let index = 1; index < samples.length; index += 1) {
+            if (samples[index].y > samples[topIndex].y) {
+              topIndex = index;
+            }
+          }
+          take(topIndex);
+        }
+
+        while (selected.length < count && samples.length) {
+          let bestIndex = 0;
+          let bestScore = -Infinity;
+          for (let index = 0; index < samples.length; index += 1) {
+            const candidate = samples[index];
+            let minAngle = Infinity;
+            for (const reference of selected) {
+              const dot = THREE.MathUtils.clamp(candidate.dot(reference), -1, 1);
+              const angle = Math.acos(dot);
+              if (angle < minAngle) {
+                minAngle = angle;
+              }
+            }
+            if (minAngle > bestScore) {
+              bestScore = minAngle;
+              bestIndex = index;
+            }
+          }
+          take(bestIndex);
+        }
+
+        return selected.slice(0, count);
+      }
+
+      function cameraPosesRing(yaws = 8, elevationDeg = 30) {
+        const phi = THREE.MathUtils.degToRad(90 - elevationDeg);
+        const directions = [];
+        for (let index = 0; index < yaws; index += 1) {
+          const theta = (index / yaws) * Math.PI * 2;
+          const x = Math.sin(phi) * Math.cos(theta);
+          const y = Math.cos(phi);
+          const z = Math.sin(phi) * Math.sin(theta);
+          directions.push(new THREE.Vector3(x, y, z).normalize());
+        }
+        return directions;
+      }
+
+      function cameraPosesFibonacci(total = 16) {
+        const directions = [];
+        for (let index = 0; index < total; index += 1) {
+          directions.push(sphericalFibonacciPoint(index, total));
+        }
+        return directions;
+      }
+
+      function ringDirectionsForElevation(elevationDeg, yaws = 8) {
+        const phi = THREE.MathUtils.degToRad(90 - elevationDeg);
+        const directions = [];
+        for (let index = 0; index < yaws; index += 1) {
+          const theta = (index / yaws) * Math.PI * 2;
+          const x = Math.sin(phi) * Math.cos(theta);
+          const y = Math.cos(phi);
+          const z = Math.sin(phi) * Math.sin(theta);
+          directions.push(new THREE.Vector3(x, y, z).normalize());
+        }
+        return directions;
+      }
+
+      function buildAdaptiveCandidateDirections({ ensureTop = true } = {}) {
+        const candidates = [
+          ...ringDirectionsForElevation(0, 8),
+          ...ringDirectionsForElevation(18, 8),
+          ...ringDirectionsForElevation(36, 8),
+          ...ringDirectionsForElevation(58, 6),
+        ];
+        if (ensureTop) {
+          candidates.push(...ringDirectionsForElevation(74, 4));
+        }
+        return candidates;
+      }
+
+      function pickCameraDirections({
+        strategy = "fps",
+        views = 5,
+        oversample = 320,
+        ensureTop = true,
+        yaws = 8,
+        elevation = 30,
+      } = {}) {
+        if (strategy === "ring") {
+          return cameraPosesRing(yaws, elevation);
+        }
+        if (strategy === "fib") {
+          return cameraPosesFibonacci(views);
+        }
+        return sphericalFpsDirections({ count: views, oversample, ensureTop });
+      }
+
+      function getBoxCorners(box) {
+        const { min, max } = box;
+        return [
+          new THREE.Vector3(min.x, min.y, min.z),
+          new THREE.Vector3(min.x, min.y, max.z),
+          new THREE.Vector3(min.x, max.y, min.z),
+          new THREE.Vector3(min.x, max.y, max.z),
+          new THREE.Vector3(max.x, min.y, min.z),
+          new THREE.Vector3(max.x, min.y, max.z),
+          new THREE.Vector3(max.x, max.y, min.z),
+          new THREE.Vector3(max.x, max.y, max.z),
+        ];
+      }
+
+      function centerAndScaleToUnit(root) {
+        const initialBox = new THREE.Box3().setFromObject(root);
+        const size = new THREE.Vector3();
+        initialBox.getSize(size);
+        const center = new THREE.Vector3();
+        initialBox.getCenter(center);
+        root.position.sub(center);
+        const maxDimension = Math.max(size.x, size.y, size.z);
+        const scale = maxDimension > 0 ? 1 / maxDimension : 1;
+        root.scale.setScalar(scale);
+        root.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(root);
+        const sphere = new THREE.Sphere();
+        box.getBoundingSphere(sphere);
+        return { radius: sphere.radius, box, corners: getBoxCorners(box) };
+      }
+
+      function computeOrbitDistance(radius, fovDegrees, margin = 1.35) {
+        const fovRadians = THREE.MathUtils.degToRad(fovDegrees);
+        return (margin * radius) / Math.max(1e-6, Math.sin(fovRadians * 0.5));
+      }
+
+      function toLabel(position) {
+        const radius = position.length();
+        const theta = Math.atan2(position.z, position.x);
+        const phi = Math.acos(THREE.MathUtils.clamp(position.y / radius, -1, 1));
+        const longitude = Math.round(THREE.MathUtils.radToDeg(theta));
+        const latitude = Math.round(90 - THREE.MathUtils.radToDeg(phi));
+        const longitudeLabel =
+          longitude >= 0
+            ? `p${String(longitude).padStart(3, "0")}`
+            : `m${String(Math.abs(longitude)).padStart(3, "0")}`;
+        const latitudeLabel =
+          latitude >= 0
+            ? `p${String(latitude).padStart(2, "0")}`
+            : `m${String(Math.abs(latitude)).padStart(2, "0")}`;
+        return `rgb_lon${longitudeLabel}_lat${latitudeLabel}`;
+      }
+
+      function normalizeObjectMaterials(root) {
+        root.traverse((object) => {
+          if (!object.isMesh) {
+            return;
+          }
+          object.castShadow = false;
+          object.receiveShadow = false;
+          if (!object.material) {
+            object.material = new THREE.MeshStandardMaterial({
+              color: 0xd7d0ca,
+              roughness: 0.72,
+              metalness: 0.12,
+            });
+            object.material.side = THREE.DoubleSide;
+            object.material.needsUpdate = true;
+            return;
+          }
+
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          for (const material of materials) {
+            if (!material) {
+              continue;
+            }
+            if ("side" in material && material.side !== THREE.DoubleSide) {
+              material.side = THREE.DoubleSide;
+              material.needsUpdate = true;
+            }
+          }
+        });
+      }
+
+      function positionCamera(camera, direction, distance) {
+        camera.position.copy(direction.clone().setLength(distance));
+        camera.lookAt(0, 0, 0);
+        camera.updateMatrixWorld(true);
+      }
+
+      function doesCameraFramePoints(camera, direction, distance, points, ndcLimit = 0.84) {
+        positionCamera(camera, direction, distance);
+        for (const point of points) {
+          const projected = point.clone().project(camera);
+          if (
+            !Number.isFinite(projected.x) ||
+            !Number.isFinite(projected.y) ||
+            !Number.isFinite(projected.z)
+          ) {
+            return false;
+          }
+          if (Math.abs(projected.x) > ndcLimit || Math.abs(projected.y) > ndcLimit) {
+            return false;
+          }
+          if (projected.z < -1 || projected.z > 1) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      function findFitDistanceForDirection({
+        camera,
+        direction,
+        points,
+        initialDistance,
+        ndcLimit = 0.84,
+      }) {
+        let low = Math.max(0.05, initialDistance * 0.35);
+        let high = Math.max(initialDistance, 0.6);
+        let attempts = 0;
+        while (!doesCameraFramePoints(camera, direction, high, points, ndcLimit) && attempts < 18) {
+          low = high;
+          high *= 1.45;
+          attempts += 1;
+        }
+
+        for (let iteration = 0; iteration < 18; iteration += 1) {
+          const middle = (low + high) * 0.5;
+          if (doesCameraFramePoints(camera, direction, middle, points, ndcLimit)) {
+            high = middle;
+          } else {
+            low = middle;
+          }
+        }
+        return high * 1.03;
+      }
+
+      function measureSilhouetteCoverage({
+        renderer,
+        scene,
+        camera,
+        renderTarget,
+        silhouetteMaterial,
+      }) {
+        const width = renderTarget.width;
+        const height = renderTarget.height;
+        const pixels = new Uint8Array(width * height * 4);
+        const previousTarget = renderer.getRenderTarget();
+        const previousOverride = scene.overrideMaterial;
+        const previousClearColor = new THREE.Color();
+        renderer.getClearColor(previousClearColor);
+        const previousClearAlpha = renderer.getClearAlpha();
+
+        scene.overrideMaterial = silhouetteMaterial;
+        renderer.setRenderTarget(renderTarget);
+        renderer.setClearColor(0x000000, 1);
+        renderer.clear(true, true, true);
+        renderer.render(scene, camera);
+        renderer.readRenderTargetPixels(renderTarget, 0, 0, width, height, pixels);
+        renderer.setRenderTarget(previousTarget);
+        renderer.setClearColor(previousClearColor, previousClearAlpha);
+        scene.overrideMaterial = previousOverride;
+
+        let pixelCount = 0;
+        let minX = width;
+        let minY = height;
+        let maxX = -1;
+        let maxY = -1;
+        for (let index = 0; index < pixels.length; index += 4) {
+          const r = pixels[index];
+          const g = pixels[index + 1];
+          const b = pixels[index + 2];
+          if (r <= 8 && g <= 8 && b <= 8) {
+            continue;
+          }
+          pixelCount += 1;
+          const pixelIndex = index / 4;
+          const x = pixelIndex % width;
+          const y = Math.floor(pixelIndex / width);
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+
+        const totalPixels = width * height;
+        const coverage = pixelCount / Math.max(1, totalPixels);
+        const bboxArea =
+          maxX >= 0 && maxY >= 0
+            ? ((maxX - minX + 1) * (maxY - minY + 1)) / Math.max(1, totalPixels)
+            : 0;
+
+        return { coverage, bboxArea };
+      }
+
+      function pickAdaptiveCameraViews({
+        renderer,
+        scene,
+        camera,
+        bounds,
+        views = 5,
+        fov = 35,
+        orbitMargin = 1.35,
+        ensureTop = true,
+      }) {
+        const candidates = buildAdaptiveCandidateDirections({ ensureTop });
+        const baseDistance = computeOrbitDistance(bounds.radius || 0.5, fov, orbitMargin);
+        const silhouetteMaterial = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          side: THREE.DoubleSide,
+        });
+        const scoreTarget = new THREE.WebGLRenderTarget(96, 96);
+        const evaluated = [];
+
+        for (const direction of candidates) {
+          const distance = findFitDistanceForDirection({
+            camera,
+            direction,
+            points: bounds.corners,
+            initialDistance: baseDistance,
+          });
+          if (!Number.isFinite(distance) || distance <= 0) {
+            continue;
+          }
+          positionCamera(camera, direction, distance);
+          const silhouette = measureSilhouetteCoverage({
+            renderer,
+            scene,
+            camera,
+            renderTarget: scoreTarget,
+            silhouetteMaterial,
+          });
+          const score = silhouette.coverage * 0.82 + silhouette.bboxArea * 0.18;
+          if (score <= 0.0015) {
+            continue;
+          }
+          evaluated.push({
+            direction: direction.clone(),
+            distance,
+            score,
+            coverage: silhouette.coverage,
+            bboxArea: silhouette.bboxArea,
+          });
+        }
+
+        silhouetteMaterial.dispose();
+        scoreTarget.dispose();
+
+        evaluated.sort((left, right) => right.score - left.score);
+        if (!evaluated.length) {
+          return [];
+        }
+
+        const selected = [];
+        const pool = [...evaluated];
+        while (selected.length < views && pool.length) {
+          let bestIndex = 0;
+          let bestEffectiveScore = -Infinity;
+          for (let index = 0; index < pool.length; index += 1) {
+            const candidate = pool[index];
+            if (!selected.length) {
+              if (candidate.score > bestEffectiveScore) {
+                bestEffectiveScore = candidate.score;
+                bestIndex = index;
+              }
+              continue;
+            }
+
+            let minAngle = Infinity;
+            for (const chosen of selected) {
+              const dot = THREE.MathUtils.clamp(
+                candidate.direction.dot(chosen.direction),
+                -1,
+                1,
+              );
+              const angle = Math.acos(dot);
+              if (angle < minAngle) {
+                minAngle = angle;
+              }
+            }
+            const diversity = Math.min(1, minAngle / THREE.MathUtils.degToRad(110));
+            const effectiveScore = candidate.score * (0.42 + 0.58 * diversity);
+            if (effectiveScore > bestEffectiveScore) {
+              bestEffectiveScore = effectiveScore;
+              bestIndex = index;
+            }
+          }
+          selected.push(pool[bestIndex]);
+          pool.splice(bestIndex, 1);
+        }
+
+        return selected;
+      }
+
+      async function generateMultiview(opts) {
+        const {
+          fileName,
+          modelUrl,
+          fileBytesBase64,
+          size = 512,
+          views = 3,
+          skipViews = 0,
+          targetViewCount = 5,
+          strategy = "adaptive",
+          radius = null,
+          oversample = 320,
+          ensureTop = true,
+          yaws = 8,
+          elevation = 30,
+          background = "#FFFFFF",
+          fov = 35,
+          dpr = 1,
+          ditherDelayMs = 8,
+          orbitMargin = 1.35,
+        } = opts;
+
+        document.body.innerHTML = "";
+
+        const scene = new THREE.Scene();
+        const renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          preserveDrawingBuffer: true,
+        });
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.physicallyCorrectLights = true;
+        renderer.setPixelRatio(Math.max(1, Math.min(3, dpr)));
+        renderer.setSize(size, size, false);
+        renderer.setClearColor(background, 1);
+        document.body.appendChild(renderer.domElement);
+
+        const pmrem = new THREE.PMREMGenerator(renderer);
+        const environment = new RoomEnvironment();
+        const environmentTexture = pmrem.fromScene(environment, 0.04);
+        scene.environment = environmentTexture.texture;
+        scene.background = null;
+
+        const camera = new THREE.PerspectiveCamera(fov, 1, 0.01, 100);
+        camera.up.set(0, 1, 0);
+
+        const key = new THREE.DirectionalLight(0xffffff, 1.2);
+        key.position.set(2, 3, 1);
+        const fill = new THREE.DirectionalLight(0xffffff, 0.6);
+        fill.position.set(-2, 1, -1);
+        const rim = new THREE.DirectionalLight(0xffffff, 0.8);
+        rim.position.set(-1, 2, 2);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+        const head = new THREE.DirectionalLight(0xffffff, 1.5);
+        scene.add(key, fill, rim, ambient, head);
+        scene.add(head.target);
+
+        const root = await loadModel({ fileName, modelUrl, fileBytesBase64, renderer });
+        normalizeObjectMaterials(root);
+        scene.add(root);
+
+        const bounds = centerAndScaleToUnit(root);
+        root.traverse((object) => {
+          const material = object.material;
+          if (Array.isArray(material)) {
+            material.forEach((entry) => {
+              if (entry && "envMapIntensity" in entry) {
+                entry.envMapIntensity = 1.2;
+              }
+            });
+          } else if (material && "envMapIntensity" in material) {
+            material.envMapIntensity = 1.2;
+          }
+        });
+
+        const requestedViewCount = Math.max(targetViewCount, skipViews + views);
+        let viewSpecs = [];
+        if (strategy === "adaptive") {
+          viewSpecs = pickAdaptiveCameraViews({
+            renderer,
+            scene,
+            camera,
+            bounds,
+            views: requestedViewCount,
+            fov,
+            orbitMargin,
+            ensureTop,
+          }).slice(skipViews, skipViews + views);
+        } else {
+          const directions = pickCameraDirections({
+            strategy,
+            views: requestedViewCount,
+            oversample,
+            ensureTop,
+            yaws,
+            elevation,
+          }).slice(skipViews, skipViews + views);
+          const autoDistance = computeOrbitDistance(bounds.radius || 0.5, fov, orbitMargin);
+          const cameraDistance =
+            radius !== null && radius !== undefined && radius > 0 ? radius : autoDistance;
+          viewSpecs = directions.map((direction) => ({
+            direction,
+            distance: cameraDistance,
+          }));
+        }
+
+        if (!viewSpecs.length) {
+          const directions = pickCameraDirections({
+            strategy: "fps",
+            views: requestedViewCount,
+            oversample,
+            ensureTop,
+            yaws,
+            elevation,
+          }).slice(skipViews, skipViews + views);
+          const autoDistance = computeOrbitDistance(bounds.radius || 0.5, fov, orbitMargin);
+          const cameraDistance =
+            radius !== null && radius !== undefined && radius > 0 ? radius : autoDistance;
+          viewSpecs = directions.map((direction) => ({
+            direction,
+            distance: cameraDistance,
+          }));
+        }
+
+        camera.near = 0.01;
+        camera.far = 100;
+        camera.updateProjectionMatrix();
+
+        const images = [];
+        let index = 0;
+        for (const viewSpec of viewSpecs) {
+          const position = viewSpec.direction.clone().setLength(viewSpec.distance);
+          positionCamera(camera, viewSpec.direction, viewSpec.distance);
+          camera.updateProjectionMatrix();
+
+          head.position.copy(camera.position);
+          head.target.position.set(0, 0, 0);
+          head.target.updateMatrixWorld();
+
+          renderer.render(scene, camera);
+          const dataUrl = renderer.domElement.toDataURL("image/png");
+          images.push({
+            name: `${toLabel(position)}_#${skipViews + index}.png`,
+            pngBase64: dataUrl.split(",")[1],
+          });
+          index += 1;
+          await delay(ditherDelayMs);
+        }
+
+        environment.dispose?.();
+        pmrem.dispose();
+        environmentTexture.dispose?.();
+        renderer.dispose();
+        document.body.innerHTML = "";
+
+        return {
+          poses: images.length,
+          images,
+        };
+      }
+
+      window.generateMultiview = generateMultiview;
+      window.__ready = true;
+      console.log("multiview ready");
+    </script>
+  </body>
+</html>
