@@ -24,6 +24,11 @@ class ChatSessionState:
     sort: dict[str, Any] = field(default_factory=dict)
     selected_artifact_id: str | None = None
     last_result_ids: list[str] = field(default_factory=list)
+    last_paged_artifact_results: list[dict[str, Any]] = field(default_factory=list)
+    last_paged_image_matches: list[dict[str, Any]] = field(default_factory=list)
+    last_paged_navigation_targets: list[dict[str, Any]] = field(default_factory=list)
+    last_paged_results_default_page_size: int = 0
+    last_paged_retrieval_request: dict[str, Any] = field(default_factory=dict)
     rolling_summary: str = ""
     history: list[ChatTurn] = field(default_factory=list)
     updated_at: float = field(default_factory=time)
@@ -53,6 +58,11 @@ class ChatSessionStore:
             existing.sort = {}
             existing.selected_artifact_id = None
             existing.last_result_ids = []
+            existing.last_paged_artifact_results = []
+            existing.last_paged_image_matches = []
+            existing.last_paged_navigation_targets = []
+            existing.last_paged_results_default_page_size = 0
+            existing.last_paged_retrieval_request = {}
             existing.rolling_summary = ""
             existing.history = []
 
@@ -69,6 +79,13 @@ class ChatSessionStore:
         if len(state.history) > window:
             state.history = state.history[-window:]
         state.updated_at = time()
+
+    def get(self, conversation_id: str) -> ChatSessionState | None:
+        self._evict_expired()
+        state = self._sessions.get(conversation_id)
+        if state is not None:
+            state.updated_at = time()
+        return state
 
     def _evict_expired(self) -> None:
         ttl = max(self.settings.CHAT_SESSION_TTL_SECONDS, 1)

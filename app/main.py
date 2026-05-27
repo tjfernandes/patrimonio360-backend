@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
-from app.services.warmup import warmup_chat_stack
 
 
 def create_app() -> FastAPI:
@@ -33,20 +32,8 @@ def create_app() -> FastAPI:
     async def root_health() -> dict[str, str]:
         return {"status": "ok", "mode": settings.APP_ENV}
 
-    @app.on_event("startup")
-    async def startup_prewarm() -> None:
-        if not settings.CHAT_PREWARM_ON_STARTUP:
-            return
-        try:
-            await warmup_chat_stack(
-                include_multimodal=settings.CHAT_PREWARM_INCLUDE_MULTIMODAL,
-                include_reranker=settings.CHAT_PREWARM_INCLUDE_RERANKER,
-                include_multiview_worker=settings.CHAT_PREWARM_INCLUDE_MULTIVIEW_WORKER,
-            )
-        except Exception:
-            logging.getLogger(__name__).exception("chat stack prewarm failed during startup")
-
     app.include_router(api_router, prefix=settings.API_PREFIX)
+
     return app
 
 

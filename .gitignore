@@ -1,0 +1,61 @@
+# OS / editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.venv/
+venv/
+env/
+*.egg-info/
+pip-wheel-metadata/
+build/
+dist/
+
+# Node worker artifacts
+node_modules/
+multiview_worker/node_modules/
+
+# Local runtime/cache data
+tmp/
+temp/
+*.tmp
+.cache/
+.huggingface/
+Images/
+vendor/

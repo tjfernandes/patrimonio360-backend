@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     LOG_JSON_INDENT: int = 2
     LOG_CHAT_MESSAGES: bool = False
     LOG_CHAT_STATE_HISTORY: bool = False
+    DEBUG_EMBEDDINGS: bool = False
 
     CORS_ALLOW_ORIGINS: str = "*"
     CORS_ALLOW_METHODS: str = "*"
@@ -43,13 +44,17 @@ class Settings(BaseSettings):
     OPENSEARCH_INDEX_IMAGE: str = "cultural_heritage_images"
     OPENSEARCH_INDEX_MUSEUM: str = "cultural_heritage_museums"
 
-    ARTIFACT_TEXT_EMBEDDING_DIMENSION: int = 2560
+    ARTIFACT_TEXT_EMBEDDING_DIMENSION: int = 1024
     ARTIFACT_MULTIMODAL_EMBEDDING_DIMENSION: int = 2048
-    MUSEUM_TEXT_EMBEDDING_DIMENSION: int = 2560
+    MUSEUM_TEXT_EMBEDDING_DIMENSION: int = 1024
     IMAGE_MULTIMODAL_EMBEDDING_DIMENSION: int = 2048
 
-    QWEN_TEXT_EMBEDDING_MODEL_ID: str = "Qwen/Qwen3-Embedding-4B"
+    QWEN_TEXT_EMBEDDING_MODEL_ID: str = "BAAI/bge-m3"
     QWEN_MULTIMODAL_EMBEDDING_MODEL_ID: str = "Qwen/Qwen3-VL-Embedding-2B"
+    USE_OPENROUTER_BGE_M3: bool = False
+    OPENROUTER_API_KEY: str | None = None
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_BGE_MODEL: str = "baai/bge-m3"
     # Backward compatibility with previous backend env naming.
     TEXT_EMBEDDING_MODEL: str | None = None
     MULTIMODAL_EMBEDDING_MODEL: str | None = None
@@ -84,23 +89,17 @@ class Settings(BaseSettings):
     CHAT_ANALYTICS_LIST_TOP_K: int = 10
     CHAT_PREWARM_ON_STARTUP: bool = False
     CHAT_PREWARM_INCLUDE_MULTIMODAL: bool = True
-    CHAT_PREWARM_INCLUDE_RERANKER: bool = False
     CHAT_PREWARM_INCLUDE_MULTIVIEW_WORKER: bool = False
     CHAT_USE_QUERY_EMBEDDINGS: bool = True
     CHAT_RETRIEVAL_EMBEDDING_ONLY: bool = False
     CHAT_RETRIEVAL_CANDIDATES: int = 15
     CHAT_RETRIEVAL_TOP_K: int = 5
-    CHAT_IN_TOUR_BOOST: float = 1.75
-    CHAT_ENABLE_RERANKING: bool = False
-    RERANKER_MODEL_ID: str = "Qwen/Qwen3-Reranker-4B"
-    RERANKER_INSTRUCTION: str = (
-        "Given a web search query, retrieve relevant passages that answer the query"
-    )
-    RERANKER_PREFER_BF16: bool = True
-    RERANKER_MAX_LENGTH: int = 1024
-    RERANKER_BATCH_SIZE: int = 4
+    CHAT_RETRIEVAL_RESULTS_PAGE_SIZE: int = 10
+    CHAT_RETRIEVAL_PAGINATION_WINDOW: int = 150
+    CHAT_IN_TOUR_BOOST: float = 5
     CHAT_IMAGE_RETRIEVAL_TOP_K: int = 6
     CHAT_IMAGE_ARTIFACT_TOP_K: int = 5
+    CHAT_IMAGE_RETRIEVAL_PAGINATION_WINDOW: int = 150
     CHAT_IMAGE_DEFAULT_MESSAGE: str = "Analisa a imagem e identifica a peça mais provável no museu."
     CHAT_MODEL_DEFAULT_MESSAGE: str = "Analisa este modelo 3D e identifica a peça mais provável no museu."
     CHAT_MODEL_FIRST_PASS_VIEWS: int = 3
@@ -185,14 +184,23 @@ class Settings(BaseSettings):
         return self.QWEN_MULTIMODAL_EMBEDDING_MODEL_ID.strip()
 
     @property
-    def reranker_model_resolved(self) -> str:
-        model_id = (self.RERANKER_MODEL_ID or "").strip()
-        return model_id or "Qwen/Qwen3-Reranker-4B"
+    def openrouter_base_url_resolved(self) -> str:
+        return self.OPENROUTER_BASE_URL.strip().rstrip("/")
+
+    @property
+    def openrouter_bge_model_resolved(self) -> str:
+        raw = self.OPENROUTER_BGE_MODEL.strip()
+        if raw:
+            return raw
+        return "baai/bge-m3"
 
     @property
     def image_asset_root_resolved(self) -> Path | None:
         raw = (self.IMAGE_ASSET_ROOT or "").strip()
         if not raw:
+            default_root = (Path(__file__).resolve().parents[2] / "Images").resolve()
+            if default_root.exists():
+                return default_root
             return None
         return Path(raw).expanduser().resolve()
 

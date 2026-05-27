@@ -35,6 +35,9 @@ EVENT_LABELS: dict[str, str] = {
 class ModelRetrievalResult:
     image_hits: list[dict[str, Any]]
     artifact_docs: list[dict[str, Any]]
+    image_embeddings: list[list[float]]
+    image_hits_total: int
+    retrieval_window_size: int
     extra_views_used: bool
     top_score: float | None
 
@@ -238,11 +241,12 @@ class ModelRetrievalService:
         museum_id: str | None,
         model_bytes: bytes,
         file_name: str,
+        artifact_museum_id: str | None = None,
         progress_cb: ProgressCallback | None = None,
     ) -> ModelRetrievalResult:
         cache_key = self._cache_key(model_bytes=model_bytes, file_name=file_name)
         entry = self._get_entry(cache_key, file_name)
-        await self._emit_status(progress_cb, "A gerar vistas do modelo 3D", stage="render_first_pass")
+        await self._emit_status(progress_cb, "status.generating_model_views", stage="render_first_pass")
         entry = await self._ensure_first_pass(
             cache_key=cache_key,
             entry=entry,
@@ -253,29 +257,52 @@ class ModelRetrievalService:
         candidate_top_k = max(
             self.settings.CHAT_IMAGE_RETRIEVAL_TOP_K,
             self.settings.CHAT_IMAGE_ARTIFACT_TOP_K,
+            self.settings.CHAT_RETRIEVAL_CANDIDATES,
             1,
         )
-        await self._emit_status(progress_cb, "A procurar artefactos no acervo", stage="search_first_pass")
-        image_hits = await self.opensearch_gateway.search_similar_images_multi(
+        retrieval_window_size = max(
+            int(getattr(self.settings, "CHAT_IMAGE_RETRIEVAL_PAGINATION_WINDOW", 0) or 0),
+            candidate_top_k,
+            1,
+        )
+        await self._emit_status(progress_cb, "status.searching_collection", stage="search_first_pass")
+        image_embeddings = list(entry.first_pass_embeddings)
+        image_page = await self.opensearch_gateway.search_similar_images_multi_page(
             museum_slug=museum_slug,
             museum_id=museum_id,
-            image_embeddings=list(entry.first_pass_embeddings),
-            top_k=candidate_top_k,
+            image_embeddings=image_embeddings,
+            from_offset=0,
+            page_size=candidate_top_k,
+            retrieval_window_size=retrieval_window_size,
         )
+        image_hits = image_page.results
+        image_hits_total = min(max(int(image_page.total), 0), retrieval_window_size)
 
         extra_views_used = False
 
-        artifact_ids = [
-            str(hit.get("artifact_id") or "").strip()
+        inventory_numbers = [
+            str(hit.get("inventory_number") or hit.get("inventory") or "").strip()
             for hit in image_hits
-            if str(hit.get("artifact_id") or "").strip()
+            if str(hit.get("inventory_number") or hit.get("inventory") or "").strip()
         ]
-        artifact_docs = await self.opensearch_gateway.fetch_artifacts_by_ids(
+        artifact_docs = await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
             museum_slug=museum_slug,
-            museum_id=museum_id,
-            artifact_ids=artifact_ids,
-            top_k=max(self.settings.CHAT_IMAGE_ARTIFACT_TOP_K, 1),
+            museum_id=artifact_museum_id,
+            inventory_numbers=inventory_numbers,
+            top_k=candidate_top_k,
         )
+        if not artifact_docs:
+            artifact_ids = [
+                str(hit.get("artifact_id") or "").strip()
+                for hit in image_hits
+                if str(hit.get("artifact_id") or "").strip()
+            ]
+            artifact_docs = await self.opensearch_gateway.fetch_artifacts_by_ids(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                artifact_ids=artifact_ids,
+                top_k=candidate_top_k,
+            )
 
         top_score: float | None = None
         if image_hits:
@@ -290,6 +317,7 @@ class ModelRetrievalService:
             museum_slug=museum_slug,
             museum_id=museum_id,
             image_hits=len(image_hits),
+            image_hits_total=image_hits_total,
             artifact_docs=len(artifact_docs),
             extra_views_used=extra_views_used,
             top_score=top_score,
@@ -297,6 +325,9 @@ class ModelRetrievalService:
         return ModelRetrievalResult(
             image_hits=image_hits,
             artifact_docs=artifact_docs,
+            image_embeddings=image_embeddings,
+            image_hits_total=image_hits_total,
+            retrieval_window_size=retrieval_window_size,
             extra_views_used=extra_views_used,
             top_score=top_score,
         )

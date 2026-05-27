@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 import asyncio
 import contextlib
+from functools import lru_cache
+import os
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -15,12 +17,35 @@ from app.schemas.chat import (
     ChatMessageResponse,
     ChatModelMessageRequest,
     ChatRegenerateRequest,
+    ChatResultsPageRequest,
+    ChatResultsPageResponse,
     ResponseFormatObject,
 )
 from app.services.chat_service import ChatService, get_chat_service
+from app.services.chat_i18n import translate
 
 router = APIRouter()
 SUPPORTED_MODEL_EXTENSIONS = {".glb", ".gltf", ".obj"}
+
+
+@lru_cache(maxsize=4096)
+def _find_legacy_image_by_basename(root_path: str, file_name: str) -> Path | None:
+    safe_name = Path(file_name).name
+    if not safe_name or safe_name != file_name:
+        return None
+
+    root = Path(root_path).resolve()
+    for dir_path, _dir_names, file_names in os.walk(root):
+        if safe_name not in file_names:
+            continue
+        candidate = (Path(dir_path) / safe_name).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            continue
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _to_sse(event_type: str, payload: dict[str, Any]) -> str:
@@ -70,29 +95,42 @@ def _build_streaming_response(
     )
 
 
-def _parse_metadata_field(metadata: str | None) -> dict[str, object] | None:
+def _parse_metadata_field(
+    metadata: str | None,
+    *,
+    language: str | None = None,
+) -> dict[str, object] | None:
     if not metadata:
         return None
     try:
         parsed = json.loads(metadata)
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=400, detail=f"metadata invalido: {exc}") from exc
+        raise HTTPException(
+            status_code=400,
+            detail=translate("error.metadata_invalid", language, error=str(exc)),
+        ) from exc
     if isinstance(parsed, dict):
         return parsed
     return None
 
 
-def _validate_response_format(value: str) -> None:
+def _validate_response_format(value: str, *, language: str | None = None) -> None:
     if value not in {"text", "json_object"}:
-        raise HTTPException(status_code=400, detail="response_format invalido.")
+        raise HTTPException(
+            status_code=400,
+            detail=translate("error.response_format_invalid", language),
+        )
 
 
-def _validate_model_filename(filename: str | None) -> str:
+def _validate_model_filename(filename: str | None, *, language: str | None = None) -> str:
     file_name = (filename or "").strip()
     suffix = Path(file_name).suffix.lower()
     if not file_name or suffix not in SUPPORTED_MODEL_EXTENSIONS:
         allowed = ", ".join(sorted(SUPPORTED_MODEL_EXTENSIONS))
-        raise HTTPException(status_code=400, detail=f"Formato 3D invalido. Usa {allowed}.")
+        raise HTTPException(
+            status_code=400,
+            detail=translate("error.model_format_invalid", language, allowed=allowed),
+        )
     return file_name
 
 
@@ -107,6 +145,14 @@ async def post_chat_message(
     service: ChatService = Depends(get_chat_service),
 ) -> ChatMessageResponse:
     return await service.handle_message(payload)
+
+
+@router.post("/messages/results", response_model=ChatResultsPageResponse)
+async def post_chat_results_page(
+    payload: ChatResultsPageRequest,
+    service: ChatService = Depends(get_chat_service),
+) -> ChatResultsPageResponse:
+    return await service.get_results_page(payload)
 
 
 @router.post("/messages/stream")
@@ -149,15 +195,20 @@ async def post_chat_image_message(
     response_format: str = Form(default="text"),
     system_prompt: str | None = Form(default=None),
     model_override: str | None = Form(default=None),
+    results_page: int = Form(default=1),
+    results_page_size: int | None = Form(default=None),
     metadata: str | None = Form(default=None),
     image: UploadFile = File(...),
     service: ChatService = Depends(get_chat_service),
 ) -> ChatMessageResponse:
     content = await image.read()
     if not content:
-        raise HTTPException(status_code=400, detail="Imagem vazia no upload.")
-    _validate_response_format(response_format)
-    metadata_payload = _parse_metadata_field(metadata)
+        raise HTTPException(
+            status_code=400,
+            detail=translate("error.empty_image_upload", language),
+        )
+    _validate_response_format(response_format, language=language)
+    metadata_payload = _parse_metadata_field(metadata, language=language)
 
     payload = ChatImageMessageRequest(
         museum_slug=museum_slug,
@@ -169,6 +220,8 @@ async def post_chat_image_message(
         response_format=ResponseFormatObject(type=response_format),
         system_prompt=system_prompt,
         model_override=model_override,
+        results_page=results_page,
+        results_page_size=results_page_size,
         metadata=metadata_payload,
     )
     return await service.handle_image_message(
@@ -190,15 +243,20 @@ async def post_chat_image_message_stream(
     response_format: str = Form(default="text"),
     system_prompt: str | None = Form(default=None),
     model_override: str | None = Form(default=None),
+    results_page: int = Form(default=1),
+    results_page_size: int | None = Form(default=None),
     metadata: str | None = Form(default=None),
     image: UploadFile = File(...),
     service: ChatService = Depends(get_chat_service),
 ) -> StreamingResponse:
     content = await image.read()
     if not content:
-        raise HTTPException(status_code=400, detail="Imagem vazia no upload.")
-    _validate_response_format(response_format)
-    metadata_payload = _parse_metadata_field(metadata)
+        raise HTTPException(
+            status_code=400,
+            detail=translate("error.empty_image_upload", language),
+        )
+    _validate_response_format(response_format, language=language)
+    metadata_payload = _parse_metadata_field(metadata, language=language)
 
     payload = ChatImageMessageRequest(
         museum_slug=museum_slug,
@@ -210,6 +268,8 @@ async def post_chat_image_message_stream(
         response_format=ResponseFormatObject(type=response_format),
         system_prompt=system_prompt,
         model_override=model_override,
+        results_page=results_page,
+        results_page_size=results_page_size,
         metadata=metadata_payload,
     )
 
@@ -235,16 +295,21 @@ async def post_chat_model_message(
     response_format: str = Form(default="text"),
     system_prompt: str | None = Form(default=None),
     model_override: str | None = Form(default=None),
+    results_page: int = Form(default=1),
+    results_page_size: int | None = Form(default=None),
     metadata: str | None = Form(default=None),
     model_file: UploadFile = File(...),
     service: ChatService = Depends(get_chat_service),
 ) -> ChatMessageResponse:
     content = await model_file.read()
     if not content:
-        raise HTTPException(status_code=400, detail="Modelo 3D vazio no upload.")
-    _validate_response_format(response_format)
-    validated_file_name = _validate_model_filename(model_file.filename)
-    metadata_payload = _parse_metadata_field(metadata)
+        raise HTTPException(
+            status_code=400,
+            detail=translate("error.empty_model_upload", language),
+        )
+    _validate_response_format(response_format, language=language)
+    validated_file_name = _validate_model_filename(model_file.filename, language=language)
+    metadata_payload = _parse_metadata_field(metadata, language=language)
 
     payload = ChatModelMessageRequest(
         museum_slug=museum_slug,
@@ -256,6 +321,8 @@ async def post_chat_model_message(
         response_format=ResponseFormatObject(type=response_format),
         system_prompt=system_prompt,
         model_override=model_override,
+        results_page=results_page,
+        results_page_size=results_page_size,
         metadata=metadata_payload,
     )
     return await service.handle_model_message(
@@ -277,16 +344,21 @@ async def post_chat_model_message_stream(
     response_format: str = Form(default="text"),
     system_prompt: str | None = Form(default=None),
     model_override: str | None = Form(default=None),
+    results_page: int = Form(default=1),
+    results_page_size: int | None = Form(default=None),
     metadata: str | None = Form(default=None),
     model_file: UploadFile = File(...),
     service: ChatService = Depends(get_chat_service),
 ) -> StreamingResponse:
     content = await model_file.read()
     if not content:
-        raise HTTPException(status_code=400, detail="Modelo 3D vazio no upload.")
-    _validate_response_format(response_format)
-    validated_file_name = _validate_model_filename(model_file.filename)
-    metadata_payload = _parse_metadata_field(metadata)
+        raise HTTPException(
+            status_code=400,
+            detail=translate("error.empty_model_upload", language),
+        )
+    _validate_response_format(response_format, language=language)
+    validated_file_name = _validate_model_filename(model_file.filename, language=language)
+    metadata_payload = _parse_metadata_field(metadata, language=language)
 
     payload = ChatModelMessageRequest(
         museum_slug=museum_slug,
@@ -298,6 +370,8 @@ async def post_chat_model_message_stream(
         response_format=ResponseFormatObject(type=response_format),
         system_prompt=system_prompt,
         model_override=model_override,
+        results_page=results_page,
+        results_page_size=results_page_size,
         metadata=metadata_payload,
     )
     return _build_streaming_response(
@@ -311,25 +385,40 @@ async def post_chat_model_message_stream(
     )
 
 
-@router.get("/images/{original_image_name}")
-async def get_chat_image_asset(original_image_name: str) -> FileResponse:
+@router.get("/images/{image_ref:path}")
+async def get_chat_image_asset(image_ref: str) -> FileResponse:
     settings = get_settings()
     root = settings.image_asset_root_resolved
     if root is None:
         raise HTTPException(status_code=404, detail="IMAGE_ASSET_ROOT nao configurado.")
 
-    file_name = Path(original_image_name).name
-    if file_name != original_image_name:
-        raise HTTPException(status_code=400, detail="original_image_name invalido.")
+    raw_ref = (image_ref or "").strip()
+    if not raw_ref:
+        raise HTTPException(status_code=400, detail="image_ref invalido.")
 
-    target = (root / file_name).resolve()
+    normalized_ref = raw_ref.replace("\\", "/").strip("/")
+    candidate = Path(normalized_ref)
+    parts = [part for part in candidate.parts if part not in {"", "."}]
+    if not parts or any(part == ".." for part in parts):
+        raise HTTPException(status_code=400, detail="image_ref invalido.")
+    if parts and parts[0].lower() == root.name.lower():
+        parts = parts[1:]
+    if not parts:
+        raise HTTPException(status_code=400, detail="image_ref invalido.")
+
+    target = (root / Path(*parts)).resolve()
     try:
         target.relative_to(root)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail="original_image_name invalido.") from exc
+        raise HTTPException(status_code=400, detail="image_ref invalido.") from exc
 
     if not target.exists() or not target.is_file():
-        raise HTTPException(status_code=404, detail="Imagem nao encontrada.")
+        legacy_target = None
+        if len(parts) == 1:
+            legacy_target = _find_legacy_image_by_basename(str(root), parts[0])
+        if legacy_target is None:
+            raise HTTPException(status_code=404, detail="Imagem nao encontrada.")
+        target = legacy_target
 
     media_type = None
     suffix = target.suffix.lower()
