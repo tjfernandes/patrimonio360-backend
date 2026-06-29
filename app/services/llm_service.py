@@ -1,4 +1,6 @@
 import json
+import logging
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -6,7 +8,10 @@ from typing import Any
 from openai import APIError, APITimeoutError, AsyncOpenAI
 
 from app.core.config import Settings, get_settings
+from app.core.logging import log_event
 from app.schemas.chat import ResponseFormatObject
+
+logger = logging.getLogger(__name__)
 
 
 class LLMServiceError(Exception):
@@ -32,7 +37,6 @@ class LLMService:
             timeout=self.settings.LLM_TIMEOUT_SECONDS,
             default_headers=self.settings.llm_auth_header or None,
         )
-
 
     async def generate(
         self,
@@ -74,7 +78,18 @@ class LLMService:
         # if self.settings.LLM_MAX_TOKENS > 0:
         #     payload["max_tokens"] = self.settings.LLM_MAX_TOKENS
 
-
+        started_at = time.perf_counter()
+        log_event(
+            logger,
+            logging.INFO,
+            "llm.generate.start",
+            provider=provider,
+            model=model,
+            response_format=response_format.type,
+            prompt_chars=len(user_content),
+            has_system_prompt=bool(system_content),
+            timeout_seconds=self.settings.LLM_TIMEOUT_SECONDS,
+        )
         try:
             # Prefer parse-style call when available on the configured SDK/client.
             completions_api = self.client.chat.completions
@@ -83,18 +98,64 @@ class LLMService:
             else:
                 completion = await completions_api.create(**payload)
         except (APIError, APITimeoutError) as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "llm.generate.error",
+                model=model,
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+            )
             raise LLMServiceError(f"LLM request failed: {exc}") from exc
         except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "llm.generate.error",
+                model=model,
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+            )
             raise LLMServiceError(f"LLM request failed: {exc}") from exc
 
         content = _extract_chat_content(completion)
         if not isinstance(content, str) or not content.strip():
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "llm.generate.empty_response",
+                model=model,
+                duration_ms=round(duration_ms, 1),
+            )
             raise LLMServiceError("LLM returned empty content.")
-
-
         parsed_json: dict[str, Any] | list[Any] | None = None
         if response_format.type == "json_object":
-            parsed_json = _parse_json_output(content)
+            try:
+                parsed_json = _parse_json_output(content)
+            except LLMServiceError as exc:
+                duration_ms = (time.perf_counter() - started_at) * 1000
+                log_event(
+                    logger,
+                    logging.ERROR,
+                    "llm.generate.parse_error",
+                    model=model,
+                    duration_ms=round(duration_ms, 1),
+                    error=exc,
+                )
+                raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "llm.generate.finish",
+            model=model,
+            response_format=response_format.type,
+            response_chars=len(content.strip()),
+            duration_ms=round(duration_ms, 1),
+        )
 
         return LLMResponse(
             text=content.strip(),
@@ -130,7 +191,6 @@ def _extract_chat_content(completion: Any) -> str | None:
 
 
 def _parse_json_output(raw: str) -> dict[str, Any] | list[Any]:
-    
     candidate = raw.strip()
     if candidate.startswith("```"):
         candidate = _strip_fenced_block(candidate)

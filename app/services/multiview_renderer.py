@@ -6,6 +6,7 @@ import base64
 from dataclasses import dataclass
 from functools import lru_cache
 import json
+import logging
 import os
 from pathlib import Path
 import subprocess
@@ -17,8 +18,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.core.config import Settings, get_settings
+from app.core.logging import log_event
 
 
+logger = logging.getLogger(__name__)
 
 class MultiviewRenderError(RuntimeError):
     """Raised when the persistent multiview worker fails."""
@@ -88,6 +91,8 @@ class PersistentMultiviewRenderer:
             return
         for line in process.stdout:
             text = line.rstrip()
+            if text:
+                log_event(logger, logging.INFO, "multiview.worker.stdout", line=text)
 
     def _spawn_worker_locked(self) -> None:
         worker_dir = self._worker_dir
@@ -107,6 +112,14 @@ class PersistentMultiviewRenderer:
             str(self.settings.MULTIVIEW_WORKER_PORT),
         ]
 
+        log_event(
+            logger,
+            logging.INFO,
+            "multiview.worker.spawn",
+            worker_dir=worker_dir,
+            host=self.settings.MULTIVIEW_WORKER_HOST,
+            port=self.settings.MULTIVIEW_WORKER_PORT,
+        )
         try:
             process = subprocess.Popen(
                 command,
@@ -134,6 +147,7 @@ class PersistentMultiviewRenderer:
     def _ensure_worker_running_sync(self) -> None:
         with self._lock:
             if self._is_worker_healthy_locked():
+                log_event(logger, logging.DEBUG, "multiview.worker.ready", reused=True)
                 return
 
             if self._process is None or self._process.poll() is not None:
@@ -142,6 +156,7 @@ class PersistentMultiviewRenderer:
             deadline = time.monotonic() + max(self.settings.MULTIVIEW_WORKER_START_TIMEOUT_SECONDS, 5.0)
             while time.monotonic() < deadline:
                 if self._is_worker_healthy_locked():
+                    log_event(logger, logging.INFO, "multiview.worker.ready", reused=False)
                     return
                 if self._process is not None and self._process.poll() is not None:
                     raise MultiviewRenderError(
@@ -163,6 +178,17 @@ class PersistentMultiviewRenderer:
         if not model_bytes:
             raise MultiviewRenderError("Cannot render empty model bytes.")
 
+        started_at = time.perf_counter()
+        log_event(
+            logger,
+            logging.INFO,
+            "multiview.render.start",
+            file_name=file_name,
+            bytes=len(model_bytes),
+            views=views,
+            skip_views=skip_views,
+            target_view_count=target_view_count,
+        )
         self._ensure_worker_running_sync()
         extension = Path(file_name).suffix or ".bin"
         temp_fd, temp_path = tempfile.mkstemp(prefix="p360_model_", suffix=extension)
@@ -222,8 +248,24 @@ class PersistentMultiviewRenderer:
         try:
             self._persist_last_views(source_file_name=file_name, rendered_views=rendered_views)
         except Exception:  # pragma: no cover
+            log_event(
+                logger,
+                logging.WARNING,
+                "multiview.persist_last_views.error",
+                file_name=file_name,
+                view_count=len(rendered_views),
+            )
             pass
 
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "multiview.render.finish",
+            file_name=file_name,
+            rendered_views=len(rendered_views),
+            duration_ms=round(duration_ms, 1),
+        )
         return rendered_views
 
     def _persist_last_views(
@@ -298,10 +340,12 @@ class PersistentMultiviewRenderer:
             process = self._process
             self._process = None
             if process.poll() is None:  # pragma: no branch - runtime-only path
+                log_event(logger, logging.INFO, "multiview.worker.stop")
                 process.terminate()
                 try:
                     process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
+                    log_event(logger, logging.WARNING, "multiview.worker.kill")
                     process.kill()
 
 

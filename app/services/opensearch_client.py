@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 import re
+import time
 from typing import Any
 import unicodedata
 from urllib.parse import urlparse
 
 from app.core.config import Settings, get_settings
+from app.core.logging import log_event
+
+logger = logging.getLogger(__name__)
 
 NO_STEM_AND_FIELDS = [
     "title.no_stem^10",
@@ -149,6 +154,17 @@ class OpenSearchGateway:
 
         OpenSearch = _import_opensearch()
         host, scheme, port, url_prefix = self._resolve_opensearch_endpoint()
+        log_event(
+            logger,
+            logging.INFO,
+            "opensearch.client.create",
+            host=host,
+            scheme=scheme,
+            port=port,
+            url_prefix=url_prefix or None,
+            verify_certs=self.settings.OPENSEARCH_VERIFY_CERTS,
+            has_auth=bool(self.settings.OPENSEARCH_USERNAME and self.settings.OPENSEARCH_PASSWORD),
+        )
 
         host_config: dict[str, Any] = {
             "host": host,
@@ -174,6 +190,74 @@ class OpenSearchGateway:
 
         self._client = OpenSearch(**client_kwargs)
         return self._client
+
+    async def ensure_ready(self) -> bool:
+        started_at = time.perf_counter()
+        log_event(logger, logging.INFO, "opensearch.ready.start")
+        try:
+            client = self._ensure_client()
+            await asyncio.to_thread(client.info)
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "opensearch.ready.error",
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "opensearch.ready.finish",
+            duration_ms=round(duration_ms, 1),
+        )
+        return True
+
+    async def _to_thread_logged(
+        self,
+        event: str,
+        func: Any,
+        *,
+        log_fields: dict[str, Any] | None = None,
+        result_size: Any | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        fields = dict(log_fields or {})
+        started_at = time.perf_counter()
+        log_event(logger, logging.INFO, f"{event}.start", **fields)
+        try:
+            result = await asyncio.to_thread(func, **kwargs)
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                f"{event}.error",
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+                **fields,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        if result_size is not None:
+            try:
+                fields["result_count"] = result_size(result)
+            except Exception:
+                pass
+        if isinstance(result, OpenSearchRetrievalPage):
+            fields["result_count"] = len(result.results)
+            fields["total"] = result.total
+        log_event(
+            logger,
+            logging.INFO,
+            f"{event}.finish",
+            duration_ms=round(duration_ms, 1),
+            **fields,
+        )
+        return result
 
     def _build_filter_clauses(
         self,
@@ -1230,8 +1314,18 @@ class OpenSearchGateway:
         filters: dict[str, Any] | None = None,
         sort: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.search_relevant_context",
             self._search_relevant_context_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "top_k": top_k,
+                "has_filters": bool(filters),
+                "has_sort": bool(sort),
+                "embedding_dim": len(query_embedding),
+            },
+            result_size=len,
             museum_slug=museum_slug,
             museum_id=museum_id,
             query_text=query_text,
@@ -1256,8 +1350,19 @@ class OpenSearchGateway:
         sort: dict[str, Any] | None = None,
         retrieval_window_size: int | None = None,
     ) -> OpenSearchRetrievalPage:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.search_relevant_context_page",
             self._search_relevant_context_page_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "from_offset": from_offset,
+                "page_size": page_size,
+                "retrieval_window_size": retrieval_window_size,
+                "has_filters": bool(filters),
+                "has_sort": bool(sort),
+                "embedding_dim": len(query_embedding),
+            },
             museum_slug=museum_slug,
             museum_id=museum_id,
             query_text=query_text,
@@ -1605,8 +1710,16 @@ class OpenSearchGateway:
         image_embedding: list[float],
         top_k: int = 6,
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.search_similar_images",
             self._search_similar_images_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "top_k": top_k,
+                "embedding_dim": len(image_embedding),
+            },
+            result_size=len,
             museum_slug=museum_slug,
             museum_id=museum_id,
             image_embedding=image_embedding,
@@ -1623,8 +1736,17 @@ class OpenSearchGateway:
         page_size: int,
         retrieval_window_size: int | None = None,
     ) -> OpenSearchRetrievalPage:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.search_similar_images_page",
             self._search_similar_images_page_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "from_offset": from_offset,
+                "page_size": page_size,
+                "retrieval_window_size": retrieval_window_size,
+                "embedding_dim": len(image_embedding),
+            },
             museum_slug=museum_slug,
             museum_id=museum_id,
             image_embedding=image_embedding,
@@ -1641,8 +1763,17 @@ class OpenSearchGateway:
         image_embeddings: list[list[float]],
         top_k: int = 6,
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.search_similar_images_multi",
             self._search_similar_images_multi_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "top_k": top_k,
+                "embedding_count": len(image_embeddings),
+                "embedding_dim": len(image_embeddings[0]) if image_embeddings else 0,
+            },
+            result_size=len,
             museum_slug=museum_slug,
             museum_id=museum_id,
             image_embeddings=image_embeddings,
@@ -1659,8 +1790,18 @@ class OpenSearchGateway:
         page_size: int,
         retrieval_window_size: int | None = None,
     ) -> OpenSearchRetrievalPage:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.search_similar_images_multi_page",
             self._search_similar_images_multi_page_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "from_offset": from_offset,
+                "page_size": page_size,
+                "retrieval_window_size": retrieval_window_size,
+                "embedding_count": len(image_embeddings),
+                "embedding_dim": len(image_embeddings[0]) if image_embeddings else 0,
+            },
             museum_slug=museum_slug,
             museum_id=museum_id,
             image_embeddings=image_embeddings,
@@ -1806,8 +1947,17 @@ class OpenSearchGateway:
         per_artifact: int = 1,
         max_total: int = 24,
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.fetch_images_by_artifact_ids",
             self._fetch_images_by_artifact_ids_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "artifact_count": len(artifact_ids),
+                "per_artifact": per_artifact,
+                "max_total": max_total,
+            },
+            result_size=len,
             museum_slug=museum_slug,
             museum_id=museum_id,
             artifact_ids=artifact_ids,
@@ -2198,8 +2348,16 @@ class OpenSearchGateway:
         artifact_ids: list[str],
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.fetch_artifacts_by_ids",
             self._fetch_artifacts_by_ids_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "id_count": len(artifact_ids),
+                "top_k": top_k,
+            },
+            result_size=len,
             museum_slug=museum_slug,
             museum_id=museum_id,
             artifact_ids=artifact_ids,
@@ -2214,8 +2372,16 @@ class OpenSearchGateway:
         inventory_numbers: list[str],
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.fetch_artifacts_by_inventory_numbers",
             self._fetch_artifacts_by_inventory_numbers_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "inventory_count": len(inventory_numbers),
+                "top_k": top_k,
+            },
+            result_size=len,
             museum_slug=museum_slug,
             museum_id=museum_id,
             inventory_numbers=inventory_numbers,
@@ -2230,8 +2396,16 @@ class OpenSearchGateway:
         inventory_numbers: list[str],
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.search_artifacts_by_inventory_candidates",
             self._search_artifacts_by_inventory_candidates_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "inventory_count": len(inventory_numbers),
+                "top_k": top_k,
+            },
+            result_size=len,
             museum_slug=museum_slug,
             museum_id=museum_id,
             inventory_numbers=inventory_numbers,
@@ -2324,8 +2498,14 @@ class OpenSearchGateway:
         tipo: str,
         entity_ids: list[str],
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.fetch_entities_by_ids",
             self._fetch_entities_by_ids_sync,
+            log_fields={
+                "tipo": tipo,
+                "entity_count": len(entity_ids),
+            },
+            result_size=len,
             tipo=tipo,
             entity_ids=entity_ids,
         )
@@ -2381,8 +2561,11 @@ class OpenSearchGateway:
         *,
         author_ids: list[str],
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.fetch_authors_by_ids",
             self._fetch_authors_by_ids_sync,
+            log_fields={"author_count": len(author_ids)},
+            result_size=len,
             author_ids=author_ids,
         )
 
@@ -2461,8 +2644,14 @@ class OpenSearchGateway:
         names: list[str],
         top_k: int = 10,
     ) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.fetch_authors_by_names",
             self._fetch_authors_by_names_sync,
+            log_fields={
+                "name_count": len(names),
+                "top_k": top_k,
+            },
+            result_size=len,
             names=names,
             top_k=top_k,
         )
@@ -2549,8 +2738,18 @@ class OpenSearchGateway:
         from_offset: int = 0,
         exclude_artifact_id: str | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
-        return await asyncio.to_thread(
+        return await self._to_thread_logged(
+            "opensearch.fetch_artifacts_by_entity",
             self._fetch_artifacts_by_entity_sync,
+            log_fields={
+                "tipo": tipo,
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "top_k": top_k,
+                "from_offset": from_offset,
+                "has_exclude": bool(exclude_artifact_id),
+            },
+            result_size=lambda result: len(result[0]) if result else 0,
             tipo=tipo,
             entity_id=entity_id,
             museum_slug=museum_slug,

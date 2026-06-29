@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
 import threading
+import time
 from typing import Any
 
 from app.core.config import Settings, get_settings
+from app.core.logging import log_event
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.multiview_renderer import (
     PersistentMultiviewRenderer,
@@ -18,6 +21,8 @@ from app.services.multiview_renderer import (
 from app.services.opensearch_client import OpenSearchGateway, get_opensearch_gateway
 
 ProgressCallback = Callable[[str, dict[str, object]], Awaitable[None]]
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -90,7 +95,23 @@ class ModelRetrievalService:
         with self._cache_lock:
             entry = self._cache.get(cache_key)
         if entry is None:
+            log_event(
+                logger,
+                logging.INFO,
+                "model_retrieval.cache.miss",
+                file_name=file_name,
+                cache_size=len(self._cache),
+            )
             entry = _CachedModelEntry(file_name=file_name)
+        else:
+            log_event(
+                logger,
+                logging.INFO,
+                "model_retrieval.cache.hit",
+                file_name=file_name,
+                has_first_pass=bool(entry.first_pass_views and entry.first_pass_embeddings),
+                has_extra_views=bool(entry.extra_views and entry.extra_embeddings),
+            )
         return self._touch_entry(cache_key, entry)
 
     async def _ensure_first_pass(
@@ -102,11 +123,26 @@ class ModelRetrievalService:
         file_name: str,
     ) -> _CachedModelEntry:
         if entry.first_pass_views and entry.first_pass_embeddings:
+            log_event(
+                logger,
+                logging.INFO,
+                "model_retrieval.first_pass.reuse",
+                file_name=file_name,
+                view_count=len(entry.first_pass_views),
+                embedding_count=len(entry.first_pass_embeddings),
+            )
             return self._touch_entry(cache_key, entry)
 
         # Always generate exactly 5 views for deterministic model retrieval.
         total_views = 5
         view_count = 5
+        log_event(
+            logger,
+            logging.INFO,
+            "model_retrieval.first_pass.start",
+            file_name=file_name,
+            view_count=view_count,
+        )
         entry.first_pass_views = await self.renderer.render_views(
             model_bytes=model_bytes,
             file_name=file_name,
@@ -117,6 +153,14 @@ class ModelRetrievalService:
         entry.first_pass_embeddings = await self.embedding_provider.embed_many_multimodal_image_bytes(
             image_bytes_values=[view.png_bytes for view in entry.first_pass_views],
             text=None,
+        )
+        log_event(
+            logger,
+            logging.INFO,
+            "model_retrieval.first_pass.finish",
+            file_name=file_name,
+            rendered_views=len(entry.first_pass_views),
+            embedding_count=len(entry.first_pass_embeddings),
         )
         return self._touch_entry(cache_key, entry)
 
@@ -168,6 +212,17 @@ class ModelRetrievalService:
         artifact_museum_id: str | None = None,
         progress_cb: ProgressCallback | None = None,
     ) -> ModelRetrievalResult:
+        started_at = time.perf_counter()
+        log_event(
+            logger,
+            logging.INFO,
+            "model_retrieval.retrieve.start",
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            artifact_museum_id=artifact_museum_id,
+            file_name=file_name,
+            bytes=len(model_bytes),
+        )
         cache_key = self._cache_key(model_bytes=model_bytes, file_name=file_name)
         entry = self._get_entry(cache_key, file_name)
         await self._emit_status(progress_cb, "status.generating_model_views", stage="render_first_pass")
@@ -234,6 +289,20 @@ class ModelRetrievalService:
                 top_score = float(image_hits[0].get("score"))
             except (TypeError, ValueError):
                 top_score = None
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "model_retrieval.retrieve.finish",
+            museum_slug=museum_slug,
+            file_name=file_name,
+            image_hits=len(image_hits),
+            artifact_docs=len(artifact_docs),
+            image_hits_total=image_hits_total,
+            top_score=top_score,
+            extra_views_used=extra_views_used,
+            duration_ms=round(duration_ms, 1),
+        )
         return ModelRetrievalResult(
             image_hits=image_hits,
             artifact_docs=artifact_docs,

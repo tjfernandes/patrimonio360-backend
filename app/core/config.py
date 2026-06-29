@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     API_PREFIX: str = "/api/v1"
 
+    BACKEND_LOG_ENABLED: bool = True
+    BACKEND_LOG_LEVEL: str = "INFO"
+    BACKEND_ACCESS_LOG_ENABLED: bool = True
+    BACKEND_LOG_HEALTHCHECKS: bool = False
+    BACKEND_RAG_DEBUG_ENABLED: bool = True
+    BACKEND_RAG_DEBUG_MAX_CHARS: int = 40000
+
     CORS_ALLOW_ORIGINS: str = "*"
     CORS_ALLOW_METHODS: str = "*"
     CORS_ALLOW_HEADERS: str = "*"

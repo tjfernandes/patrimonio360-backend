@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 import asyncio
 import contextlib
@@ -10,6 +11,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.config import get_settings
+from app.core.logging import log_event
 from app.schemas.chat import (
     ArtifactDetailContextResponse,
     ArtifactResult,
@@ -29,6 +31,7 @@ from app.services.chat_i18n import translate
 
 router = APIRouter()
 SUPPORTED_MODEL_EXTENSIONS = {".glb", ".gltf", ".obj"}
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=4096)
@@ -68,6 +71,7 @@ def _build_streaming_response(
             result = await run(status_cb)
             await queue.put({"type": "result", "payload": result.model_dump(mode="json")})
         except Exception as exc:
+            log_event(logger, logging.ERROR, "chat.stream.error", error=exc)
             await queue.put({"type": "error", "message": str(exc)})
         finally:
             await queue.put({"type": "done"})
@@ -527,6 +531,7 @@ async def get_chat_image_asset(image_ref: str) -> FileResponse:
         if len(parts) == 1:
             legacy_target = _find_legacy_image_by_basename(str(root), parts[0])
         if legacy_target is None:
+            log_event(logger, logging.WARNING, "chat.image_asset.not_found", image_ref=raw_ref)
             raise HTTPException(status_code=404, detail="Imagem nao encontrada.")
         target = legacy_target
 
@@ -539,4 +544,5 @@ async def get_chat_image_asset(image_ref: str) -> FileResponse:
     elif suffix == ".webp":
         media_type = "image/webp"
 
+    log_event(logger, logging.INFO, "chat.image_asset.serve", image_ref=raw_ref, path=target)
     return FileResponse(path=Path(target), media_type=media_type)

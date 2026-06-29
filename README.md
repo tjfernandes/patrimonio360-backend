@@ -62,6 +62,19 @@ CHAT_PREWARM_INCLUDE_MULTIVIEW_WORKER=false
 
 With these flags, the backend pays the loading cost during startup instead of on the first user interaction.
 
+Operational terminal logging:
+
+```env
+BACKEND_LOG_ENABLED=true
+BACKEND_LOG_LEVEL=INFO
+BACKEND_ACCESS_LOG_ENABLED=true
+BACKEND_LOG_HEALTHCHECKS=false
+BACKEND_RAG_DEBUG_ENABLED=true
+BACKEND_RAG_DEBUG_MAX_CHARS=40000
+```
+
+`BACKEND_RAG_DEBUG_ENABLED=true` prints readable, indented JSON blocks for the RAG pipeline in the terminal: router decision, query plan, OpenSearch request body, retrieved docs, visible context, and final prompt metadata. Embedding vectors are summarized instead of dumping all float values. These logs are separate from the JSONL evaluation logs.
+
 Tests:
 
 ```bash

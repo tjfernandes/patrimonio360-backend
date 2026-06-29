@@ -1,11 +1,14 @@
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.logging import log_event
 from app.services.query_logger import QueryLogger, get_query_logger, utc_timestamp
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 FRONTEND_EVENT_TYPES = {
     "assistant_opened",
@@ -60,4 +63,13 @@ async def post_frontend_event(
     event = payload.model_dump(mode="json")
     event["timestamp"] = event.get("timestamp") or utc_timestamp()
     await query_logger.log_frontend_event(event)
+    log_event(
+        logger,
+        logging.INFO,
+        "frontend_event.logged",
+        event_type=payload.event_type,
+        conversation_id=payload.conversation_id,
+        query_id=payload.query_id,
+        task_id=payload.task_id,
+    )
     return {"status": "ok"}

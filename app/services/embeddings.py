@@ -5,14 +5,19 @@ from collections.abc import Sequence
 from functools import lru_cache
 import io
 import json
+import logging
 import math
 from pathlib import Path
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 
 from app.core.config import Settings, get_settings
+from app.core.logging import log_event
+
+logger = logging.getLogger(__name__)
 
 try:
     from tqdm.auto import tqdm
@@ -596,6 +601,14 @@ class EmbeddingProvider:
 
     def _get_text_embedder(self) -> QwenTextEmbedder | BGEM3TextEmbedder | OpenRouterBGETextEmbedder:
         if self._text_embedder is None:
+            started_at = time.perf_counter()
+            log_event(
+                logger,
+                logging.INFO,
+                "embedding.text_model.load.start",
+                model=self.text_model_id,
+                openrouter=self.settings.USE_OPENROUTER_BGE_M3,
+            )
             normalized_model_id = self.text_model_id.strip().lower()
             if normalized_model_id == "baai/bge-m3":
                 if self.settings.USE_OPENROUTER_BGE_M3:
@@ -620,29 +633,111 @@ class EmbeddingProvider:
                     prefer_bf16=self.settings.EMBEDDING_PREFER_BF16,
                     batch_size=self.settings.TEXT_EMBEDDING_BATCH_SIZE,
                 )
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.INFO,
+                "embedding.text_model.load.finish",
+                model=self.text_model_id,
+                dimension=getattr(self._text_embedder, "embedding_dimension", None),
+                duration_ms=round(duration_ms, 1),
+            )
         return self._text_embedder
 
     def _get_multimodal_embedder(self) -> QwenMultimodalImageEmbedder:
         if self._multimodal_embedder is None:
+            started_at = time.perf_counter()
+            log_event(
+                logger,
+                logging.INFO,
+                "embedding.multimodal_model.load.start",
+                model=self.multimodal_model_id,
+            )
             self._multimodal_embedder = QwenMultimodalImageEmbedder(
                 self.multimodal_model_id,
                 max_length=self.settings.EMBEDDING_MAX_LENGTH,
                 prefer_bf16=self.settings.EMBEDDING_PREFER_BF16,
                 image_batch_size=self.settings.MULTIMODAL_IMAGE_EMBEDDING_BATCH_SIZE,
             )
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.INFO,
+                "embedding.multimodal_model.load.finish",
+                model=self.multimodal_model_id,
+                dimension=getattr(self._multimodal_embedder, "embedding_dimension", None),
+                duration_ms=round(duration_ms, 1),
+            )
         return self._multimodal_embedder
 
     async def embed_text(self, text: str) -> list[float]:
+        started_at = time.perf_counter()
         embedder = self._get_text_embedder()
-        return await asyncio.to_thread(embedder.embed_document, text)
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.text.start",
+            model=getattr(embedder, "model_id", self.text_model_id),
+            chars=len((text or "").strip()),
+        )
+        try:
+            vector = await asyncio.to_thread(embedder.embed_document, text)
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "embedding.text.error",
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.text.finish",
+            dimension=len(vector),
+            duration_ms=round(duration_ms, 1),
+        )
+        return vector
 
     async def embed_multimodal(self, *, text: str | None = None, image_url: str | None = None) -> list[float]:
+        started_at = time.perf_counter()
         embedder = self._get_multimodal_embedder()
-        return await asyncio.to_thread(
-            embedder.embed,
-            text=text,
-            image_source=image_url,
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.multimodal.start",
+            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            has_text=bool((text or "").strip()),
+            has_image_url=bool((image_url or "").strip()),
         )
+        try:
+            vector = await asyncio.to_thread(
+                embedder.embed,
+                text=text,
+                image_source=image_url,
+            )
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "embedding.multimodal.error",
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.multimodal.finish",
+            dimension=len(vector),
+            duration_ms=round(duration_ms, 1),
+        )
+        return vector
 
     async def embed_multimodal_image_bytes(
         self,
@@ -650,12 +745,41 @@ class EmbeddingProvider:
         image_bytes: bytes,
         text: str | None = None,
     ) -> list[float]:
+        started_at = time.perf_counter()
         embedder = self._get_multimodal_embedder()
-        return await asyncio.to_thread(
-            embedder.embed_image_bytes,
-            image_bytes,
-            text=text,
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.image_bytes.start",
+            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            bytes=len(image_bytes or b""),
+            has_text=bool((text or "").strip()),
         )
+        try:
+            vector = await asyncio.to_thread(
+                embedder.embed_image_bytes,
+                image_bytes,
+                text=text,
+            )
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "embedding.image_bytes.error",
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.image_bytes.finish",
+            dimension=len(vector),
+            duration_ms=round(duration_ms, 1),
+        )
+        return vector
 
     async def embed_many_multimodal_image_bytes(
         self,
@@ -663,17 +787,74 @@ class EmbeddingProvider:
         image_bytes_values: Sequence[bytes],
         text: str | None = None,
     ) -> list[list[float]]:
+        started_at = time.perf_counter()
         embedder = self._get_multimodal_embedder()
-        return await asyncio.to_thread(
-            embedder.embed_many_image_bytes,
-            image_bytes_values,
-            text=text,
+        image_count = len(image_bytes_values)
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.image_bytes_batch.start",
+            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            image_count=image_count,
+            total_bytes=sum(len(value or b"") for value in image_bytes_values),
+            has_text=bool((text or "").strip()),
         )
+        try:
+            vectors = await asyncio.to_thread(
+                embedder.embed_many_image_bytes,
+                image_bytes_values,
+                text=text,
+            )
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "embedding.image_bytes_batch.error",
+                image_count=image_count,
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.image_bytes_batch.finish",
+            image_count=image_count,
+            vector_count=len(vectors),
+            duration_ms=round(duration_ms, 1),
+        )
+        return vectors
 
     def preload_models(self) -> None:
         # Eager-load both embedders at server startup to avoid first-request latency.
         self._get_text_embedder()
         self._get_multimodal_embedder()
+
+    async def warmup(self, *, include_multimodal: bool = True) -> None:
+        started_at = time.perf_counter()
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.warmup.start",
+            include_multimodal=include_multimodal,
+        )
+
+        def _warmup_sync() -> None:
+            self._get_text_embedder()
+            if include_multimodal:
+                self._get_multimodal_embedder()
+
+        await asyncio.to_thread(_warmup_sync)
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.warmup.finish",
+            include_multimodal=include_multimodal,
+            duration_ms=round(duration_ms, 1),
+        )
 
 
 @lru_cache(maxsize=1)

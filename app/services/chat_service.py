@@ -2,6 +2,7 @@
 import asyncio
 from dataclasses import dataclass
 import json
+import logging
 from pathlib import Path
 import re
 import time
@@ -11,6 +12,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 from app.core.config import Settings, get_settings
+from app.core.logging import log_event, log_json_event
 from app.prompts import (
     build_final_answer_prompt,
     build_router_user_prompt,
@@ -56,6 +58,7 @@ from app.services.query_logger import QueryLogger, get_query_logger, utc_timesta
 from app.services.tour_navigation import TourNavigationService, get_tour_navigation_service
 
 StatusCallback = Callable[[dict[str, Any]], Awaitable[None]]
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1967,6 +1970,36 @@ class ChatService:
             boosts["retrieval_boosts"] = retrieval_boosts
         return boosts
 
+    def _rag_debug_json(self, event: str, payload: dict[str, Any]) -> None:
+        if not self.settings.BACKEND_RAG_DEBUG_ENABLED:
+            return
+        log_json_event(
+            logger,
+            logging.INFO,
+            event,
+            payload,
+            max_chars=max(int(self.settings.BACKEND_RAG_DEBUG_MAX_CHARS), 1000),
+        )
+
+    def _rag_debug_docs(self, docs: list[dict[str, object]], *, limit: int = 8) -> list[dict[str, object]]:
+        entries: list[dict[str, object]] = []
+        for index, doc in enumerate(docs[: max(limit, 0)], start=1):
+            entries.append(
+                {
+                    "rank": index,
+                    "artifact_id": doc.get("artifact_id"),
+                    "inventory_number": doc.get("inventory_number") or doc.get("inventory"),
+                    "title": doc.get("title"),
+                    "score": doc.get("score"),
+                    "rerank_score": doc.get("rerank_score"),
+                    "museum_id": doc.get("museum_id"),
+                    "category": doc.get("category"),
+                    "in_tour": doc.get("in_tour"),
+                    "snippet": doc.get("snippet"),
+                }
+            )
+        return entries
+
     async def handle_message(
         self,
         payload: ChatMessageRequest,
@@ -1986,6 +2019,19 @@ class ChatService:
         )
         language = self._sync_state_language(state, payload.language)
         self.session_store.append_turn(state, role="user", text=payload.message)
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.message.start",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            museum_slug=payload.museum_slug,
+            museum_id=payload.museum_id,
+            language=language,
+            response_format=requested_format.type,
+            message_chars=len((payload.message or "").strip()),
+            has_metadata=bool(payload.metadata),
+        )
         await self._emit_status(status_cb, "status.analyzing_request", language=language)
 
         context_policy = self._derive_context_policy(
@@ -2090,6 +2136,41 @@ class ChatService:
                 "carry_sort": False,
             }
 
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.message.route",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            mode=router_decision.get("mode"),
+            intent=router_decision.get("intent"),
+            rewritten_query_chars=len(rewritten_query),
+            selected_artifact=bool(selected_artifact),
+            selected_context_mode=selected_context_mode,
+            search_museum_slug=search_museum_slug,
+            search_museum_id=search_museum_id,
+        )
+        self._rag_debug_json(
+            "rag.router_decision",
+            {
+                "conversation_id": conversation_id,
+                "query_id": query_id,
+                "input": {
+                    "museum_slug": payload.museum_slug,
+                    "museum_id": payload.museum_id,
+                    "language": language,
+                    "message": original_message,
+                    "message_chars": len(original_message),
+                    "has_metadata": bool(payload.metadata),
+                },
+                "router_decision": router_decision,
+                "context_policy": context_policy,
+                "selected_artifact": selected_artifact,
+                "selected_context_mode": selected_context_mode,
+                "search_scope": search_scope.model_dump(mode="json"),
+            },
+        )
+
         carry_filters = bool(router_decision.get("carry_filters", False))
         carry_sort = bool(router_decision.get("carry_sort", False))
         use_history_for_answer = bool(router_decision.get("use_history_for_answer", False))
@@ -2161,6 +2242,15 @@ class ChatService:
                             max_total=max(len(artifact_ids), 1),
                         )
                     except Exception as exc:
+                        log_event(
+                            logger,
+                            logging.WARNING,
+                            "chat.message.thumbnail_fetch.error",
+                            conversation_id=conversation_id,
+                            query_id=query_id,
+                            artifact_count=len(artifact_ids),
+                            error=exc,
+                        )
                         artifact_image_hits = []
                     image_matches = self._build_image_matches(
                         image_hits=artifact_image_hits,
@@ -2213,6 +2303,15 @@ class ChatService:
                             max_total=max(len(artifact_ids), 1),
                         )
                     except Exception as exc:
+                        log_event(
+                            logger,
+                            logging.WARNING,
+                            "chat.message.thumbnail_fetch.error",
+                            conversation_id=conversation_id,
+                            query_id=query_id,
+                            artifact_count=len(artifact_ids),
+                            error=exc,
+                        )
                         artifact_image_hits = []
                     image_matches = self._build_image_matches(
                         image_hits=artifact_image_hits,
@@ -2261,6 +2360,15 @@ class ChatService:
                             max_total=max(len(artifact_ids), 1),
                         )
                     except Exception as exc:
+                        log_event(
+                            logger,
+                            logging.WARNING,
+                            "chat.message.thumbnail_fetch.error",
+                            conversation_id=conversation_id,
+                            query_id=query_id,
+                            artifact_count=len(artifact_ids),
+                            error=exc,
+                        )
                         artifact_image_hits = []
                     image_matches = self._build_image_matches(
                         image_hits=artifact_image_hits,
@@ -2268,6 +2376,37 @@ class ChatService:
                     )
         else:
             pass
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.message.retrieval.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            mode=router_decision.get("mode"),
+            retrieval_kind=retrieval_request.get("kind"),
+            retrieved_docs_count=retrieved_docs_count,
+            image_matches=len(image_matches),
+            duration_ms=round(retrieval_latency_ms, 1) if retrieval_latency_ms is not None else None,
+        )
+        self._rag_debug_json(
+            "rag.retrieval_result",
+            {
+                "conversation_id": conversation_id,
+                "query_id": query_id,
+                "route": router_decision.get("mode"),
+                "intent": router_decision.get("intent"),
+                "search_scope": search_scope.model_dump(mode="json"),
+                "effective_filters": effective_filters,
+                "effective_sort": effective_sort,
+                "latency_ms": round(retrieval_latency_ms, 1) if retrieval_latency_ms is not None else None,
+                "context_chars": len(retrieval_context),
+                "retrieved_docs_count": retrieved_docs_count,
+                "retrieval_request": retrieval_request,
+                "retrieved_docs": self._rag_debug_docs(retrieved_docs),
+                "thumbnail_image_hits": self._rag_debug_docs(artifact_image_hits),
+                "image_matches_count": len(image_matches),
+            },
+        )
         # Build the full artifact records (all images) so the detail modal matches
         # the image/model search behaviour. `artifact_image_hits` above only carries
         # one image per artifact (for the result-card thumbnails), so passing it here
@@ -2342,6 +2481,38 @@ class ChatService:
             if retrieval_kind_for_log == "anchored_similarity"
             else len(paged_artifact_results)
         )
+        self._rag_debug_json(
+            "rag.visible_context",
+            {
+                "conversation_id": conversation_id,
+                "query_id": query_id,
+                "retrieval_kind": retrieval_kind_for_log,
+                "retrieval_mode": retrieval_mode_for_log,
+                "results": {
+                    "page": results_page,
+                    "page_size": results_page_size,
+                    "total": results_total,
+                    "has_more": results_has_more,
+                    "shown_artifacts": len(paged_artifact_results),
+                    "shown_images": len(paged_image_matches),
+                    "navigation_targets": len(paged_navigation_targets),
+                },
+                "visible_context_chars": len(visible_retrieval_context),
+                "final_retrieval_context_chars": len(final_retrieval_context),
+                "artifact_results": [
+                    result.model_dump(mode="json")
+                    for result in paged_artifact_results[:8]
+                ],
+                "image_matches": [
+                    result.model_dump(mode="json")
+                    for result in paged_image_matches[:8]
+                ],
+                "navigation_targets": [
+                    result.model_dump(mode="json")
+                    for result in paged_navigation_targets[:8]
+                ],
+            },
+        )
 
         def build_text_final_message_for_result_count(result_count: int) -> str:
             limited_visible_retrieval_context = self._build_visible_results_retrieval_context(
@@ -2381,6 +2552,20 @@ class ChatService:
             museum_slug=search_museum_slug,
             museum_name=search_museum_name,
         )
+        self._rag_debug_json(
+            "rag.final_prompt",
+            {
+                "conversation_id": conversation_id,
+                "query_id": query_id,
+                "model_override": payload.model_override,
+                "response_format": requested_format.model_dump(mode="json"),
+                "final_prompt_chars": len(final_message),
+                "retrieval_context_chars": len(final_retrieval_context),
+                "retry_context_result_count": retry_context_result_count,
+                "use_history_for_answer": use_history_for_answer,
+                "router_decision": router_decision,
+            },
+        )
         await self._emit_status(status_cb, "status.generating_final_answer", language=language)
 
         llm_started_at = time.monotonic()
@@ -2395,6 +2580,15 @@ class ChatService:
             )
         except LLMServiceError as exc:
             llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "chat.message.llm.error",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                duration_ms=round(llm_latency_ms, 1),
+                error=exc,
+            )
             # Soft-fail in dev so frontend keeps moving while LLM infra is still unstable.
             fallback = translate("error.llm_unavailable", language, error=str(exc))
             await self._emit_query_log(
@@ -2452,6 +2646,16 @@ class ChatService:
                 search_scope=search_scope,
             )
         llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.message.llm.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            model=llm_response.model,
+            response_format=llm_response.response_format.type,
+            duration_ms=round(llm_latency_ms, 1),
+        )
 
         reply_docs = self._artifact_results_as_prompt_docs(paged_artifact_results) or retrieved_docs
         final_reply_text = self._sanitize_assistant_reply(
@@ -2517,6 +2721,19 @@ class ChatService:
             status="ok",
             error=None,
             opensearch_query=retrieval_request.get("opensearch_query"),
+        )
+
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.message.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            status="ok",
+            results_total=results_total,
+            shown_artifacts=len(paged_artifact_results),
+            shown_images=len(paged_image_matches),
+            duration_ms=round((time.monotonic() - request_started_at) * 1000, 1),
         )
 
         return ChatMessageResponse(
@@ -2633,6 +2850,23 @@ class ChatService:
         )
 
         self.session_store.append_turn(state, role="user", text=user_message)
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.image.start",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            museum_slug=payload.museum_slug,
+            museum_id=payload.museum_id,
+            search_museum_slug=search_museum_slug,
+            search_museum_id=search_museum_id,
+            language=language,
+            response_format=requested_format.type,
+            image_filename=image_filename,
+            image_content_type=image_content_type,
+            image_bytes=len(image_bytes or b""),
+            message_chars=len(user_message),
+        )
         await self._emit_status(status_cb, "status.analyzing_image", language=language)
 
         image_matches: list[ImageMatchResult] = []
@@ -2649,6 +2883,15 @@ class ChatService:
             )
         except Exception as exc:
             retrieval_latency_ms = (time.monotonic() - retrieval_started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "chat.image.embedding.error",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                duration_ms=round(retrieval_latency_ms, 1),
+                error=exc,
+            )
             fallback = translate("error.image_processing_failed", language)
             await self._emit_query_log(
                 payload=payload,
@@ -2711,6 +2954,15 @@ class ChatService:
                 image_retrieval_window_size,
             )
         except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "chat.image.search.error",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                duration_ms=round((time.monotonic() - retrieval_started_at) * 1000, 1),
+                error=exc,
+            )
             image_hits = []
 
         if image_hits:
@@ -2723,6 +2975,15 @@ class ChatService:
                     top_k=image_candidates_k,
                 )
             except Exception as exc:
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "chat.image.artifact_fetch.error",
+                    conversation_id=conversation_id,
+                    query_id=query_id,
+                    image_hits=len(image_hits),
+                    error=exc,
+                )
                 artifact_docs = []
 
             image_matches = self._build_image_matches(image_hits=image_hits, artifact_docs=artifact_docs)
@@ -2740,6 +3001,17 @@ class ChatService:
                 artifact_count=0,
             )
         retrieval_latency_ms = (time.monotonic() - retrieval_started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.image.retrieval.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            image_hits=len(image_hits),
+            artifact_docs=len(artifact_docs),
+            results_total=image_results_total,
+            duration_ms=round(retrieval_latency_ms, 1),
+        )
 
         artifact_results = await self._build_artifact_results(
             museum_slug=search_museum_slug,
@@ -2870,6 +3142,15 @@ class ChatService:
             )
         except LLMServiceError as exc:
             llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "chat.image.llm.error",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                duration_ms=round(llm_latency_ms, 1),
+                error=exc,
+            )
             fallback = translate("error.llm_unavailable", language, error=str(exc))
             await self._emit_query_log(
                 payload=payload,
@@ -2918,6 +3199,16 @@ class ChatService:
                 search_scope=search_scope,
             )
         llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.image.llm.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            model=llm_response.model,
+            response_format=llm_response.response_format.type,
+            duration_ms=round(llm_latency_ms, 1),
+        )
 
         reply_docs = self._artifact_results_as_prompt_docs(paged_artifact_results) or artifact_docs
         final_reply_text = self._sanitize_assistant_reply(
@@ -2970,6 +3261,19 @@ class ChatService:
             status="ok",
             error=None,
             opensearch_query=image_opensearch_query,
+        )
+
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.image.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            status="ok",
+            results_total=results_total,
+            shown_artifacts=len(paged_artifact_results),
+            shown_images=len(paged_image_matches),
+            duration_ms=round((time.monotonic() - request_started_at) * 1000, 1),
         )
 
         return ChatMessageResponse(
@@ -3048,6 +3352,23 @@ class ChatService:
         )
 
         self.session_store.append_turn(state, role="user", text=user_message)
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.model.start",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            museum_slug=payload.museum_slug,
+            museum_id=payload.museum_id,
+            search_museum_slug=search_museum_slug,
+            search_museum_id=search_museum_id,
+            language=language,
+            response_format=requested_format.type,
+            model_filename=model_filename,
+            model_content_type=model_content_type,
+            model_bytes=len(model_bytes or b""),
+            message_chars=len(user_message),
+        )
         await self._emit_status(status_cb, "status.preparing_model", language=language)
 
         image_matches: list[ImageMatchResult] = []
@@ -3082,12 +3403,18 @@ class ChatService:
                 image_hits=retrieval_result.image_hits,
                 artifact_docs=artifact_docs,
             )
-            if retrieval_result.image_hits:
-                pass
-            else:
-                pass
         except Exception as exc:
             retrieval_latency_ms = (time.monotonic() - retrieval_started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "chat.model.retrieval.error",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                file_name=file_name,
+                duration_ms=round(retrieval_latency_ms, 1),
+                error=exc,
+            )
             fallback = translate("error.model_processing_failed", language)
             await self._emit_query_log(
                 payload=payload,
@@ -3124,6 +3451,18 @@ class ChatService:
                 search_scope=search_scope,
             )
         retrieval_latency_ms = (time.monotonic() - retrieval_started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.model.retrieval.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            file_name=file_name,
+            artifact_docs=len(artifact_docs),
+            image_matches=len(image_matches),
+            results_total=model_results_total,
+            duration_ms=round(retrieval_latency_ms, 1),
+        )
 
         await self._emit_status(
             status_cb,
@@ -3261,6 +3600,15 @@ class ChatService:
             )
         except LLMServiceError as exc:
             llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "chat.model.llm.error",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                duration_ms=round(llm_latency_ms, 1),
+                error=exc,
+            )
             fallback = translate("error.llm_unavailable", language, error=str(exc))
             await self._emit_query_log(
                 payload=payload,
@@ -3309,6 +3657,16 @@ class ChatService:
                 search_scope=search_scope,
             )
         llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.model.llm.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            model=llm_response.model,
+            response_format=llm_response.response_format.type,
+            duration_ms=round(llm_latency_ms, 1),
+        )
 
         reply_docs = self._artifact_results_as_prompt_docs(paged_artifact_results) or artifact_docs
         final_reply_text = self._sanitize_assistant_reply(
@@ -3361,6 +3719,19 @@ class ChatService:
             status="ok",
             error=None,
             opensearch_query=model_opensearch_query,
+        )
+
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.model.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            status="ok",
+            results_total=results_total,
+            shown_artifacts=len(paged_artifact_results),
+            shown_images=len(paged_image_matches),
+            duration_ms=round((time.monotonic() - request_started_at) * 1000, 1),
         )
 
         return ChatMessageResponse(
@@ -3809,7 +4180,16 @@ class ChatService:
                 inventory_numbers=inventory_candidates,
                 top_k=top_k,
             )
-        except Exception:
+        except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "chat.retrieval.inventory.error",
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                inventory_count=len(inventory_candidates),
+                error=exc,
+            )
             return None
 
         if not docs:
@@ -3904,10 +4284,34 @@ class ChatService:
             try:
                 query_embedding = await self.embedding_provider.embed_text(embedding_query)
             except NotImplementedError:
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "chat.retrieval.embedding.unsupported",
+                    museum_slug=museum_slug,
+                    museum_id=museum_id,
+                    query_chars=len(embedding_query),
+                )
                 return "", 0, [], {}
             except Exception as exc:
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "chat.retrieval.embedding.error",
+                    museum_slug=museum_slug,
+                    museum_id=museum_id,
+                    query_chars=len(embedding_query),
+                    error=exc,
+                )
                 return "", 0, [], {}
         else:
+            log_event(
+                logger,
+                logging.INFO,
+                "chat.retrieval.embedding.disabled",
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+            )
             return "", 0, [], {}
 
         final_top_k = max(self.settings.CHAT_RETRIEVAL_TOP_K, 1)
@@ -3926,6 +4330,26 @@ class ChatService:
             query_text=embedding_query,
             lexical_query=lexical_query,
         )
+        self._rag_debug_json(
+            "rag.text_query_plan",
+            {
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "raw_query": raw_query,
+                "search_query": search_query,
+                "embedding_query": embedding_query,
+                "lexical_query": lexical_query,
+                "query_rewrite_source": query_rewrite_source,
+                "filters": dict(retrieval_filters),
+                "sort": dict(sort),
+                "temporal_query": self._temporal_query_filter_payload(temporal_query),
+                "tour_scope": self._tour_scope_filter_payload(tour_scope_expression),
+                "retrieval_page_size": retrieval_page_size,
+                "retrieval_window_size": retrieval_window_size,
+                "retrieval_boosts": retrieval_boosts,
+                "query_embedding": query_embedding,
+            },
+        )
 
         try:
             page_result = await self.opensearch_gateway.search_relevant_context_page(
@@ -3940,7 +4364,17 @@ class ChatService:
                 sort=sort,
                 retrieval_window_size=retrieval_window_size,
             )
-        except Exception:
+        except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "chat.retrieval.opensearch.error",
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                page_size=retrieval_page_size,
+                retrieval_window_size=retrieval_window_size,
+                error=exc,
+            )
             return "", 0, [], {}
 
         docs = page_result.results
