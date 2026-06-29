@@ -1,4 +1,3 @@
-import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,10 +8,6 @@ from app.core.config import get_settings
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    logging.basicConfig(
-        level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    )
     
     app = FastAPI(
         title="Patrimonio360 Embed API",

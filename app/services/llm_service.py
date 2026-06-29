@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -31,6 +32,7 @@ class LLMService:
             timeout=self.settings.LLM_TIMEOUT_SECONDS,
             default_headers=self.settings.llm_auth_header or None,
         )
+
 
     async def generate(
         self,
@@ -72,6 +74,7 @@ class LLMService:
         # if self.settings.LLM_MAX_TOKENS > 0:
         #     payload["max_tokens"] = self.settings.LLM_MAX_TOKENS
 
+
         try:
             # Prefer parse-style call when available on the configured SDK/client.
             completions_api = self.client.chat.completions
@@ -87,6 +90,7 @@ class LLMService:
         content = _extract_chat_content(completion)
         if not isinstance(content, str) or not content.strip():
             raise LLMServiceError("LLM returned empty content.")
+
 
         parsed_json: dict[str, Any] | list[Any] | None = None
         if response_format.type == "json_object":
@@ -126,8 +130,7 @@ def _extract_chat_content(completion: Any) -> str | None:
 
 
 def _parse_json_output(raw: str) -> dict[str, Any] | list[Any]:
-    import json
-
+    
     candidate = raw.strip()
     if candidate.startswith("```"):
         candidate = _strip_fenced_block(candidate)

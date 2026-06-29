@@ -6,7 +6,6 @@ import base64
 from dataclasses import dataclass
 from functools import lru_cache
 import json
-import logging
 import os
 from pathlib import Path
 import subprocess
@@ -19,7 +18,6 @@ from urllib.request import Request, urlopen
 
 from app.core.config import Settings, get_settings
 
-logger = logging.getLogger(__name__)
 
 
 class MultiviewRenderError(RuntimeError):
@@ -90,8 +88,6 @@ class PersistentMultiviewRenderer:
             return
         for line in process.stdout:
             text = line.rstrip()
-            if text:
-                logger.info("[multiview-worker] %s", text)
 
     def _spawn_worker_locked(self) -> None:
         worker_dir = self._worker_dir
@@ -225,8 +221,8 @@ class PersistentMultiviewRenderer:
 
         try:
             self._persist_last_views(source_file_name=file_name, rendered_views=rendered_views)
-        except Exception:  # pragma: no cover - debug-only path
-            logger.exception("Failed to persist latest multiview renders.")
+        except Exception:  # pragma: no cover
+            pass
 
         return rendered_views
 
@@ -247,7 +243,7 @@ class PersistentMultiviewRenderer:
                 try:
                     child.unlink()
                 except OSError:
-                    logger.warning("Could not remove stale file in %s: %s", target_dir, child.name)
+                    pass
 
         views_meta: list[dict[str, Any]] = []
         for index, view in enumerate(rendered_views, start=1):
@@ -273,7 +269,6 @@ class PersistentMultiviewRenderer:
             json.dumps(metadata, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        logger.info("Saved latest multiview renders: dir=%s views=%s", target_dir, len(rendered_views))
 
     async def render_views(
         self,

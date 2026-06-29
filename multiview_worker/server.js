@@ -106,11 +106,6 @@ async function createBrowserPage({ size, dpr }) {
     ],
   });
   page = await browser.newPage();
-  page.on("console", (msg) => console.log("[multiview:page]", msg.type(), msg.text()));
-  page.on("pageerror", (err) => console.error("[multiview:pageerror]", err));
-  page.on("requestfailed", (req) =>
-    console.error("[multiview:requestfailed]", req.url(), req.failure()?.errorText),
-  );
   await page.setViewport({
     width: size,
     height: size,
@@ -192,7 +187,6 @@ async function renderMultiview(payload) {
       break;
     } catch (error) {
       if (attempt === 1 && isTargetClosedError(error)) {
-        console.warn("[multiview] target closed during render, recreating browser and retrying");
         await closeBrowserState();
         continue;
       }
@@ -211,9 +205,7 @@ async function renderMultiview(payload) {
 async function warmWorker() {
   try {
     await ensureBrowserPage({ size: 512, dpr: 1 });
-    console.log("[multiview] browser/page warmed");
-  } catch (error) {
-    console.error("[multiview] warmup failed", error);
+  } catch {
   }
 }
 
@@ -305,7 +297,6 @@ app.post("/render", async (req, res) => {
 });
 
 const server = app.listen(port, host, () => {
-  console.log(`[multiview] worker listening on http://${host}:${port}`);
   void warmWorker();
 });
 

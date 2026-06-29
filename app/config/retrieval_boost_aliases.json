@@ -1,0 +1,245 @@
+{
+  "category": [
+    {
+      "value": "ceramica",
+      "boost": 2.0,
+      "aliases": [
+        "ceramica",
+        "cer\u00e2mica",
+        "ceramicas",
+        "cer\u00e2micas",
+        "faianca",
+        "faian\u00e7a",
+        "azulejo",
+        "azulejos",
+        "ceramic",
+        "ceramics",
+        "tile",
+        "tiles"
+      ]
+    },
+    {
+      "value": "pintura",
+      "boost": 2.0,
+      "aliases": [
+        "pintura",
+        "pinturas",
+        "quadro",
+        "quadros",
+        "painting",
+        "paintings",
+        "picture",
+        "pictures",
+        "canvas",
+        "canvases",
+        "quadro a oleo",
+        "quadro a \u00f3leo",
+        "quadro a oleo sobre tela",
+        "quadro a \u00f3leo sobre tela",
+        "painting on canvas",
+        "painting on canvas",
+        "quadro",
+        "quadros"
+      ]
+    },
+    {
+      "value": "traje e aderecos",
+      "boost": 2.0,
+      "aliases": [
+        "traje",
+        "trajes",
+        "adereco",
+        "aderecos",
+        "adere\u00e7o",
+        "adere\u00e7os",
+        "vestido",
+        "vestidos",
+        "roupa",
+        "roupas",
+        "dress",
+        "dresses",
+        "clothing",
+        "costume",
+        "costumes",
+        "accessory",
+        "accessories",
+        "brincos",
+        "brinco",
+        "earring",
+        "earrings",
+        "colar",
+        "colares",
+        "necklace",
+        "necklaces",
+        "pulseira",
+        "pulseiras",
+        "bracelet",
+        "bracelets",
+        "cinto",
+        "cintos",
+        "belt",
+        "belts",
+        "sapato",
+        "sapatos",
+        "shoe",
+        "shoes",
+        "chapeu",
+        "chapeus",
+        "hat",
+        "hats",
+        "casaco",
+        "casacos",
+        "coat",
+        "coats",
+        "calca",
+        "cal\u00e7a",
+        "calcas",
+        "cal\u00e7as",
+        "pants",
+        "trousers",
+        "jeans",
+        "cal\u00e7a jeans",
+        "calca jeans",
+        "jeans pants",
+        "jeans trousers"
+      ]
+    },
+    {
+      "value": "traje",
+      "boost": 2.0,
+      "aliases": [
+        "traje",
+        "trajes",
+        "vestido",
+        "vestidos",
+        "roupa",
+        "roupas",
+        "dress",
+        "dresses",
+        "clothing",
+        "costume",
+        "costumes",
+        "casaco",
+        "casacos",
+        "coat",
+        "coats",
+        "calca",
+        "cal\u00e7a",
+        "calcas",
+        "cal\u00e7as",
+        "pants",
+        "trousers",
+        "jeans",
+        "cal\u00e7a jeans",
+        "calca jeans",
+        "jeans pants",
+        "jeans trousers"
+      ]
+    }
+  ],
+  "support_or_material": [
+    {
+      "query": "seda",
+      "boost": 1.5,
+      "aliases": [
+        "seda",
+        "silk"
+      ]
+    },
+    {
+      "query": "papel",
+      "boost": 1.4,
+      "aliases": [
+        "papel",
+        "paper"
+      ]
+    },
+    {
+      "query": "tela",
+      "boost": 1.4,
+      "aliases": [
+        "tela",
+        "canvas"
+      ]
+    },
+    {
+      "query": "madeira",
+      "boost": 1.4,
+      "aliases": [
+        "madeira",
+        "wood",
+        "wooden"
+      ]
+    },
+    {
+      "query": "cobre",
+      "boost": 1.4,
+      "aliases": [
+        "cobre",
+        "copper"
+      ]
+    },
+    {
+      "query": "barro cozido",
+      "boost": 1.4,
+      "aliases": [
+        "barro cozido",
+        "terracota",
+        "terracotta"
+      ]
+    },
+    {
+      "query": "marfim",
+      "boost": 1.4,
+      "aliases": [
+        "marfim",
+        "ivory"
+      ]
+    }
+  ],
+  "technique": [
+    {
+      "query": "seda",
+      "boost": 1.3,
+      "aliases": [
+        "seda",
+        "silk"
+      ]
+    },
+    {
+      "query": "cetim",
+      "boost": 1.3,
+      "aliases": [
+        "cetim",
+        "satin"
+      ]
+    },
+    {
+      "query": "tafeta",
+      "boost": 1.3,
+      "aliases": [
+        "tafeta",
+        "tafet\u00e1",
+        "taffeta"
+      ]
+    },
+    {
+      "query": "bordado",
+      "boost": 1.3,
+      "aliases": [
+        "bordado",
+        "embroidered",
+        "embroidery"
+      ]
+    },
+    {
+      "query": "lavrado",
+      "boost": 1.2,
+      "aliases": [
+        "lavrado",
+        "brocade",
+        "brocaded"
+      ]
+    }
+  ]
+}

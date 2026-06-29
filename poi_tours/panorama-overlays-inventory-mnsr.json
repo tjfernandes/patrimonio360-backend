@@ -1,0 +1,729 @@
+[
+  {
+    "overlayId": "overlay_DF469708_9227_82B7_41E0_31AF8DCA6598",
+    "panoramaKey": "panorama_458E893F_32C3_477A_41A5_87065449A1FE",
+    "inventoryIds": [
+      "1026 Pin MNSR"
+    ],
+    "location": "Sala 1.15",
+    "title": "As visitas"
+  },
+  {
+    "overlayId": "overlay_BC29A2E2_9266_837A_41A0_AD3B31569398",
+    "panoramaKey": "panorama_56F9E2AE_4AE1_93D3_41A1_6FAAB63BCC31",
+    "inventoryIds": [
+      "108 Pin MNSR"
+    ],
+    "location": "Sala 1.06",
+    "title": "Esperando o sucesso"
+  },
+  {
+    "overlayId": "overlay_8331DCE7_9727_08A8_41B7_70C4DDF360DE",
+    "panoramaKey": "panorama_5EC0DF34_3632_4B0E_41A0_5D505A6DA560",
+    "inventoryIds": [
+      "339 Pin CMP/ MNSR"
+    ],
+    "location": "Sala 2.05",
+    "title": "Coro dos Capuchinhos em Roma"
+  },
+  {
+    "overlayId": "overlay_8265906D_972B_17B9_41D6_7A8C5A39E509",
+    "panoramaKey": "panorama_5EC0DF34_3632_4B0E_41A0_5D505A6DA560",
+    "inventoryIds": [
+      "338 Pin CMP/ MNSR"
+    ],
+    "location": "Sala 2.05",
+    "title": "Escola de meninas em Roma"
+  },
+  {
+    "overlayId": "overlay_837C77EA_976B_F8BB_41DC_BEB8C2A11EE8",
+    "panoramaKey": "panorama_5F857CC8_3636_4D04_41B1_4278615D5DBC",
+    "inventoryIds": [
+      "103 Our MNSR"
+    ],
+    "location": "Sala 2.08",
+    "title": "Estojo de faqueiro"
+  },
+  {
+    "overlayId": "overlay_817BE578_9769_3998_41DB_677C9DF1B4E1",
+    "panoramaKey": "panorama_5F857CC8_3636_4D04_41B1_4278615D5DBC",
+    "inventoryIds": [
+      "135 Vid CMP/ MNSR"
+    ],
+    "location": "Sala 2.08",
+    "title": "Frasqueira de viagem"
+  },
+  {
+    "overlayId": "overlay_BCA5113A_9227_9ECA_41D9_287681493492",
+    "panoramaKey": "panorama_635AABAC_3612_4B6C_41C6_87CFC759D0B7",
+    "inventoryIds": [
+      "168 Pin MNSR"
+    ],
+    "location": "Sala 1.11",
+    "title": "Macieira partida"
+  },
+  {
+    "overlayId": "overlay_B1D29287_91E3_83B9_41D7_AE70C94C2507",
+    "panoramaKey": "panorama_758CB0CE_3B80_2EFB_41CB_10A319DCF476",
+    "inventoryIds": [
+      "23 Pin CMP/ MNSR"
+    ],
+    "location": "Sala 1.02",
+    "title": "Fuga de Margarida de Anjou"
+  },
+  {
+    "overlayId": "overlay_F3391714_9266_82DE_41D9_97DF71CED3BB",
+    "panoramaKey": "panorama_7652A0CF_3636_D52A_41C8_25BE767DDC78",
+    "inventoryIds": [
+      "113 Tex CMP/ MNSR"
+    ],
+    "location": "Sala 2.03",
+    "title": "Véstia"
+  },
+  {
+    "overlayId": "overlay_8236D645_91E2_82B9_41CE_160C8F3A0F55",
+    "panoramaKey": "panorama_76A037AA_3B80_12A4_41C0_29CE66AAAE6E",
+    "inventoryIds": [
+      "2.1 Div MNSR",
+      "2.2 Div MNSR",
+      "2.3 Div MNSR",
+      "2.4 Div MNSR",
+      "2.5 Div MNSR",
+      "2.6 Div MNSR",
+      "2.7 Div MNSR",
+      "2.8 Div MNSR",
+      "2.9 Div MNSR",
+      "2.10 Div MNSR",
+      "2.11 Div MNSR",
+      "2.12 Div MNSR",
+      "2.13 Div MNSR",
+      "2.14 Div MNSR",
+      "2.15 Div MNSR",
+      "2.16 Div MNSR",
+      "2.17 Div MNSR",
+      "2.18 Div MNSR",
+      "2.19 Div MNSR",
+      "2.20 Div MNSR",
+      "2.21 Div MNSR",
+      "2.22 Div MNSR",
+      "2.23 Div MNSR",
+      "2.24 Div MNSR",
+      "2.25 Div MNSR",
+      "2.26 Div MNSR"
+    ],
+    "location": "Sala 1.01",
+    "title": "Série de vinte e seis placas com cenas do Ciclo da Paixão de Cristo"
+  },
+  {
+    "overlayId": "overlay_BCFF9043_9266_9EBA_41D2_8E238342A7D8",
+    "panoramaKey": "panorama_8CF0845F_9F19_FA72_4186_BC3B9C61B199",
+    "inventoryIds": [
+      "2 Esc CMP/ MNSR"
+    ],
+    "location": "Sala 1.08",
+    "title": "Infância de Caim"
+  },
+  {
+    "overlayId": "overlay_BC801221_9263_82F6_41E0_C23B145909CF",
+    "panoramaKey": "panorama_8CF09854_9F19_8A76_41DE_D49BDAD999D2",
+    "inventoryIds": [
+      "Dep. 373 MNSR"
+    ],
+    "location": "Sala 1.08",
+    "title": "Conde de Ferreira"
+  },
+  {
+    "overlayId": "overlay_BC973241_926F_82B6_41B2_BC557D10B26F",
+    "panoramaKey": "panorama_8CF0EAA9_9F19_8EDF_41E1_58C2649009AE",
+    "inventoryIds": [
+      "1 Esc CMP/ MNSR"
+    ],
+    "location": "Sala 1.08",
+    "title": "Flor Agreste"
+  },
+  {
+    "overlayId": "overlay_BF6A3C0E_9262_86CB_4195_0BFBE69BE4D6",
+    "panoramaKey": "panorama_8D801AA7_9F16_8E32_41DF_36F782776E10",
+    "inventoryIds": [
+      "SN"
+    ],
+    "location": "Sala 1.06",
+    "title": "O Abandonado"
+  },
+  {
+    "overlayId": "overlay_BCA7405C_9266_BF45_41D2_8DB92C641BA0",
+    "panoramaKey": "panorama_8DA113B0_9F3A_7E22_41DD_D35EF9CD6416",
+    "inventoryIds": [
+      "19 Esc MNSR"
+    ],
+    "location": "Sala 1.07",
+    "title": "Firmino"
+  },
+  {
+    "overlayId": "overlay_BC914193_921E_81D9_41AE_C3DB817FCDB8",
+    "panoramaKey": "panorama_8DA181EE_9F3A_FA21_41E1_16836C85B67C",
+    "inventoryIds": [
+      "125 Esc MNSR"
+    ],
+    "location": "Sala 1.10",
+    "title": "Nossa Senhora da Vitória"
+  },
+  {
+    "overlayId": "overlay_89C0E6D7_976B_18E9_41BA_8C58ABBAB667",
+    "panoramaKey": "panorama_8DE5FCD5_9B60_E67A_41C3_A54C80C3434E",
+    "inventoryIds": [
+      "SN"
+    ],
+    "location": "Entrada",
+    "title": "Entrada"
+  },
+  {
+    "overlayId": "overlay_82360659_91E3_8349_41DA_F955DF29C87E",
+    "panoramaKey": "panorama_8E427E6E_9FF7_86BE_41DC_A898B95A14B7",
+    "inventoryIds": [
+      "28 Obj Hist CMP/ MNSR"
+    ],
+    "location": "Sala 1.01",
+    "title": "Espada e Boldrié"
+  },
+  {
+    "overlayId": "overlay_84427283_91FF_83B8_41D7_DB991276D19B",
+    "panoramaKey": "panorama_8E427E6E_9FF7_86BE_41DC_A898B95A14B7",
+    "inventoryIds": [
+      "55 Obj Hist CMP/ MNSR"
+    ],
+    "location": "Sala 1.01",
+    "title": "Câmara clara"
+  },
+  {
+    "overlayId": "overlay_B23E0172_921E_815B_41E1_0C45351967E4",
+    "panoramaKey": "panorama_8E429659_9FF6_86E2_41BD_370472A6ED78",
+    "inventoryIds": [
+      "47 Esc CMP/ MNSR"
+    ],
+    "location": "Sala 1.03",
+    "title": "Busto de Alexandre Herculano"
+  },
+  {
+    "overlayId": "overlay_B214F0F1_9225_9F59_41D3_69727EB9F555",
+    "panoramaKey": "panorama_8E42DC6F_9FF6_8ABF_41D8_DD7FE6B92936",
+    "inventoryIds": [
+      "1102 Pin MNSR"
+    ],
+    "location": "Sala 1.03",
+    "title": "O Negro"
+  },
+  {
+    "overlayId": "overlay_B1DBBFD4_91E7_815F_41D0_46418D7D8DE2",
+    "panoramaKey": "panorama_8E439A5F_9FF7_8E9E_41DE_EF4DEE8911E1",
+    "inventoryIds": [
+      "6 Pin MNSR"
+    ],
+    "location": "Sala 1.02",
+    "title": "Alegoria à aliança entre Portugal, Espanha e Inglaterra"
+  },
+  {
+    "overlayId": "overlay_B25400EC_922D_BF48_41B4_54949EBEAEEB",
+    "panoramaKey": "panorama_8E4508D8_9FF6_8BE2_41E1_69BC8A36D378",
+    "inventoryIds": [
+      "363 CMFC/ MNSR"
+    ],
+    "location": "Sala 1.03",
+    "title": "Compra Garibaldi! (Vendedor de estatuetas)"
+  },
+  {
+    "overlayId": "overlay_B21F219B_9225_81CA_41DE_5B58752099AC",
+    "panoramaKey": "panorama_8E45450C_9FF6_BA61_41DE_C5F7D8DFE137",
+    "inventoryIds": [
+      "994 Pin MNSR"
+    ],
+    "location": "Sala 1.03",
+    "title": "Procissão"
+  },
+  {
+    "overlayId": "overlay_B214C24F_922E_834A_4189_977E606A3F8A",
+    "panoramaKey": "panorama_8E4566FC_9FF6_87A1_41E0_704BAF358343",
+    "inventoryIds": [
+      "75 Pin CMP/ MNSR"
+    ],
+    "location": "Sala 1.03",
+    "title": "O Mártir cristão"
+  },
+  {
+    "overlayId": "overlay_BFFD1F47_922E_82B8_41D1_4F87705E5033",
+    "panoramaKey": "panorama_8E4AD4DD_9F69_BA28_41D6_E2DCE4530D32",
+    "inventoryIds": [
+      "79 Pin CMP/ MNSR"
+    ],
+    "location": "Sala 1.05",
+    "title": "Entre o almoço e o jantar (Costureiras trabalhando)"
+  },
+  {
+    "overlayId": "overlay_BFF11F81_9223_81B9_41BB_3FC80C987251",
+    "panoramaKey": "panorama_8E4B1763_9F69_861F_418E_D9CE287A427E",
+    "inventoryIds": [
+      "102 Pin MNSR"
+    ],
+    "location": "Sala 1.05",
+    "title": "Um campo de trigo – Seara"
+  },
+  {
+    "overlayId": "overlay_BFBBDE1B_922D_82CA_41D7_93B6F7B765F0",
+    "panoramaKey": "panorama_8E4B27AD_9F69_8668_41C8_B3511E204B55",
+    "inventoryIds": [
+      "170 Pin MNSR"
+    ],
+    "location": "Sala 1.05",
+    "title": "Céfalo e Prócris"
+  },
+  {
+    "overlayId": "overlay_BF99FFEE_9222_814A_41D8_814452F703A1",
+    "panoramaKey": "panorama_8E4B27AD_9F69_8668_41C8_B3511E204B55",
+    "inventoryIds": [
+      "3 Esc CMP/ MNSR"
+    ],
+    "location": "Sala 1.05",
+    "title": "A Caridade"
+  },
+  {
+    "overlayId": "overlay_BFF96BE7_9222_817A_41E1_3CCEED350255",
+    "panoramaKey": "panorama_8E4B2BBB_9F69_8E68_41C6_936CFA715391",
+    "inventoryIds": [
+      "17 Pin CMP (DHL)/ MNSR"
+    ],
+    "location": "Sala 1.05",
+    "title": "No Areinho, Douro"
+  },
+  {
+    "overlayId": "overlay_BFD17DD2_9222_815A_41C9_52CA92B1B7C8",
+    "panoramaKey": "panorama_8E4BA377_9F6A_7EE7_41C6_F27E422654E0",
+    "inventoryIds": [
+      "1101 Pin MNSR",
+      "1100 Pin MNSR"
+    ],
+    "location": "Sala 1.04",
+    "title": "Retratos do Visconde e da Viscondessa de Pernes"
+  },
+  {
+    "overlayId": "overlay_BFCFFB55_923F_8159_41DC_406F74F10568",
+    "panoramaKey": "panorama_8E4BEC77_9F6A_8AF8_41C2_C32A850BF0E0",
+    "inventoryIds": [
+      "Dep. 362 MNSR"
+    ],
+    "location": "Sala 1.04",
+    "title": "Busto de Luís de Camões"
+  },
+  {
+    "overlayId": "overlay_F33AB1FC_9262_814F_41C0_6D1461BBE46E",
+    "panoramaKey": "panorama_A252E6FA_32C3_4D1A_41B7_63AB16219578",
+    "inventoryIds": [
+      "211 Our MNSR"
+    ],
+    "location": "Sala 2.03",
+    "title": "Guarnição de corpete"
+  },
+  {
+    "overlayId": "overlay_C53F806C_9225_9F48_41DF_99C70EDC3012",
+    "panoramaKey": "panorama_AAE30617_A45D_74A9_41C8_40AA9F31E35A",
+    "inventoryIds": [
+      "88 Esc CMP/ MNSR"
+    ],
+    "location": "Piso 2",
+    "title": "Sarcófago romano – As Quatro Estações"
+  },
+  {
+    "overlayId": "overlay_89CD3F87_9769_0968_41DA_6ECAE84D9CC4",
+    "panoramaKey": "panorama_B10DAA3F_A5BF_5E25_41D8_6A618EA0064B",
+    "inventoryIds": [
+      "253 Esc CMFC/ MNSR",
+      "252 Esc CMFC/ MNSR"
+    ],
+    "location": "Sala 2.10",
+    "title": "São Francisco Xavier e Santo Inácio de Loyola"
+  },
+  {
+    "overlayId": "overlay_B652486A_976B_77BB_41B5_043CF21A5540",
+    "panoramaKey": "panorama_B10DAA3F_A5BF_5E25_41D8_6A618EA0064B",
+    "inventoryIds": [
+      "2689 Mob MNSR"
+    ],
+    "location": "Sala 2.10",
+    "title": "Contador de mesa"
+  },
+  {
+    "overlayId": "overlay_89C5449B_9769_3899_41D1_E8219E131084",
+    "panoramaKey": "panorama_B10DF347_A5BF_4E65_41D4_88F1684F181B",
+    "inventoryIds": [
+      "864 Mob MNSR",
+      "865 Mob MNSR"
+    ],
+    "location": "Sala 2.10",
+    "title": "Biombos Namban (par)"
+  },
+  {
+    "overlayId": "overlay_BCF638F2_9222_8F5B_41D8_328DCC4B891F",
+    "panoramaKey": "panorama_B380BB61_A116_8F9C_419D_2D306AD86A72",
+    "inventoryIds": [
+      "147 Pin MNSR"
+    ],
+    "location": "Sala 1.11",
+    "title": "Vaso com camélias"
+  },
+  {
+    "overlayId": "overlay_AB8A472B_9222_82CA_41DD_197661676E3F",
+    "panoramaKey": "panorama_B380C880_A116_8A9D_41E2_65788065DBB0",
+    "inventoryIds": [
+      "5 Esc CMP/ MNSR"
+    ],
+    "location": "Sala 1.11",
+    "title": "Cabeça de Negra"
+  },
+  {
+    "overlayId": "overlay_BCB9E6B0_9222_83D6_41D4_0710388C3731",
+    "panoramaKey": "panorama_B3811AE3_A116_8E9C_41D4_C23CEF391485",
+    "inventoryIds": [
+      "1159 Pin MNSR"
+    ],
+    "location": "Sala 1.11",
+    "title": "Cuidados de amor"
+  },
+  {
+    "overlayId": "overlay_BC8AD82D_9222_8EC9_41BB_50780BD88A56",
+    "panoramaKey": "panorama_B3814C38_A116_89ED_41DE_A63CA4EEEB4C",
+    "inventoryIds": [
+      "1861 Pin MNSR"
+    ],
+    "location": "Sala 1.11",
+    "title": "Régulo australiano"
+  },
+  {
+    "overlayId": "overlay_BCA821CC_9226_814E_41E1_96F475581412",
+    "panoramaKey": "panorama_B38174AB_A116_BAEC_41D6_D2F619B5714F",
+    "inventoryIds": [
+      "99 Pin CMFC/ MNSR"
+    ],
+    "location": "Sala 1.11",
+    "title": "Vou ser mãe"
+  },
+  {
+    "overlayId": "overlay_A53AF2E4_9226_837F_41CA_54B2B3BF3CD4",
+    "panoramaKey": "panorama_B3C4D091_A139_BA89_41E1_4278DC0693FA",
+    "inventoryIds": [
+      "4 Esc CMP/ MNSR"
+    ],
+    "location": "Sala 1.12",
+    "title": "Cabeça de Velha"
+  },
+  {
+    "overlayId": "overlay_A531DF0B_923D_82C9_41D0_8B5D0B0BA1FE",
+    "panoramaKey": "panorama_B3C51DE4_A139_8A8F_41D8_02164B923FCF",
+    "inventoryIds": [
+      "1007 Pin MNSR"
+    ],
+    "location": "Sala 1.12",
+    "title": "Menina do gato – retrato da filha do pintor, Maria"
+  },
+  {
+    "overlayId": "overlay_DF3C6767_9226_817A_41E0_F1255D636189",
+    "panoramaKey": "panorama_B46403EF_A2EA_9FF8_41E1_E9BA1ECF355E",
+    "inventoryIds": [
+      "987 Pin MNSR"
+    ],
+    "location": "Sala 1.16",
+    "title": "CarnavalCavalo-Marinho (título original)"
+  },
+  {
+    "overlayId": "overlay_DF1559CE_922F_814B_41E1_BAC6D1C1C4F6",
+    "panoramaKey": "panorama_B46450BA_A2EA_F858_41CA_751DDD6E2506",
+    "inventoryIds": [
+      "SN"
+    ],
+    "location": "Sala 1.15",
+    "title": "Tambores"
+  },
+  {
+    "overlayId": "overlay_C3577BDD_922D_8148_419C_4440E0731F3C",
+    "panoramaKey": "panorama_B46450BA_A2EA_F858_41CA_751DDD6E2506",
+    "inventoryIds": [
+      "SC 431"
+    ],
+    "location": "Sala 1.15",
+    "title": "Sentimento na Planície"
+  },
+  {
+    "overlayId": "overlay_DF3723FF_9223_814A_41D8_EB1F58715F03",
+    "panoramaKey": "panorama_B4646A9C_A2EA_8858_41B7_5E15E8F46662",
+    "inventoryIds": [
+      "347 Esc MNSR"
+    ],
+    "location": "Sala 1.16",
+    "title": "Abstração I"
+  },
+  {
+    "overlayId": "overlay_DF357110_9223_9ED6_41C3_4303BA51B240",
+    "panoramaKey": "panorama_B467C369_A2EA_98FB_41DC_A1CBF3F903AD",
+    "inventoryIds": [
+      "308 Esc MNSR"
+    ],
+    "location": "Sala 1.15",
+    "title": "Três Raparigas Sentadas"
+  },
+  {
+    "overlayId": "overlay_DF2FFC71_9225_8759_41E1_226E6B69F32F",
+    "panoramaKey": "panorama_B467C369_A2EA_98FB_41DC_A1CBF3F903AD",
+    "inventoryIds": [
+      "1008 Pin MNSR"
+    ],
+    "location": "Sala 1.15",
+    "title": "Mulheres com bilhas"
+  },
+  {
+    "overlayId": "overlay_BC96E0A5_922E_9FFE_41A8_713565C60341",
+    "panoramaKey": "panorama_B49DB595_A116_BAA2_41AC_0DAA69E0FC8E",
+    "inventoryIds": [
+      "1097 Pin MNSR"
+    ],
+    "location": "Sala 1.11",
+    "title": "Retrato do Dr. Joaquim Madureira"
+  },
+  {
+    "overlayId": "overlay_AADF6F2E_93E2_82CB_4185_1EDDF48C7567",
+    "panoramaKey": "panorama_B4A321CE_A13A_BBD1_41E0_A1CA4139ED31",
+    "inventoryIds": [
+      "2410 Pin MNSR"
+    ],
+    "location": "Sala 1.14",
+    "title": "Torreão Velho – Massarellos"
+  },
+  {
+    "overlayId": "overlay_AAF27863_93E7_8F79_41C3_3DC6847FE965",
+    "panoramaKey": "panorama_B4A33910_A13A_8871_41B6_F9D4CA2B9885",
+    "inventoryIds": [
+      "983 Pin MNSR"
+    ],
+    "location": "Sala 1.14",
+    "title": "Casas de Malakoff - Paris"
+  },
+  {
+    "overlayId": "overlay_AAD3FF74_93E3_815E_41C2_9089B5567496",
+    "panoramaKey": "panorama_B4A3455F_A13A_98F0_41D7_F7E1297DC74D",
+    "inventoryIds": [
+      "343 Esc MNSR"
+    ],
+    "location": "Sala 1.14",
+    "title": "Beijo (Baiser)"
+  },
+  {
+    "overlayId": "overlay_AE93B75C_93EE_814E_41DC_872302823FEE",
+    "panoramaKey": "panorama_B4A3455F_A13A_98F0_41D7_F7E1297DC74D",
+    "inventoryIds": [
+      "900 Pin CMP/ MNSR"
+    ],
+    "location": "Sala 1.14",
+    "title": "Barcos à descarga no Rio Douro"
+  },
+  {
+    "overlayId": "overlay_AA443590_93ED_81D7_41B6_7FDEC331189A",
+    "panoramaKey": "panorama_B4A4FF72_A13A_88B1_41D6_B1C6ECD16DC4",
+    "inventoryIds": [
+      "1062 Pin MNSR"
+    ],
+    "location": "Sala 1.14",
+    "title": "Autorretrato"
+  },
+  {
+    "overlayId": "overlay_84C847B5_9739_38A9_41BB_E81A3E5BFEEF",
+    "panoramaKey": "panorama_B4BC5E4E_A46B_34ED_41C8_F78BA3726E05",
+    "inventoryIds": [
+      "59 Mob CMP/ MNSR"
+    ],
+    "location": "Sala 2.05",
+    "title": "Papeleira com alçado"
+  },
+  {
+    "overlayId": "overlay_C9167CFF_9226_8749_41E0_F01725796B92",
+    "panoramaKey": "panorama_B4BCDDE7_A46B_D7DB_41DD_DD923E09A9C9",
+    "inventoryIds": [
+      "28.1 Our MNSR",
+      "28.2 Our MNSR"
+    ],
+    "location": "Sala 2.01",
+    "title": "Gomil e bacia de água às mãos"
+  },
+  {
+    "overlayId": "overlay_84C34879_973B_1798_41D7_C29E67D2C950",
+    "panoramaKey": "panorama_B4BDC3CB_A46B_73D5_41C2_BC17E5DD6DE8",
+    "inventoryIds": [
+      "SN"
+    ],
+    "location": "Sala 2.05",
+    "title": "Cerâmica"
+  },
+  {
+    "overlayId": "overlay_AAC23D48_921E_86B7_41D7_A4EAFC615A5B",
+    "panoramaKey": "panorama_B4BE6BA8_A176_8FE6_41D2_584F16DBEB96",
+    "inventoryIds": [
+      "1490 Pin Museu do Chiado/ MNAC-MC"
+    ],
+    "location": "Sala 1.13",
+    "title": "A Ponte de D. Maria, vista da cidade do Porto"
+  },
+  {
+    "overlayId": "overlay_AAF67831_9222_8ED9_41C2_1B0FDD2EF294",
+    "panoramaKey": "panorama_B4BE7E8B_A176_89BB_41B3_7E74596E1797",
+    "inventoryIds": [
+      "253 Esc MNSR"
+    ],
+    "location": "Sala 1.13",
+    "title": "Cabeça do poeta Miguel Torga"
+  },
+  {
+    "overlayId": "overlay_AAF6DA20_921D_82F7_41C9_61347773E3CD",
+    "panoramaKey": "panorama_B4BE8EC3_A176_89AA_41E0_AE8A3D782F54",
+    "inventoryIds": [
+      "1560 Pin MNSR"
+    ],
+    "location": "Sala 1.13",
+    "title": "Louça de Barcelos"
+  },
+  {
+    "overlayId": "overlay_C519562C_9267_82CE_41C4_33B916CC03CE",
+    "panoramaKey": "panorama_B6568E6D_A455_346D_41C5_C2252FD6D65B",
+    "inventoryIds": [
+      "179 Our MNSR"
+    ],
+    "location": "Sala 2.02",
+    "title": "Salva"
+  },
+  {
+    "overlayId": "overlay_832801B7_9739_18A9_41B6_977442ED8B8F",
+    "panoramaKey": "panorama_B6571DF1_A455_D474_41CF_A5BB16685CD5",
+    "inventoryIds": [
+      "47 Mob MNSR",
+      "48 Mob MNSR",
+      "49 Mob MNSR",
+      "50 Mob MNSR",
+      "51 Mob MNSR"
+    ],
+    "location": "Sala 2.04",
+    "title": "Tremós e consolas"
+  },
+  {
+    "overlayId": "overlay_C503C89B_9262_8FC9_41D2_5F8E31CD1293",
+    "panoramaKey": "panorama_B657537B_A455_CC74_41C6_95E11E757793",
+    "inventoryIds": [
+      "158 Our MNSR"
+    ],
+    "location": "Sala 2.02",
+    "title": "Pendente lanterna"
+  },
+  {
+    "overlayId": "overlay_847878B4_9727_08A9_41D5_4009A32918CF",
+    "panoramaKey": "panorama_B657C78D_A455_F4AC_41D1_1F39BF0C2FE7",
+    "inventoryIds": [
+      "111 Tex CMP/ MNSR"
+    ],
+    "location": "Sala 2.04",
+    "title": "Conjunto de saia e casaco"
+  },
+  {
+    "overlayId": "overlay_F33CDB25_9262_82F9_41DE_EE7DB0B5F22A",
+    "panoramaKey": "panorama_B6AA5BE9_A4AA_DC93_41E1_ED2239876A2D",
+    "inventoryIds": [
+      "31 Tex CMP/ MNSR"
+    ],
+    "location": "Sala 2.03",
+    "title": "Pluvial / Capa de Asperges"
+  },
+  {
+    "overlayId": "overlay_8310AFBD_9767_0899_41CF_7C9AD2BBE4FE",
+    "panoramaKey": "panorama_B7177D59_A45A_FACF_41D0_E4E19A539EEA",
+    "inventoryIds": [
+      "315 Cer CMP/ MNSR"
+    ],
+    "location": "Sala 2.08",
+    "title": "Virgem com o Menino"
+  },
+  {
+    "overlayId": "overlay_C6E5AB5F_922D_814A_41DF_DADBFB34DFCE",
+    "panoramaKey": "panorama_B78B41AC_A46A_CC37_41A8_1E86CDF26F8B",
+    "inventoryIds": [
+      "33 Our MNSR",
+      "59 Tex CMP/ MNSR"
+    ],
+    "location": "Sala 2.01",
+    "title": "Faldistório"
+  },
+  {
+    "overlayId": "overlay_C5C5CD0F_9222_86CA_4194_6E85217AFD4F",
+    "panoramaKey": "panorama_B78B41AC_A46A_CC37_41A8_1E86CDF26F8B",
+    "inventoryIds": [
+      "301 Pin MNSR"
+    ],
+    "location": "Sala 2.01",
+    "title": "D. Frei José Maria da Fonseca e Évora, Bispo do Porto"
+  },
+  {
+    "overlayId": "overlay_892BC2EC_9779_18B8_41C4_58CB853B2011",
+    "panoramaKey": "panorama_B7A0D18C_A46D_4A1B_41DF_BC455DA43320",
+    "inventoryIds": [
+      "4 Cer MNSR"
+    ],
+    "location": "Sala 2.09",
+    "title": "Peças de um serviço de mesa"
+  },
+  {
+    "overlayId": "overlay_837DF4B6_976F_18AB_41BD_FF8C689BA651",
+    "panoramaKey": "panorama_B7F82690_A45A_D65D_41E3_909C30A92E14",
+    "inventoryIds": [
+      "SN"
+    ],
+    "location": "Sala 2.08",
+    "title": "Vidros portugueses do século XVIII"
+  },
+  {
+    "overlayId": "overlay_837680CF_971B_38F8_41BE_274B7B11B3BB",
+    "panoramaKey": "panorama_B7F9816E_A45A_CAC5_41D1_85ED38ADFBB0",
+    "inventoryIds": [
+      "40 Pin MNSR"
+    ],
+    "location": "Sala 2.07",
+    "title": "Natureza-morta"
+  },
+  {
+    "overlayId": "overlay_83D1A55D_971B_3999_41E1_531A7C21E9DA",
+    "panoramaKey": "panorama_B7F9816E_A45A_CAC5_41D1_85ED38ADFBB0",
+    "inventoryIds": [
+      "771 Mob MNSR"
+    ],
+    "location": "Sala 2.07",
+    "title": "Contador com trempe"
+  },
+  {
+    "overlayId": "overlay_83111E59_971F_0B98_41CE_BD3217315A9B",
+    "panoramaKey": "panorama_B7F98C60_A455_3AFD_41D5_78D45063CAE6",
+    "inventoryIds": [
+      "770 Mob MNSR"
+    ],
+    "location": "Sala 2.07",
+    "title": "Arca de bragal com brasão de armas da família Vieira, Ribeiro e Vasconcelos"
+  },
+  {
+    "overlayId": "overlay_83774205_9769_1B69_41D5_EFC549CC21F5",
+    "panoramaKey": "panorama_B7F98C60_A455_3AFD_41D5_78D45063CAE6",
+    "inventoryIds": [
+      "SN"
+    ],
+    "location": "Sala 2.07",
+    "title": "Fábricas de faiança em Portugal – séculos XVIII a XX"
+  },
+  {
+    "overlayId": "overlay_83A6A7F6_9769_38A8_41AA_4A38AA0ACAB4",
+    "panoramaKey": "panorama_B7F98C60_A455_3AFD_41D5_78D45063CAE6",
+    "inventoryIds": [
+      "998 Cer MNSR"
+    ],
+    "location": "Sala 2.07",
+    "title": "Jarra"
+  }
+]

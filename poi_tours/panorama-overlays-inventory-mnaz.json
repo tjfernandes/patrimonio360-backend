@@ -2,15 +2,19 @@
   {
     "overlayId": "sprite_41F5890F_1112_FF73_41AA_15B9DDA1FFD4",
     "panoramaKey": "model_41B32FB0_110F_7293_41A3_0D87FC3F53F0",
-    "inventoryIds": ["MNAz 1 Az"],
+    "inventoryIds": [
+      "MNAz 1 Az"
+    ],
     "location": "Grande Panorama de Lisboa",
     "title": "Vista de Lisboa"
   },
   {
     "overlayId": "sprite_4077752E_111D_57A2_4194_CBCD7204FE5F",
     "panoramaKey": "model_41B32FB0_110F_7293_41A3_0D87FC3F53F0",
-    "inventoryIds": ["MNAz 1 Az (GPL011)"],
+    "inventoryIds": [
+      "MNAz 1 Az (mj)"
+    ],
     "location": "Grande Panorama de Lisboa",
-    "title": "Mosteiro dos Jerónimos"
+    "title": "Representação do Mosteiro dos Jerónimos"
   }
 ]

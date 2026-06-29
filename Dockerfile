@@ -79,8 +79,8 @@ COPY requirements.txt /app/requirements.txt
 
 RUN python -m pip install \
     --index-url https://download.pytorch.org/whl/cu128 \
-    torch==2.8.0 \
-    torchvision==0.23.0
+    torch==2.8.0+cu128 \
+    torchvision==0.23.0+cu128
 
 RUN python -m pip install -r /app/requirements.txt
 

@@ -22,13 +22,13 @@ class ChatSessionState:
     intent: str | None = None
     filters: dict[str, Any] = field(default_factory=dict)
     sort: dict[str, Any] = field(default_factory=dict)
-    selected_artifact_id: str | None = None
     last_result_ids: list[str] = field(default_factory=list)
     last_paged_artifact_results: list[dict[str, Any]] = field(default_factory=list)
     last_paged_image_matches: list[dict[str, Any]] = field(default_factory=list)
     last_paged_navigation_targets: list[dict[str, Any]] = field(default_factory=list)
     last_paged_results_default_page_size: int = 0
     last_paged_retrieval_request: dict[str, Any] = field(default_factory=dict)
+    paged_results_by_request_id: dict[str, dict[str, Any]] = field(default_factory=dict)
     rolling_summary: str = ""
     history: list[ChatTurn] = field(default_factory=list)
     updated_at: float = field(default_factory=time)
@@ -56,13 +56,13 @@ class ChatSessionStore:
             existing.intent = None
             existing.filters = {}
             existing.sort = {}
-            existing.selected_artifact_id = None
             existing.last_result_ids = []
             existing.last_paged_artifact_results = []
             existing.last_paged_image_matches = []
             existing.last_paged_navigation_targets = []
             existing.last_paged_results_default_page_size = 0
             existing.last_paged_retrieval_request = {}
+            existing.paged_results_by_request_id = {}
             existing.rolling_summary = ""
             existing.history = []
 

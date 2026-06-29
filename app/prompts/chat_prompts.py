@@ -5,6 +5,8 @@ from typing import Any
 ROUTER_SYSTEM_PROMPT_PT = (
     "Encaminha pedidos do assistente virtual de museu.\n"
     "- Usa rag para pedidos factuais sobre museu/artefactos, pesquisa, localizacao, cronologia, categorias e colecao. Tambem rag se mencionar algum artefacto ou objeto.\n"
+    "- Se intent for search ou refine, mode TEM de ser rag e needs_retrieval TEM de ser true.\n"
+    "- Nunca devolvas mode=llm_only com intent=search/refine.\n"
     "- Usa llm_only para saudacoes, conversa geral, ou pedidos sem dados suportados.\n"
     "- Politica de precedencia: CURRENT_MESSAGE > MEDIA_ATUAL > EXPLICIT_STATE > RECENT_HISTORY_AUX > ROLLING_SUMMARY_AUX.\n"
     "- Default: nao usar contexto anterior para construir query.\n"
@@ -15,6 +17,8 @@ ROUTER_SYSTEM_PROMPT_PT = (
 ROUTER_SYSTEM_PROMPT_EN = (
     "Route requests for a museum virtual assistant.\n"
     "- Use rag for factual requests about museum/artifacts, search, location, chronology, categories, and collection. Also use rag if an artifact/object is mentioned.\n"
+    "- If intent is search or refine, mode MUST be rag and needs_retrieval MUST be true.\n"
+    "- Never return mode=llm_only with intent=search/refine.\n"
     "- Use llm_only for greetings, small talk, or requests without grounded data.\n"
     "- Source precedence policy: CURRENT_MESSAGE > CURRENT_MEDIA > EXPLICIT_STATE > RECENT_HISTORY_AUX > ROLLING_SUMMARY_AUX.\n"
     "- Default: do not use previous context to build the query.\n"
@@ -242,10 +246,15 @@ def build_final_answer_prompt(
             "Write the final answer fully in English.",
             "Source precedence for answers: retrieval_context > CURRENT_MESSAGE > EXPLICIT_STATE > RECENT_HISTORY_AUX > ROLLING_SUMMARY_AUX.",
             "Use retrieval_context as the primary source of facts.",
+            "If retrieval_context includes visible_results_count/current_visible_results, those are the exact result cards shown in the UI for this answer.",
+            "For search/list answers, keep the text consistent with the visible result cards: never claim fewer found results than visible_results_count, and describe every visible result unless the user explicitly asks for only a subset.",
+            "If a visible card is related to the query but is not the requested object type, mention it as a related visible result instead of omitting it.",
+            "Never mention visible_results_count, current_visible_results, visible_results_total, or other visible-results metadata in the final answer.",
             "Never mention internal prompt/context variable names in the final answer, including retrieval_context, CURRENT_MESSAGE, EXPLICIT_STATE, RECENT_HISTORY_AUX, and ROLLING_SUMMARY_AUX.",
             "Never expose internal identifiers such as artifact_id in the final answer.",
             "Never cite context markers such as [doc_1], [doc_2], or doc_x.",
             "When referring to an object, prefer the title and optionally the inventory reference.",
+            "If using an ordered list, use consecutive markers (1., 2., 3.) without blank lines between items.",
             "rolling_summary is auxiliary and cannot introduce new facts.",
             f"museum_slug: {museum_slug}",
             f"museum_name: {museum_name or 'unknown'}",
@@ -270,6 +279,7 @@ def build_final_answer_prompt(
                 [
                     "No image file or 3D model was sent in this turn.",
                     "Do not assume an image/model attachment when this turn is text-only.",
+                    "If retrieval_context contains an artifact that directly matches the requested object, treat it as found even if it has no image or is not the first result.",
                 ]
             )
 
@@ -303,10 +313,15 @@ def build_final_answer_prompt(
         "Escreve a resposta final integralmente em portugues.",
         "Politica de precedencia para resposta: retrieval_context > CURRENT_MESSAGE > EXPLICIT_STATE > RECENT_HISTORY_AUX > ROLLING_SUMMARY_AUX.",
         "Usa retrieval_context como fonte principal de factos.",
+        "Se retrieval_context incluir visible_results_count/current_visible_results, esses sao os cartoes exatos mostrados na UI para esta resposta.",
+        "Em respostas de pesquisa/lista, mantem o texto consistente com os cartoes visiveis: nunca digas que foram encontrados menos resultados do que visible_results_count, e descreve todos os resultados visiveis salvo se o utilizador pedir explicitamente apenas um subconjunto.",
+        "Se um cartao visivel estiver relacionado com a pesquisa mas nao for o tipo de objeto pedido, menciona-o como resultado relacionado visivel em vez de o omitir.",
+        "Nunca menciones visible_results_count, current_visible_results, visible_results_total ou outro metadado interno dos resultados visiveis na resposta final.",
         "Nunca exponhas variáveis como retrieval_context internos na resposta final.",
         "Nunca exponhas identificadores internos como artifact_id na resposta final.",
         "Nunca cites marcadores de contexto como [doc_1], [doc_2] ou doc_x.",
         "Ao referires um objeto, privilegia o titulo e opcionalmente a referencia de inventario.",
+        "Se usares lista numerada, usa marcadores consecutivos (1., 2., 3.) sem linhas em branco entre itens.",
         "rolling_summary e auxiliar e nao pode introduzir factos novos.",
         "Nao referir nomes de variaveis ou constantes do contexto ou deste prompt, por exemplo retrieval_context, CURRENT_MESSAGE, EXPLICIT_STATE, RECENT_HISTORY_AUX, ROLLING_SUMMARY_AUX.",
         f"museum_slug: {museum_slug}",
@@ -332,6 +347,7 @@ def build_final_answer_prompt(
             [
                 "Neste turno nao foi enviado ficheiro de imagem nem modelo 3D.",
                 "Nao assumes imagem/modelo anexado quando apenas existe texto.",
+                "Se retrieval_context contem um artefacto que corresponde diretamente ao objeto pedido, trata-o como encontrado mesmo que nao tenha imagem ou nao seja o primeiro resultado.",
             ]
         )
 

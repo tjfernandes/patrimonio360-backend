@@ -11,6 +11,8 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.config import get_settings
 from app.schemas.chat import (
+    ArtifactDetailContextResponse,
+    ArtifactResult,
     ChatHealthResponse,
     ChatImageMessageRequest,
     ChatMessageRequest,
@@ -19,6 +21,7 @@ from app.schemas.chat import (
     ChatRegenerateRequest,
     ChatResultsPageRequest,
     ChatResultsPageResponse,
+    RelatedArtifactsPageResponse,
     ResponseFormatObject,
 )
 from app.services.chat_service import ChatService, get_chat_service
@@ -153,6 +156,113 @@ async def post_chat_results_page(
     service: ChatService = Depends(get_chat_service),
 ) -> ChatResultsPageResponse:
     return await service.get_results_page(payload)
+
+
+@router.get("/artifacts/{artifact_id:path}/detail-context", response_model=ArtifactDetailContextResponse)
+async def get_artifact_detail_context(
+    artifact_id: str,
+    museum_slug: str,
+    museum_id: str | None = None,
+    service: ChatService = Depends(get_chat_service),
+) -> ArtifactDetailContextResponse:
+    """Contexto expandido de um artefacto: autores, conjuntos e exposicoes,
+    cada um com os outros artefactos relacionados (e navigation_target se
+    existir na tour). Lazy-loaded pelo modal do frontend."""
+    cleaned_id = (artifact_id or "").strip()
+    if not cleaned_id:
+        raise HTTPException(status_code=400, detail="artifact_id obrigatorio.")
+    cleaned_slug = (museum_slug or "").strip()
+    if not cleaned_slug:
+        raise HTTPException(status_code=400, detail="museum_slug obrigatorio.")
+    return await service.get_artifact_detail_context(
+        museum_slug=cleaned_slug,
+        museum_id=(museum_id or "").strip() or None,
+        artifact_id=cleaned_id,
+    )
+
+
+@router.get("/artifacts/related", response_model=RelatedArtifactsPageResponse)
+async def get_related_artifacts_page(
+    artifact_id: str,
+    tipo: str,
+    entity_id: str,
+    museum_slug: str,
+    museum_id: str | None = None,
+    offset: int = 0,
+    limit: int = 10,
+    service: ChatService = Depends(get_chat_service),
+) -> RelatedArtifactsPageResponse:
+    cleaned_slug = (museum_slug or "").strip()
+    if not cleaned_slug:
+        raise HTTPException(status_code=400, detail="museum_slug obrigatorio.")
+    cleaned_artifact_id = (artifact_id or "").strip()
+    cleaned_entity_id = (entity_id or "").strip()
+    if not cleaned_artifact_id:
+        raise HTTPException(status_code=400, detail="artifact_id obrigatorio.")
+    if not cleaned_entity_id:
+        raise HTTPException(status_code=400, detail="entity_id obrigatorio.")
+    try:
+        return await service.get_related_artifacts_page(
+            museum_slug=cleaned_slug,
+            museum_id=(museum_id or "").strip() or None,
+            artifact_id=cleaned_artifact_id,
+            tipo=(tipo or "").strip(),
+            entity_id=cleaned_entity_id,
+            offset=max(int(offset), 0),
+            limit=max(1, min(int(limit), 50)),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/artifacts/by-inventory/full", response_model=ArtifactResult)
+async def get_artifact_full_by_inventory(
+    inventory_number: str,
+    museum_slug: str,
+    museum_id: str | None = None,
+    service: ChatService = Depends(get_chat_service),
+) -> ArtifactResult:
+    """Devolve um ArtifactResult completo por numero de inventario.
+    Usado para converter eventos da tour em referencias de chat."""
+    cleaned_inventory = (inventory_number or "").strip()
+    if not cleaned_inventory:
+        raise HTTPException(status_code=400, detail="inventory_number obrigatorio.")
+    cleaned_slug = (museum_slug or "").strip()
+    if not cleaned_slug:
+        raise HTTPException(status_code=400, detail="museum_slug obrigatorio.")
+    result = await service.get_artifact_full_by_inventory(
+        museum_slug=cleaned_slug,
+        museum_id=(museum_id or "").strip() or None,
+        inventory_number=cleaned_inventory,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Artefacto nao encontrado.")
+    return result
+
+
+@router.get("/artifacts/{artifact_id:path}/full", response_model=ArtifactResult)
+async def get_artifact_full(
+    artifact_id: str,
+    museum_slug: str,
+    museum_id: str | None = None,
+    service: ChatService = Depends(get_chat_service),
+) -> ArtifactResult:
+    """Devolve um ArtifactResult completo (com imagens) por artifact_id.
+    Usado pelo modal quando se clica num artefacto relacionado."""
+    cleaned_id = (artifact_id or "").strip()
+    if not cleaned_id:
+        raise HTTPException(status_code=400, detail="artifact_id obrigatorio.")
+    cleaned_slug = (museum_slug or "").strip()
+    if not cleaned_slug:
+        raise HTTPException(status_code=400, detail="museum_slug obrigatorio.")
+    result = await service.get_artifact_full(
+        museum_slug=cleaned_slug,
+        museum_id=(museum_id or "").strip() or None,
+        artifact_id=cleaned_id,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Artefacto nao encontrado.")
+    return result
 
 
 @router.post("/messages/stream")

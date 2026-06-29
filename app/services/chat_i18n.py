@@ -43,14 +43,6 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "A gerar vistas do modelo 3D",
         "en": "Generating 3D model views",
     },
-    "status.interpreting_analytics_request": {
-        "pt": "A interpretar pedido analitico",
-        "en": "Interpreting analytics request",
-    },
-    "status.querying_collection": {
-        "pt": "A consultar o acervo",
-        "en": "Querying the collection",
-    },
     "error.no_history_regenerate": {
         "pt": "Conversa sem historico para regenerar.",
         "en": "There is no conversation history to regenerate.",
@@ -99,59 +91,13 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "Analisa este modelo 3D e identifica a peca mais provavel no museu.",
         "en": "Analyze this 3D model and identify the most likely object in the museum.",
     },
+    "message.results_page_fallback": {
+        "pt": "Aqui estao mais resultados encontrados para esta pesquisa.",
+        "en": "Here are more results found for this search.",
+    },
     "llm.final_language_guard": {
         "pt": "A resposta final ao utilizador deve estar integralmente em portugues.",
         "en": "The final user-facing answer must be entirely in English.",
-    },
-    "structured.count": {
-        "pt": {
-            "one": "Existe 1 artefacto no acervo que corresponde ao pedido.",
-            "other": "Existem {count} artefactos no acervo que correspondem ao pedido.",
-        },
-        "en": {
-            "one": "There is 1 artifact in the collection that matches the request.",
-            "other": "There are {count} artifacts in the collection that match the request.",
-        },
-    },
-    "structured.exists.yes": {
-        "pt": "Sim, existe pelo menos 1 artefacto no acervo que corresponde ao pedido.",
-        "en": "Yes, there is at least 1 artifact in the collection that matches the request.",
-    },
-    "structured.exists.no": {
-        "pt": "Nao encontrei artefactos no acervo que correspondam ao pedido.",
-        "en": "I did not find artifacts in the collection that match the request.",
-    },
-    "structured.list.empty": {
-        "pt": "Nao encontrei artefactos no acervo que correspondam ao pedido.",
-        "en": "I did not find artifacts in the collection that match the request.",
-    },
-    "structured.list.header": {
-        "pt": "Artefactos encontrados:",
-        "en": "Artifacts found:",
-    },
-    "structured.list.inventory_prefix": {
-        "pt": "Inventario",
-        "en": "Inventory",
-    },
-    "structured.list.untitled": {
-        "pt": "Artefacto sem titulo disponivel",
-        "en": "Artifact with no available title",
-    },
-    "structured.group.empty": {
-        "pt": "Nao encontrei resultados no acervo para agrupar.",
-        "en": "I did not find collection results to group.",
-    },
-    "structured.group.header": {
-        "pt": "Distribuicao encontrada:",
-        "en": "Distribution found:",
-    },
-    "structured.group.empty_key": {
-        "pt": "Sem valor",
-        "en": "No value",
-    },
-    "structured.fallback": {
-        "pt": "Nao foi possivel gerar resposta para esta query analitica.",
-        "en": "Could not generate an answer for this analytics query.",
     },
     "sanitizer.artifact_label": {
         "pt": "a peca",

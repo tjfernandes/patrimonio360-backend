@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
-import logging
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -19,16 +17,8 @@ from app.services.multiview_renderer import (
 )
 from app.services.opensearch_client import OpenSearchGateway, get_opensearch_gateway
 
-logger = logging.getLogger(__name__)
 ProgressCallback = Callable[[str, dict[str, object]], Awaitable[None]]
 
-EVENT_LABELS: dict[str, str] = {
-    "model.render.first_pass": "Primeiras vistas do modelo 3D geradas.",
-    "model.render.second_pass": "Vistas adicionais do modelo 3D geradas.",
-    "model.render.cache_hit": "Cache de multiview reutilizado para este modelo 3D.",
-    "model.embedding.ready": "Embeddings multimodais gerados para as vistas do modelo 3D.",
-    "model.retrieve.response": "Retrieval multimodal do modelo 3D concluido.",
-}
 
 
 @dataclass(slots=True)
@@ -40,6 +30,7 @@ class ModelRetrievalResult:
     retrieval_window_size: int
     extra_views_used: bool
     top_score: float | None
+    opensearch_query: dict[str, Any] | None = None
 
 
 @dataclass(slots=True)
@@ -77,29 +68,8 @@ class ModelRetrievalService:
         try:
             await progress_cb(message, dict(fields))
         except Exception:
-            logger.debug("model retrieval progress callback failed", exc_info=True)
+            pass
 
-    def _log(self, level: int, event: str, **fields: object) -> None:
-        if self.settings.LOG_JSON:
-            payload = {"event": event, **fields}
-            prefix = EVENT_LABELS.get(event, event)
-            if self.settings.LOG_JSON_PRETTY:
-                logger.log(
-                    level,
-                    f"{prefix}\n"
-                    + json.dumps(
-                        payload,
-                        ensure_ascii=False,
-                        default=str,
-                        indent=max(self.settings.LOG_JSON_INDENT, 0),
-                    ),
-                )
-            else:
-                logger.log(level, f"{prefix} " + json.dumps(payload, ensure_ascii=False, default=str))
-            return
-
-        details = " ".join(f"{key}={value}" for key, value in fields.items())
-        logger.log(level, f"{event} {details}".strip())
 
     def _cache_key(self, *, model_bytes: bytes, file_name: str) -> str:
         digest = hashlib.sha256()
@@ -132,13 +102,6 @@ class ModelRetrievalService:
         file_name: str,
     ) -> _CachedModelEntry:
         if entry.first_pass_views and entry.first_pass_embeddings:
-            self._log(
-                logging.INFO,
-                "model.render.cache_hit",
-                cache_key=cache_key,
-                stage="first_pass",
-                view_count=len(entry.first_pass_views),
-            )
             return self._touch_entry(cache_key, entry)
 
         # Always generate exactly 5 views for deterministic model retrieval.
@@ -151,25 +114,9 @@ class ModelRetrievalService:
             skip_views=0,
             target_view_count=total_views,
         )
-        self._log(
-            logging.INFO,
-            "model.render.first_pass",
-            cache_key=cache_key,
-            file_name=file_name,
-            view_count=len(entry.first_pass_views),
-            target_view_count=total_views,
-        )
         entry.first_pass_embeddings = await self.embedding_provider.embed_many_multimodal_image_bytes(
             image_bytes_values=[view.png_bytes for view in entry.first_pass_views],
             text=None,
-        )
-        self._log(
-            logging.INFO,
-            "model.embedding.ready",
-            cache_key=cache_key,
-            stage="first_pass",
-            embedding_count=len(entry.first_pass_embeddings),
-            embedding_dim=len(entry.first_pass_embeddings[0]) if entry.first_pass_embeddings else 0,
         )
         return self._touch_entry(cache_key, entry)
 
@@ -182,13 +129,6 @@ class ModelRetrievalService:
         file_name: str,
     ) -> _CachedModelEntry:
         if entry.extra_views and entry.extra_embeddings:
-            self._log(
-                logging.INFO,
-                "model.render.cache_hit",
-                cache_key=cache_key,
-                stage="second_pass",
-                view_count=len(entry.extra_views),
-            )
             return self._touch_entry(cache_key, entry)
 
         total_views = max(self.settings.CHAT_MODEL_TOTAL_VIEWS, self.settings.CHAT_MODEL_FIRST_PASS_VIEWS)
@@ -203,25 +143,9 @@ class ModelRetrievalService:
             skip_views=self.settings.CHAT_MODEL_FIRST_PASS_VIEWS,
             target_view_count=total_views,
         )
-        self._log(
-            logging.INFO,
-            "model.render.second_pass",
-            cache_key=cache_key,
-            file_name=file_name,
-            view_count=len(entry.extra_views),
-            target_view_count=total_views,
-        )
         entry.extra_embeddings = await self.embedding_provider.embed_many_multimodal_image_bytes(
             image_bytes_values=[view.png_bytes for view in entry.extra_views],
             text=None,
-        )
-        self._log(
-            logging.INFO,
-            "model.embedding.ready",
-            cache_key=cache_key,
-            stage="second_pass",
-            embedding_count=len(entry.extra_embeddings),
-            embedding_dim=len(entry.extra_embeddings[0]) if entry.extra_embeddings else 0,
         )
         return self._touch_entry(cache_key, entry)
 
@@ -310,18 +234,6 @@ class ModelRetrievalService:
                 top_score = float(image_hits[0].get("score"))
             except (TypeError, ValueError):
                 top_score = None
-        self._log(
-            logging.INFO,
-            "model.retrieve.response",
-            cache_key=cache_key,
-            museum_slug=museum_slug,
-            museum_id=museum_id,
-            image_hits=len(image_hits),
-            image_hits_total=image_hits_total,
-            artifact_docs=len(artifact_docs),
-            extra_views_used=extra_views_used,
-            top_score=top_score,
-        )
         return ModelRetrievalResult(
             image_hits=image_hits,
             artifact_docs=artifact_docs,
@@ -330,6 +242,7 @@ class ModelRetrievalService:
             retrieval_window_size=retrieval_window_size,
             extra_views_used=extra_views_used,
             top_score=top_score,
+            opensearch_query=image_page.query_body,
         )
 
 

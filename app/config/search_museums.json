@@ -1,0 +1,48 @@
+[
+  {
+    "museum_id": "mnt",
+    "museum_slug": "mnt",
+    "museum_name": "Museu Nacional do Traje",
+    "aliases": [
+      "museu nacional do traje",
+      "museu do traje",
+      "nacional do traje",
+      "mnt"
+    ]
+  },
+  {
+    "museum_id": "mnaz",
+    "museum_slug": "mnaz",
+    "museum_name": "Museu Nacional do Azulejo",
+    "aliases": [
+      "museu nacional do azulejo",
+      "museu do azulejo",
+      "nacional do azulejo",
+      "mnaz"
+    ]
+  },
+  {
+    "museum_id": "mj",
+    "museum_slug": "mj",
+    "museum_name": "Mosteiro dos Jeronimos",
+    "aliases": [
+      "mosteiro dos jeronimos",
+      "mosteiro dos jeronimos",
+      "jeronimos",
+      "jeronimo",
+      "mj"
+    ]
+  },
+  {
+    "museum_id": "mnsr",
+    "museum_slug": "mnsr",
+    "museum_name": "Museu Nacional Soares dos Reis",
+    "aliases": [
+      "museu nacional soares dos reis",
+      "museu soares dos reis",
+      "soares dos reis",
+      "soares dos resi",
+      "mnsr"
+    ]
+  }
+]

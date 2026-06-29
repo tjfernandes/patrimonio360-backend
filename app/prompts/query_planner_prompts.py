@@ -2,63 +2,65 @@ import json
 from typing import Any
 
 
-ANALYTICS_PLANNER_SYSTEM_PROMPT = (
-    "És um planner de queries para OpenSearch num assistente de museu.\n"
-    "Objetivo: converter perguntas analíticas em JSON compacto para um compilador determinístico.\n"
-    "Nunca devolvas OpenSearch DSL.\n"
-    "Nunca devolvas texto fora do JSON.\n"
-    "Usa apenas campos presentes no schema fornecido.\n"
-    "Operações válidas: count, list, group_by, exists.\n"
-    "Se a confiança for baixa, reduz o plano ao mínimo e baixa confidence."
-)
-
 RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT = (
-    "És um assistente de reescrita de queries para OpenSearch num assistente de museu.\n"
-    "Objetivo: gerar queries curtas e úteis para retrieval lexical e embedding.\n"
+    "És um extrator de expressões de pesquisa para um índice de acervo museológico.\n"
+    "A tua tarefa NÃO é responder ao utilizador.\n"
+    "A tua tarefa NÃO é resumir a pergunta.\n"
+    "A tua tarefa é extrair a expressão nominal concreta que deve ser pesquisada no índice.\n"
     "Responde APENAS JSON válido.\n"
-    "Não inventes factos nem IDs.\n"
-    "Remove conversa social e palavras de cortesia.\n"
-    "Mantém nomes próprios e termos artísticos relevantes.\n"
-    "Não expandas com sinónimos desnecessários.\n"
 )
-
-
-def build_analytics_planner_prompt(
-    *,
-    question: str,
-    schema_payload: dict[str, Any],
-    output_schema: dict[str, Any],
-) -> str:
-    return (
-        "Produz um plano estruturado para a pergunta do utilizador.\n"
-        "Responde em JSON estrito e compacto de acordo com `output_schema_json`.\n\n"
-        f"schema_json: {json.dumps(schema_payload, ensure_ascii=True)}\n"
-        f"output_schema_json: {json.dumps(output_schema, ensure_ascii=True)}\n"
-        f"question: {question}\n"
-    )
 
 
 def build_retrieval_query_rewrite_prompt(
     *,
     user_query: str,
-    museum_slug: str,
-    museum_id: str | None,
     filters: dict[str, Any],
     sort: dict[str, Any],
 ) -> str:
     return (
-        "Gera duas versões para retrieval:\n"
-        "1) lexical_query: limpa, focada, adequada para multi_match em OpenSearch.\n"
-        "2) embedding_query: equivalente semântica para embedding de texto.\n"
-        "As duas devem ser curtas (idealmente <= 10 tokens) e na MESMA lingua de user_query.\n"
-        "Nunca traduzas (ex.: português para inglês, ou inglês para português).\n"
-        "Não inventes termos novos; simplifica apenas removendo ruído e cortesia.\n"
-        "Se não houver melhoria clara, mantém o sentido literal da query.\n\n"
-        "Responde com JSON estrito no formato:\n"
-        '{"lexical_query":"...","embedding_query":"..."}\n\n'
+        "És um extrator de expressões de pesquisa para um índice de acervo museológico.\n\n"
+        "A tua tarefa NÃO é responder ao utilizador.\n"
+        "A tua tarefa NÃO é resumir a pergunta.\n"
+        "A tua tarefa é extrair a expressão nominal concreta que deve ser pesquisada no índice.\n\n"
+        "Regras obrigatórias:\n"
+        "- Mantém a expressão do utilizador na mesma língua.\n"
+        "- Nunca traduzas.\n"
+        "- Nunca substituas por sinónimos.\n"
+        "- Nunca mudes singular/plural.\n"
+        "- Nunca removas palavras internas de expressões compostas: \"de\", \"do\", \"da\", \"dos\", \"das\" devem ficar quando fazem parte do nome.\n"
+        "- Nao incluas anos, datas, seculos, decadas ou periodos historicos quando forem restricoes temporais; isso e filtro de metadata.\n"
+        "- Nao incluas frases de scope como \"nesta visita virtual\", \"na visita 360\" ou \"no tour\"; isso e filtro de metadata.\n"
+        "- A query extraida sera usada tanto para BM25 como para embeddings; deve ser curta, nominal e pesquisavel.\n"
+        "- Remove intencoes de resposta, ranking ou planeamento: \"porque sao importantes\", \"para Portugal\", \"nao devo perder\", \"imperdivel\", \"recomendados\", \"15 minutos\", \"tempo limitado\".\n"
+        "- Remove molduras interrogativas: \"quem sao\", \"quais sao\", \"se eu tiver\", \"o que\", \"porque\", \"explica\".\n"
+        "- Remove apenas intenção/conversa: \"consegues\", \"podes\", \"encontra\", \"existem\", \"há\", \"quero\", \"procuro\".\n"
+        "- Remove termos genéricos de enquadramento: \"museu\", \"acervo\", \"coleção\", \"peças\", \"objetos\", exceto se forem a única coisa pesquisável.\n"
+        "- Se existir uma expressão específica de objeto, material, tema, autor ou título, usa essa expressão.\n"
+        "- Prefere a expressão específica mais longa em vez de uma palavra isolada.\n"
+        "- Se não tiveres certeza, copia a expressão mais literal da pergunta; não inventes uma query nova.\n\n"
+        "Exemplos:\n"
+        "user_query: Encontra brincos\n"
+        "output: {\"lexical_query\":\"brincos\"}\n"
+        "user_query: Consegues encontrar vestidos de noiva?\n"
+        "output: {\"lexical_query\":\"vestidos de noiva\"}\n"
+        "user_query: existem fatos de banho no acervo do museu?\n"
+        "output: {\"lexical_query\":\"fatos de banho\"}\n"
+        "user_query: há túmulos de reis?\n"
+        "output: {\"lexical_query\":\"túmulos de reis\"}\n"
+        "user_query: e o túmulo de Fernando Pessoa\n"
+        "output: {\"lexical_query\":\"túmulo de Fernando Pessoa\"}\n\n"
+        "user_query: Quem são as personalidades sepultadas nos Jerónimos e porque são importantes para Portugal?\n"
+        "output: {\"lexical_query\":\"personalidades sepultadas nos Jerónimos\"}\n"
+        "user_query: Se eu tiver apenas 15 minutos para uma visita virtual, quais são os objetos que não devo perder?\n"
+        "output: {\"lexical_query\":\"objetos\"}\n\n"
+        "Contraexemplos proibidos:\n"
+        "- \"fatos de banho\" nunca deve virar \"banhos\".\n"
+        "- \"vestidos de noiva\" nunca deve virar \"vestidos\".\n"
+        "- \"túmulo de Fernando Pessoa\" nunca deve virar \"Fernando Pessoa\" se o objeto \"túmulo\" foi pedido.\n"
+        "- Nunca incluir \"museu\", \"acervo\" ou \"coleção\" quando há termos específicos.\n\n"
+        "Responde apenas JSON:\n"
+        "{\"lexical_query\":\"...\"}\n\n"
         f"user_query: {user_query}\n"
-        f"museum_slug: {museum_slug}\n"
-        f"museum_id: {museum_id or ''}\n"
         f"active_filters_json: {json.dumps(filters, ensure_ascii=True)}\n"
         f"active_sort_json: {json.dumps(sort, ensure_ascii=True)}\n"
     )

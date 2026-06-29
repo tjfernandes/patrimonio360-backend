@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from app.services.chat_service import ChatService, get_chat_service
 
-logger = logging.getLogger(__name__)
 
 
 async def warmup_chat_stack(
@@ -31,5 +29,4 @@ async def warmup_chat_stack(
         await resolved_service.model_retrieval_service.renderer.ensure_worker_running()
         results["multiview_worker_ready"] = True
 
-    logger.info("chat stack warmup completed: %s", results)
     return results

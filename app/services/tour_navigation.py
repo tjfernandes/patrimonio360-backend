@@ -3,14 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import json
-import logging
 import re
 from pathlib import Path
 from typing import Any
 
 from app.core.config import Settings, get_settings
 
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -90,7 +88,6 @@ class TourNavigationService:
             try:
                 payload = json.loads(file_path.read_text(encoding="utf-8"))
             except Exception:
-                logger.exception("Failed to parse POI mapping file: %s", file_path)
                 continue
             if not isinstance(payload, list):
                 continue
@@ -136,7 +133,6 @@ class TourNavigationService:
             self._inventory_index[museum_key] = index
         else:
             self._inventory_index[museum_key] = {}
-            logger.info("No POI mapping file found for museum_slug=%s", museum_slug)
         self._loaded_museums.add(museum_key)
 
     def resolve_targets(

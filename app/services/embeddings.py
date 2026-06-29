@@ -3,15 +3,10 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 from functools import lru_cache
-import importlib
-from importlib import metadata as importlib_metadata
 import io
 import json
-import logging
 import math
-import os
 from pathlib import Path
-import sys
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlparse
@@ -28,10 +23,6 @@ except ImportError:  # pragma: no cover
 
 class EmbeddingProviderError(RuntimeError):
     """Raised when embedding generation is unavailable or fails."""
-
-
-logger = logging.getLogger(__name__)
-_RUNTIME_VERSIONS_LOGGED = False
 
 
 def _import_torch() -> Any:
@@ -74,113 +65,6 @@ def _import_pil_image() -> Any:
     return Image
 
 
-def _distribution_version(dist_name: str) -> str:
-    try:
-        return importlib_metadata.version(dist_name)
-    except importlib_metadata.PackageNotFoundError:
-        return "not-installed"
-    except Exception:  # pragma: no cover
-        return "unknown"
-
-
-def _qwen_vl_utils_version() -> str:
-    try:
-        module = importlib.import_module("qwen_vl_utils")
-    except Exception:
-        return "not-installed"
-    version = getattr(module, "__version__", None)
-    if version is None:
-        return "unknown"
-    return str(version)
-
-
-def _dtype_name(dtype: Any) -> str:
-    for attr in ("name", "__name__"):
-        value = getattr(dtype, attr, None)
-        if value:
-            return str(value)
-    return str(dtype)
-
-
-def _gpu_capability_repr(capability: Any) -> str | None:
-    if not isinstance(capability, tuple) or len(capability) != 2:
-        return None
-    return f"{capability[0]}.{capability[1]}"
-
-
-def _runtime_versions_snapshot() -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "python_version": sys.version.replace("\n", " "),
-        "transformers_version": _distribution_version("transformers"),
-        "sentence_transformers_version": _distribution_version("sentence-transformers"),
-        "huggingface_hub_version": _distribution_version("huggingface-hub"),
-        "qwen_vl_utils_version": _qwen_vl_utils_version(),
-        "embeddings_module_file": __file__,
-    }
-
-    try:
-        torch = _import_torch()
-    except EmbeddingProviderError as exc:
-        payload.update(
-            {
-                "torch_version": "not-installed",
-                "torch_cuda_version": "not-installed",
-                "torch_cuda_available": False,
-                "torch_import_error": str(exc),
-            }
-        )
-        return payload
-
-    cuda_available = bool(torch.cuda.is_available())
-    gpu_name: str | None = None
-    gpu_capability: str | None = None
-    if cuda_available:
-        try:
-            gpu_name = str(torch.cuda.get_device_name(0))
-        except Exception:  # pragma: no cover
-            gpu_name = None
-        try:
-            gpu_capability = _gpu_capability_repr(torch.cuda.get_device_capability(0))
-        except Exception:  # pragma: no cover
-            gpu_capability = None
-
-    payload.update(
-        {
-            "torch_version": str(getattr(torch, "__version__", "unknown")),
-            "torch_cuda_version": str(getattr(getattr(torch, "version", None), "cuda", None)),
-            "torch_cuda_available": cuda_available,
-            "gpu_name": gpu_name,
-            "gpu_capability": gpu_capability,
-        }
-    )
-    return payload
-
-
-def _log_runtime_versions_once() -> None:
-    global _RUNTIME_VERSIONS_LOGGED
-    if _RUNTIME_VERSIONS_LOGGED:
-        return
-    logger.info("Embedding runtime snapshot: %s", _runtime_versions_snapshot())
-    _RUNTIME_VERSIONS_LOGGED = True
-
-
-def _st_modules_snapshot(model: Any) -> list[dict[str, str]]:
-    modules: list[dict[str, str]] = []
-    named_children = getattr(model, "named_children", None)
-    if callable(named_children):
-        try:
-            for name, module in named_children():
-                modules.append(
-                    {
-                        "name": str(name),
-                        "type": f"{module.__class__.__module__}.{module.__class__.__name__}",
-                    }
-                )
-        except Exception:  # pragma: no cover
-            return []
-    return modules
-
-
 def _vector_norm(values: Sequence[float]) -> float:
     return math.sqrt(sum(float(value) * float(value) for value in values))
 
@@ -190,22 +74,6 @@ def _l2_normalize_vector(values: Sequence[float]) -> list[float]:
     if norm <= 0:
         return [float(value) for value in values]
     return [float(value) / norm for value in values]
-
-
-def _hf_cache_hints() -> dict[str, str | None]:
-    return {
-        "HF_HOME": os.getenv("HF_HOME"),
-        "HUGGINGFACE_HUB_CACHE": os.getenv("HUGGINGFACE_HUB_CACHE"),
-        "TRANSFORMERS_CACHE": os.getenv("TRANSFORMERS_CACHE"),
-        "SENTENCE_TRANSFORMERS_HOME": os.getenv("SENTENCE_TRANSFORMERS_HOME"),
-    }
-
-
-def _st_resolution_snapshot(model: Any) -> dict[str, Any]:
-    return {
-        "model_name_or_path": getattr(model, "model_name_or_path", None),
-        "cache_folder": getattr(model, "cache_folder", None),
-    }
 
 
 def _pick_runtime(prefer_bf16: bool) -> tuple[str, Any, str]:
@@ -393,25 +261,13 @@ class QwenTextEmbedder:
         max_length: int,
         prefer_bf16: bool,
         batch_size: int,
-        debug_embeddings: bool = False,
     ) -> None:
         SentenceTransformer = _import_sentence_transformers()
         self.model_id = model_id
         self.max_length = max(1, max_length)
         self.batch_size = max(1, batch_size)
-        self.debug_embeddings = debug_embeddings
         self.device, self.dtype, self.precision = _pick_runtime(prefer_bf16)
-        dtype_name = _dtype_name(self.dtype)
 
-        logger.info(
-            "Text embedder load start: model_id=%s device=%s dtype=%s precision=%s max_seq_length=%s cache_hints=%s",
-            self.model_id,
-            self.device,
-            dtype_name,
-            self.precision,
-            self.max_length,
-            _hf_cache_hints(),
-        )
 
         self.model = SentenceTransformer(
             self.model_id,
@@ -426,14 +282,6 @@ class QwenTextEmbedder:
                 tokenizer.pad_token = tokenizer.eos_token
         self.model.max_seq_length = self.max_length
         self.embedding_dimension = int(self.model.get_embedding_dimension())
-        logger.info(
-            "Text embedder load finish: model_id=%s loaded_type=%s embedding_dim=%s resolution=%s modules=%s",
-            self.model_id,
-            f"{self.model.__class__.__module__}.{self.model.__class__.__name__}",
-            self.embedding_dimension,
-            _st_resolution_snapshot(self.model),
-            _st_modules_snapshot(self.model),
-        )
 
     def embed_documents(
         self,
@@ -453,20 +301,6 @@ class QwenTextEmbedder:
             show_progress_bar=progress_desc is not None,
         )
         payload = vectors.tolist()
-        if payload:
-            first_vector = payload[0]
-            logger.info(
-                "Text embedding encode done: model_id=%s batch_size=%s output_dim=%s norm_first=%.6f",
-                self.model_id,
-                len(cleaned),
-                len(first_vector),
-                _vector_norm(first_vector),
-            )
-            if self.debug_embeddings:
-                logger.info(
-                    "Text embedding preview first5=%s",
-                    [float(value) for value in first_vector[:5]],
-                )
         return payload
 
     def embed_document(self, text: str) -> list[float]:
@@ -484,14 +318,12 @@ class BGEM3TextEmbedder:
         max_length: int,
         batch_size: int,
         expected_dimension: int,
-        debug_embeddings: bool = False,
     ) -> None:
         BGEM3FlagModel = _import_flag_embedding()
         self.model_id = model_id
         self.max_length = max(1, max_length)
         self.batch_size = max(1, batch_size)
         self.expected_dimension = max(1, expected_dimension)
-        self.debug_embeddings = debug_embeddings
 
         use_fp16 = False
         try:
@@ -500,20 +332,8 @@ class BGEM3TextEmbedder:
         except EmbeddingProviderError:
             use_fp16 = False
 
-        logger.info(
-            "BGEM3 text embedder load start: model_id=%s use_fp16=%s expected_dim=%s max_length=%s",
-            self.model_id,
-            use_fp16,
-            self.expected_dimension,
-            self.max_length,
-        )
         self.model = BGEM3FlagModel(self.model_id, use_fp16=use_fp16)
         self.embedding_dimension = self.expected_dimension
-        logger.info(
-            "BGEM3 text embedder load finish: model_id=%s expected_dim=%s",
-            self.model_id,
-            self.embedding_dimension,
-        )
 
     def _normalize_payload(self, payload: Any) -> list[list[float]]:
         if hasattr(payload, "tolist"):
@@ -561,20 +381,6 @@ class BGEM3TextEmbedder:
             raise EmbeddingProviderError("BGEM3 encode did not return dense_vecs.")
 
         vectors = self._normalize_payload(dense)
-        if vectors:
-            first_vector = vectors[0]
-            logger.info(
-                "BGEM3 text embedding encode done: model_id=%s batch_size=%s output_dim=%s norm_first=%.6f",
-                self.model_id,
-                len(cleaned),
-                len(first_vector),
-                _vector_norm(first_vector),
-            )
-            if self.debug_embeddings:
-                logger.info(
-                    "BGEM3 text embedding preview first5=%s",
-                    [float(value) for value in first_vector[:5]],
-                )
         return vectors
 
     def embed_document(self, text: str) -> list[float]:
@@ -593,25 +399,16 @@ class OpenRouterBGETextEmbedder:
         base_url: str,
         batch_size: int,
         expected_dimension: int,
-        debug_embeddings: bool = False,
     ) -> None:
         self.model_id = model_id.strip()
         self.batch_size = max(1, batch_size)
         self.expected_dimension = max(1, expected_dimension)
-        self.debug_embeddings = debug_embeddings
         self.client = OpenRouterEmbeddingsClient(
             api_key=api_key,
             base_url=base_url,
             model_id=self.model_id,
         )
         self.embedding_dimension = self.expected_dimension
-        logger.info(
-            "OpenRouter BGEM3 text embedder configured: model_id=%s base_url=%s expected_dim=%s batch_size=%s",
-            self.model_id,
-            self.client.base_url,
-            self.embedding_dimension,
-            self.batch_size,
-        )
 
     def _normalize_payload(self, payload: Any) -> list[list[float]]:
         if not isinstance(payload, list):
@@ -645,20 +442,6 @@ class OpenRouterBGETextEmbedder:
             raw_vectors = self.client.embed_texts(batch)
             vectors.extend(self._normalize_payload(raw_vectors))
 
-        if vectors:
-            first_vector = vectors[0]
-            logger.info(
-                "OpenRouter BGEM3 text embedding encode done: model_id=%s batch_size=%s output_dim=%s norm_first=%.6f",
-                self.model_id,
-                len(cleaned),
-                len(first_vector),
-                _vector_norm(first_vector),
-            )
-            if self.debug_embeddings:
-                logger.info(
-                    "OpenRouter BGEM3 text embedding preview first5=%s",
-                    [float(value) for value in first_vector[:5]],
-                )
         return vectors
 
     def embed_document(self, text: str) -> list[float]:
@@ -676,31 +459,13 @@ class QwenMultimodalImageEmbedder:
         max_length: int,
         prefer_bf16: bool,
         image_batch_size: int,
-        debug_embeddings: bool = False,
     ) -> None:
         SentenceTransformer = _import_sentence_transformers()
         self.model_id = model_id
         self.max_length = max(1, max_length)
         self.image_batch_size = max(1, image_batch_size)
-        self.debug_embeddings = debug_embeddings
         self.device, self.dtype, self.precision = _pick_runtime(prefer_bf16)
-        self._logged_first_image_encode = False
-        self._logged_first_embedding_output = False
-        dtype_name = _dtype_name(self.dtype)
 
-        logger.info(
-            "VL embedder load start (SentenceTransformer image-only): model_id=%s device=%s dtype=%s precision=%s max_seq_length=%s cache_hints=%s",
-            self.model_id,
-            self.device,
-            dtype_name,
-            self.precision,
-            self.max_length,
-            _hf_cache_hints(),
-        )
-        logger.info(
-            "VL embedder path confirmation: model_id=%s uses SentenceTransformer.encode(images). AutoModel/AutoProcessor are not used in this backend path.",
-            self.model_id,
-        )
 
         self.model = SentenceTransformer(
             self.model_id,
@@ -710,14 +475,6 @@ class QwenMultimodalImageEmbedder:
         )
         self.model.max_seq_length = self.max_length
         self.embedding_dimension = int(self.model.get_embedding_dimension())
-        logger.info(
-            "VL embedder load finish: model_id=%s loaded_type=%s embedding_dim=%s resolution=%s modules=%s",
-            self.model_id,
-            f"{self.model.__class__.__module__}.{self.model.__class__.__name__}",
-            self.embedding_dimension,
-            _st_resolution_snapshot(self.model),
-            _st_modules_snapshot(self.model),
-        )
 
     def _load_image(self, image_source: str | None) -> Any:
         Image = _import_pil_image()
@@ -737,36 +494,7 @@ class QwenMultimodalImageEmbedder:
         with Image.open(io.BytesIO(image_bytes)) as image:
             return image.convert("RGB").copy()
 
-    def _log_first_image_encode_input(self, image: Any, *, source: str) -> None:
-        if self._logged_first_image_encode:
-            return
-        self._logged_first_image_encode = True
-        size = getattr(image, "size", None)
-        mode = getattr(image, "mode", None)
-        logger.info(
-            "VL first image encode input: path=image-only PIL.Image source=%s size=%s mode=%s",
-            source,
-            size,
-            mode,
-        )
 
-    def _log_embedding_vector(self, vector: Sequence[float], *, label: str) -> None:
-        if self._logged_first_embedding_output:
-            return
-        self._logged_first_embedding_output = True
-        norm = _vector_norm(vector)
-        logger.info(
-            "%s embedding stats: output_dim=%s norm=%.6f normalize_embeddings=True",
-            label,
-            len(vector),
-            norm,
-        )
-        if self.debug_embeddings:
-            logger.info(
-                "%s embedding preview first5=%s",
-                label,
-                [float(value) for value in vector[:5]],
-            )
 
     def embed_many_images(
         self,
@@ -786,7 +514,6 @@ class QwenMultimodalImageEmbedder:
             valid_images = [img for img in images if img is not None]
             if not valid_images:
                 continue
-            self._log_first_image_encode_input(valid_images[0], source="image_source")
 
             encoded = self.model.encode(
                 valid_images,
@@ -797,8 +524,6 @@ class QwenMultimodalImageEmbedder:
             )
             payload = encoded.tolist()
             vectors.extend(payload)
-            if payload:
-                self._log_embedding_vector(payload[0], label="VL")
 
         return vectors
 
@@ -843,7 +568,6 @@ class QwenMultimodalImageEmbedder:
 
             if not valid_images:
                 continue
-            self._log_first_image_encode_input(valid_images[0], source="image_bytes")
 
             encoded = self.model.encode(
                 valid_images,
@@ -854,8 +578,6 @@ class QwenMultimodalImageEmbedder:
             )
             payload = encoded.tolist()
             vectors.extend(payload)
-            if payload:
-                self._log_embedding_vector(payload[0], label="VL")
 
         return vectors
 
@@ -871,18 +593,9 @@ class EmbeddingProvider:
         self._text_embedder: QwenTextEmbedder | BGEM3TextEmbedder | OpenRouterBGETextEmbedder | None = None
         self._multimodal_embedder: QwenMultimodalImageEmbedder | None = None
 
-        _log_runtime_versions_once()
-        logger.info(
-            "Embedding provider initialized: module_file=%s text_model_id=%s multimodal_model_id=%s debug_embeddings=%s",
-            __file__,
-            self.text_model_id,
-            self.multimodal_model_id,
-            bool(self.settings.DEBUG_EMBEDDINGS),
-        )
 
     def _get_text_embedder(self) -> QwenTextEmbedder | BGEM3TextEmbedder | OpenRouterBGETextEmbedder:
         if self._text_embedder is None:
-            logger.info("Text embedder lazy-load triggered.")
             normalized_model_id = self.text_model_id.strip().lower()
             if normalized_model_id == "baai/bge-m3":
                 if self.settings.USE_OPENROUTER_BGE_M3:
@@ -892,7 +605,6 @@ class EmbeddingProvider:
                         base_url=self.settings.openrouter_base_url_resolved,
                         batch_size=self.settings.TEXT_EMBEDDING_BATCH_SIZE,
                         expected_dimension=self.settings.ARTIFACT_TEXT_EMBEDDING_DIMENSION,
-                        debug_embeddings=self.settings.DEBUG_EMBEDDINGS,
                     )
                 else:
                     self._text_embedder = BGEM3TextEmbedder(
@@ -900,7 +612,6 @@ class EmbeddingProvider:
                         max_length=self.settings.EMBEDDING_MAX_LENGTH,
                         batch_size=self.settings.TEXT_EMBEDDING_BATCH_SIZE,
                         expected_dimension=self.settings.ARTIFACT_TEXT_EMBEDDING_DIMENSION,
-                        debug_embeddings=self.settings.DEBUG_EMBEDDINGS,
                     )
             else:
                 self._text_embedder = QwenTextEmbedder(
@@ -908,19 +619,16 @@ class EmbeddingProvider:
                     max_length=self.settings.EMBEDDING_MAX_LENGTH,
                     prefer_bf16=self.settings.EMBEDDING_PREFER_BF16,
                     batch_size=self.settings.TEXT_EMBEDDING_BATCH_SIZE,
-                    debug_embeddings=self.settings.DEBUG_EMBEDDINGS,
                 )
         return self._text_embedder
 
     def _get_multimodal_embedder(self) -> QwenMultimodalImageEmbedder:
         if self._multimodal_embedder is None:
-            logger.info("VL embedder lazy-load triggered.")
             self._multimodal_embedder = QwenMultimodalImageEmbedder(
                 self.multimodal_model_id,
                 max_length=self.settings.EMBEDDING_MAX_LENGTH,
                 prefer_bf16=self.settings.EMBEDDING_PREFER_BF16,
                 image_batch_size=self.settings.MULTIMODAL_IMAGE_EMBEDDING_BATCH_SIZE,
-                debug_embeddings=self.settings.DEBUG_EMBEDDINGS,
             )
         return self._multimodal_embedder
 
