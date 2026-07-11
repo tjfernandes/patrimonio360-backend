@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "notes": "Small benchmark fixture for loader and smoke tests.",
+  "cases": [
+    {
+      "case_id": "smoke_text_single",
+      "museum_id": "mnt",
+      "mode": "text_single",
+      "query": "smoke single query",
+      "target_artifact": "artifact_smoke_single"
+    },
+    {
+      "case_id": "smoke_text_multi",
+      "museum_id": "mnt",
+      "mode": "text_multi",
+      "query": "smoke multi query",
+      "relevant_artifacts": [
+        "artifact_smoke_multi_a",
+        "artifact_smoke_multi_b"
+      ]
+    },
+    {
+      "case_id": "smoke_rewriting_pair",
+      "museum_id": "mnt",
+      "mode": "rewriting_pair",
+      "q1": "Mostra o conjunto smoke.",
+      "q2": "E o detalhe?",
+      "rewritten_query": "detalhe do conjunto smoke",
+      "target_artifact": "artifact_smoke_rewrite"
+    },
+    {
+      "case_id": "smoke_image",
+      "museum_id": "mg",
+      "mode": "image",
+      "image_path": "../../../assets/images/1000.jpg",
+      "target_artifact": "artifact_smoke_image"
+    },
+    {
+      "case_id": "smoke_model",
+      "museum_id": "mj",
+      "mode": "model_3d",
+      "model_path": "../../../assets/test/mj/example.glb",
+      "target_artifact": "artifact_smoke_model"
+    },
+    {
+      "case_id": "smoke_incomplete_scaffold",
+      "museum_id": "mnaz",
+      "mode": "image",
+      "image_path": "../../../assets/test/mnaz/jesus_apregoando.jpg",
+      "notes": "Missing ground truth on purpose."
+    }
+  ]
+}

@@ -1,0 +1,530 @@
+{
+  "cases_total": 54,
+  "id_mapping": {
+    "artifact_132856": {
+      "new_id": "raiz:movel:45139",
+      "tier": "A_inventory",
+      "case_id": "M01",
+      "title": "Véstia/Criança",
+      "inventory_number": "7617"
+    },
+    "artifact_135373": {
+      "new_id": "raiz:movel:55955",
+      "tier": "A_inventory",
+      "case_id": "M02",
+      "title": "Véstia/Masculino",
+      "inventory_number": "3998"
+    },
+    "artifact_134370": {
+      "new_id": "raiz:movel:51434",
+      "tier": "A_inventory",
+      "case_id": "M03",
+      "title": "Vestido/Criança",
+      "inventory_number": "28519/1"
+    },
+    "artifact_133206": {
+      "new_id": "raiz:movel:45838",
+      "tier": "A_inventory",
+      "case_id": "M04",
+      "title": "Bolsa/Feminino",
+      "inventory_number": "967"
+    },
+    "artifact_133135": {
+      "new_id": "raiz:movel:45712",
+      "tier": "A_inventory",
+      "case_id": "M05",
+      "title": "Casaca/Masculino",
+      "inventory_number": "3972"
+    },
+    "artifact_39570": {
+      "new_id": "raiz:movel:1112671",
+      "tier": "A_inventory",
+      "case_id": "M06",
+      "title": "Matiné/Feminino",
+      "inventory_number": "38746"
+    },
+    "artifact_139991": {
+      "new_id": "raiz:movel:70888",
+      "tier": "A_inventory",
+      "case_id": "M07",
+      "title": "Botão",
+      "inventory_number": "4706"
+    },
+    "artifact_100000": {
+      "new_id": "raiz:movel:229739",
+      "tier": "C_perceptual",
+      "case_id": "I01",
+      "title": "Todos os Sinais",
+      "inventory_number": "MNAz 7033 Az"
+    },
+    "artifact_133157": {
+      "new_id": "raiz:movel:61963",
+      "tier": "B2_title_query",
+      "case_id": "T11",
+      "title": "Vestido/Feminino",
+      "inventory_number": "35581"
+    },
+    "artifact_133209": {
+      "new_id": "raiz:movel:45836",
+      "tier": "B2_title_query",
+      "case_id": "T12",
+      "title": "Bolsa/Feminino",
+      "inventory_number": "4204"
+    },
+    "artifact_133241": {
+      "new_id": "raiz:movel:45888",
+      "tier": "B2_title_query",
+      "case_id": "T13",
+      "title": "Leque/Feminino",
+      "inventory_number": "3200"
+    },
+    "artifact_133834": {
+      "new_id": "raiz:movel:48082",
+      "tier": "B_title",
+      "case_id": "T15",
+      "title": "Saiote/Feminino",
+      "inventory_number": "16415"
+    },
+    "artifact_100002": {
+      "new_id": "raiz:movel:229740",
+      "tier": "C_perceptual",
+      "case_id": "I02",
+      "title": "Painel de azulejos",
+      "inventory_number": "MNAz 6376 Az"
+    },
+    "artifact_100013": {
+      "new_id": "raiz:movel:229751",
+      "tier": "C_perceptual",
+      "case_id": "I03",
+      "title": "Édipo e a Esfinge",
+      "inventory_number": "MNAz 5972 Az"
+    },
+    "artifact_100025": {
+      "new_id": "raiz:movel:229762",
+      "tier": "C_perceptual",
+      "case_id": "I04",
+      "title": "Leda e o Cisne",
+      "inventory_number": "MNAz 5978 Az"
+    },
+    "artifact_11343": {
+      "new_id": "raiz:movel:1044091",
+      "tier": "C_perceptual",
+      "case_id": "I14",
+      "title": "Casaquinha/Criança",
+      "inventory_number": "24698"
+    },
+    "artifact_12464": {
+      "new_id": "raiz:movel:1046660",
+      "tier": "C_perceptual",
+      "case_id": "I15",
+      "title": "Bolsa/Feminino",
+      "inventory_number": "38022"
+    },
+    "artifact_12519": {
+      "new_id": "raiz:movel:1046773",
+      "tier": "C_perceptual",
+      "case_id": "I16",
+      "title": "Capa/Feminino",
+      "inventory_number": "38024"
+    },
+    "artifact_12581": {
+      "new_id": "raiz:movel:1046843",
+      "tier": "C_perceptual",
+      "case_id": "I17",
+      "title": "Vestido de noiva/Feminino",
+      "inventory_number": "38027/1"
+    },
+    "artifact_12596": {
+      "new_id": "raiz:movel:1046877",
+      "tier": "C_perceptual",
+      "case_id": "I18",
+      "title": "Sapatos de noiva (par)/Feminino",
+      "inventory_number": "38027/3/4"
+    },
+    "artifact_13022": {
+      "new_id": "raiz:movel:1047963",
+      "tier": "C_perceptual",
+      "case_id": "I19",
+      "title": "Sombrinha/Feminino",
+      "inventory_number": "38034"
+    }
+  },
+  "image_case_matches": {
+    "I01": {
+      "matched_local_path": "Images/museu_nacional_do_azulejo/obj_mnaz_7033_az/fileid_446051_1.jpg",
+      "distance": 2,
+      "second_other_artifact_distance": 94,
+      "live_artifact": {
+        "inventory_number": "MNAz 7033 Az",
+        "artifact_id": "raiz:movel:229739",
+        "title": "Todos os Sinais",
+        "category": "Cerâmica",
+        "museum_id": "mnaz"
+      },
+      "live_image_id": "raiz:image:movel:229739:446051:1"
+    },
+    "I02": {
+      "matched_local_path": "Images/museu_nacional_do_azulejo/obj_mnaz_6376_az/fileid_251948_2.jpg",
+      "distance": 4,
+      "second_other_artifact_distance": 78,
+      "live_artifact": {
+        "inventory_number": "MNAz 6376 Az",
+        "artifact_id": "raiz:movel:229740",
+        "title": "Painel de azulejos",
+        "category": "Cerâmica",
+        "museum_id": "mnaz"
+      },
+      "live_image_id": "raiz:image:movel:229740:251948:2"
+    },
+    "I03": {
+      "matched_local_path": "Images/museu_nacional_do_azulejo/obj_mnaz_5972_az/fileid_666590_2.jpg",
+      "distance": 4,
+      "second_other_artifact_distance": 94,
+      "live_artifact": {
+        "inventory_number": "MNAz 5972 Az",
+        "artifact_id": "raiz:movel:229751",
+        "title": "Édipo e a Esfinge",
+        "category": "Cerâmica",
+        "museum_id": "mnaz"
+      },
+      "live_image_id": "raiz:image:movel:229751:666590:2"
+    },
+    "I04": {
+      "matched_local_path": "Images/museu_nacional_do_azulejo/obj_mnaz_5978_az/fileid_257174_1.jpg",
+      "distance": 4,
+      "second_other_artifact_distance": 95,
+      "live_artifact": {
+        "inventory_number": "MNAz 5978 Az",
+        "artifact_id": "raiz:movel:229762",
+        "title": "Leda e o Cisne",
+        "category": "Cerâmica",
+        "museum_id": "mnaz"
+      },
+      "live_image_id": "raiz:image:movel:229762:257174:1"
+    },
+    "I14": {
+      "matched_local_path": "Images/museu_nacional_do_traje/obj_24698/fileid_764749_1.jpg",
+      "distance": 14,
+      "second_other_artifact_distance": 52,
+      "live_artifact": {
+        "inventory_number": "24698",
+        "artifact_id": "raiz:movel:1044091",
+        "title": "Casaquinha/Criança",
+        "category": "Traje e Adereços",
+        "museum_id": "mnt"
+      },
+      "live_image_id": "raiz:image:movel:1044091:764749:1"
+    },
+    "I15": {
+      "matched_local_path": "Images/museu_nacional_do_traje/obj_38022/fileid_829139_1.jpg",
+      "distance": 4,
+      "second_other_artifact_distance": 70,
+      "live_artifact": {
+        "inventory_number": "38022",
+        "artifact_id": "raiz:movel:1046660",
+        "title": "Bolsa/Feminino",
+        "category": "Traje e Adereços",
+        "museum_id": "mnt"
+      },
+      "live_image_id": "raiz:image:movel:1046660:829139:1"
+    },
+    "I16": {
+      "matched_local_path": "Images/museu_nacional_do_traje/obj_38024/fileid_508093_1.jpg",
+      "distance": 5,
+      "second_other_artifact_distance": 67,
+      "live_artifact": {
+        "inventory_number": "38024",
+        "artifact_id": "raiz:movel:1046773",
+        "title": "Capa/Feminino",
+        "category": "Traje e Adereços",
+        "museum_id": "mnt"
+      },
+      "live_image_id": "raiz:image:movel:1046773:508093:1"
+    },
+    "I17": {
+      "matched_local_path": "Images/museu_nacional_do_traje/obj_38027_1/fileid_782196_1.jpg",
+      "distance": 13,
+      "second_other_artifact_distance": 58,
+      "live_artifact": {
+        "inventory_number": "38027/1",
+        "artifact_id": "raiz:movel:1046843",
+        "title": "Vestido de noiva/Feminino",
+        "category": "Traje e Adereços",
+        "museum_id": "mnt"
+      },
+      "live_image_id": "raiz:image:movel:1046843:782196:1"
+    },
+    "I18": {
+      "matched_local_path": "Images/museu_nacional_do_traje/obj_38027_3_4/fileid_508232_1.jpg",
+      "distance": 4,
+      "second_other_artifact_distance": 65,
+      "live_artifact": {
+        "inventory_number": "38027/3/4",
+        "artifact_id": "raiz:movel:1046877",
+        "title": "Sapatos de noiva (par)/Feminino",
+        "category": "Traje e Adereços",
+        "museum_id": "mnt"
+      },
+      "live_image_id": "raiz:image:movel:1046877:508232:1"
+    },
+    "I19": {
+      "matched_local_path": "Images/museu_nacional_do_traje/obj_38034/fileid_510804_1.jpg",
+      "distance": 2,
+      "second_other_artifact_distance": 77,
+      "live_artifact": {
+        "inventory_number": "38034",
+        "artifact_id": "raiz:movel:1047963",
+        "title": "Sombrinha/Feminino",
+        "category": "Traje e Adereços",
+        "museum_id": "mnt"
+      },
+      "live_image_id": "raiz:image:movel:1047963:510804:1"
+    }
+  },
+  "problems": [
+    {
+      "case_id": "T10",
+      "old_id": "artifact_133165",
+      "reason": "title 'Vestido' ambiguous (5 candidates)",
+      "candidates": [
+        {
+          "artifact_id": "raiz:movel:45721",
+          "title": "Vestido/Feminino",
+          "inventory_number": "18360"
+        },
+        {
+          "artifact_id": "raiz:movel:45723",
+          "title": "Vestido/Feminino",
+          "inventory_number": "7070"
+        },
+        {
+          "artifact_id": "raiz:movel:45725",
+          "title": "Vestido/Feminino",
+          "inventory_number": "18787"
+        },
+        {
+          "artifact_id": "raiz:movel:45741",
+          "title": "Vestido/Feminino",
+          "inventory_number": "4164"
+        },
+        {
+          "artifact_id": "raiz:movel:45759",
+          "title": "Vestido/Feminino",
+          "inventory_number": "12178 B"
+        }
+      ],
+      "tier": "B"
+    },
+    {
+      "case_id": "T14",
+      "old_id": "artifact_133532",
+      "reason": "title 'Vestido' ambiguous (5 candidates)",
+      "candidates": [
+        {
+          "artifact_id": "raiz:movel:48486",
+          "title": "Vestido/Criança",
+          "inventory_number": "12255"
+        },
+        {
+          "artifact_id": "raiz:movel:48495",
+          "title": "Vestido/Criança",
+          "inventory_number": "17098"
+        },
+        {
+          "artifact_id": "raiz:movel:48498",
+          "title": "Vestido/Criança",
+          "inventory_number": "18824"
+        },
+        {
+          "artifact_id": "raiz:movel:48499",
+          "title": "Vestido/Criança",
+          "inventory_number": "18850"
+        },
+        {
+          "artifact_id": "raiz:movel:48630",
+          "title": "Vestido/Criança",
+          "inventory_number": "29980"
+        }
+      ],
+      "tier": "B"
+    },
+    {
+      "case_id": "T19",
+      "old_id": "artifact_142388",
+      "reason": "title 'Vestido' ambiguous (5 candidates)",
+      "candidates": [
+        {
+          "artifact_id": "raiz:movel:63134",
+          "title": "Vestido/Feminino",
+          "inventory_number": "35782"
+        },
+        {
+          "artifact_id": "raiz:movel:63139",
+          "title": "Vestido/Feminino",
+          "inventory_number": "35787"
+        },
+        {
+          "artifact_id": "raiz:movel:1086806",
+          "title": "Vestido/Feminino",
+          "inventory_number": "38436"
+        },
+        {
+          "artifact_id": "raiz:movel:1086781",
+          "title": "Vestido/Feminino",
+          "inventory_number": "38426/1"
+        },
+        {
+          "artifact_id": "raiz:movel:1102677",
+          "title": "Vestido/Feminino",
+          "inventory_number": "29453/1"
+        }
+      ],
+      "tier": "B"
+    },
+    {
+      "case_id": "T20",
+      "old_id": "artifact_19284",
+      "reason": "title 'Vestido' ambiguous (5 candidates)",
+      "candidates": [
+        {
+          "artifact_id": "raiz:movel:68730",
+          "title": "Vestido/Criança",
+          "inventory_number": "36652"
+        },
+        {
+          "artifact_id": "raiz:movel:77314",
+          "title": "Vestido/Feminino",
+          "inventory_number": "33508/1"
+        },
+        {
+          "artifact_id": "raiz:movel:1034964",
+          "title": "Vestido/Feminino",
+          "inventory_number": "37914"
+        },
+        {
+          "artifact_id": "raiz:movel:82284",
+          "title": "Vestido/Criança",
+          "inventory_number": "37713"
+        },
+        {
+          "artifact_id": "raiz:movel:1037002",
+          "title": "Vestido/Feminino",
+          "inventory_number": "38019"
+        }
+      ],
+      "tier": "B"
+    },
+    {
+      "case_id": "I05",
+      "old_id": "artifact_159331",
+      "reason": "no unambiguous perceptual match",
+      "best_distance": 82,
+      "best_path": "Images/museu_nacional_do_azulejo/obj_mnaz_29_cer/fileid_516240_2.jpg",
+      "second_other_artifact_distance": 84,
+      "tier": "C"
+    },
+    {
+      "case_id": "I06",
+      "old_id": "artifact_159332",
+      "reason": "no unambiguous perceptual match",
+      "best_distance": 85,
+      "best_path": "Images/museu_nacional_do_azulejo/obj_mnaz_6875_az/fileid_869935_1.jpg",
+      "second_other_artifact_distance": 86,
+      "tier": "C"
+    },
+    {
+      "case_id": "I07",
+      "old_id": "artifact_159333",
+      "reason": "no unambiguous perceptual match",
+      "best_distance": 82,
+      "best_path": "Images/museu_nacional_do_azulejo/obj_mnaz_6991_1_az/fileid_705173_2.jpg",
+      "second_other_artifact_distance": 87,
+      "tier": "C"
+    },
+    {
+      "case_id": "I08",
+      "old_id": "artifact_159334",
+      "reason": "no unambiguous perceptual match",
+      "best_distance": 98,
+      "best_path": "Images/museu_nacional_do_azulejo/obj_mnaz_513_proj/fileid_815687_1.jpg",
+      "second_other_artifact_distance": 100,
+      "tier": "C"
+    },
+    {
+      "case_id": "I09",
+      "old_id": "artifact_159335",
+      "reason": "no unambiguous perceptual match",
+      "best_distance": 82,
+      "best_path": "Images/museu_nacional_do_azulejo/obj_mnaz_143_esc/fileid_257731_6.jpg",
+      "second_other_artifact_distance": 88,
+      "tier": "C"
+    },
+    {
+      "case_id": "I10",
+      "old_id": "artifact_159336",
+      "reason": "no unambiguous perceptual match",
+      "best_distance": 65,
+      "best_path": "Images/museu_nacional_do_azulejo/obj_mnaz_1573_proj/fileid_877341_1.jpg",
+      "second_other_artifact_distance": 69,
+      "tier": "C"
+    },
+    {
+      "case_id": "I11",
+      "old_id": "artifact_159337",
+      "reason": "no unambiguous perceptual match",
+      "best_distance": 79,
+      "best_path": "Images/museu_nacional_do_azulejo/obj_mnaz_7178_az/fileid_627479_1.jpg",
+      "second_other_artifact_distance": 81,
+      "tier": "C"
+    },
+    {
+      "case_id": "I12",
+      "old_id": "artifact_159338",
+      "reason": "no unambiguous perceptual match",
+      "best_distance": 55,
+      "best_path": "Images/museu_nacional_do_azulejo/obj_mnaz_8904_az/fileid_594585_1.jpg",
+      "second_other_artifact_distance": 89,
+      "tier": "C"
+    },
+    {
+      "case_id": "I13",
+      "old_id": "artifact_159339",
+      "reason": "no unambiguous perceptual match",
+      "best_distance": 94,
+      "best_path": "Images/museu_nacional_do_azulejo/obj_mnaz_95_tec/fileid_555061_2.jpg",
+      "second_other_artifact_distance": 97,
+      "tier": "C"
+    }
+  ],
+  "disabled_unmapped_cases": [
+    "T04",
+    "T06",
+    "T07",
+    "T08",
+    "T09",
+    "T10",
+    "T14",
+    "T16",
+    "T17",
+    "T18",
+    "T19",
+    "T20",
+    "T21",
+    "T22",
+    "T23",
+    "T24",
+    "T25",
+    "T26",
+    "T27",
+    "T28",
+    "I05",
+    "I06",
+    "I07",
+    "I08",
+    "I09",
+    "I10",
+    "I11",
+    "I12",
+    "I13"
+  ]
+}

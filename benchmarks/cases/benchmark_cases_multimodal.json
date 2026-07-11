@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "notes": "Starter multimodal cases (text_to_image / image_text) auto-derived by benchmarks.tools.remap_case_ids. image_text queries are placeholders and MUST be manually curated into real compositional constraints.",
+  "cases": [
+    {
+      "case_id": "T2I_I01",
+      "museum_id": "mnaz",
+      "mode": "text_to_image",
+      "query": "painel com cabeça de perfil e coração",
+      "target_artifact": "raiz:movel:229739",
+      "exclude_image_ids": [
+        "raiz:image:movel:229739:446051:1"
+      ],
+      "notes": "Auto-derivado do caso text_single com o mesmo alvo."
+    },
+    {
+      "case_id": "IT_I01",
+      "museum_id": "mnaz",
+      "mode": "image_text",
+      "image_path": "../assets/mnaz/images/artifact_100000.jpg",
+      "query": "peças de cerâmica semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:229739",
+      "exclude_image_ids": [
+        "raiz:image:movel:229739:446051:1"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    },
+    {
+      "case_id": "T2I_I02",
+      "museum_id": "mnaz",
+      "mode": "text_to_image",
+      "query": "painel com a estação Déak Tér",
+      "target_artifact": "raiz:movel:229740",
+      "exclude_image_ids": [
+        "raiz:image:movel:229740:251948:2"
+      ],
+      "notes": "Auto-derivado do caso text_single com o mesmo alvo."
+    },
+    {
+      "case_id": "IT_I02",
+      "museum_id": "mnaz",
+      "mode": "image_text",
+      "image_path": "../assets/mnaz/images/artifact_100002.jpg",
+      "query": "peças de cerâmica semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:229740",
+      "exclude_image_ids": [
+        "raiz:image:movel:229740:251948:2"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    },
+    {
+      "case_id": "T2I_I03",
+      "museum_id": "mnaz",
+      "mode": "text_to_image",
+      "query": "encontra um painel de Édipo e a Esfinge",
+      "target_artifact": "raiz:movel:229751",
+      "exclude_image_ids": [
+        "raiz:image:movel:229751:666590:2"
+      ],
+      "notes": "Auto-derivado do caso text_single com o mesmo alvo."
+    },
+    {
+      "case_id": "IT_I03",
+      "museum_id": "mnaz",
+      "mode": "image_text",
+      "image_path": "../assets/mnaz/images/artifact_100013.jpg",
+      "query": "peças de cerâmica semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:229751",
+      "exclude_image_ids": [
+        "raiz:image:movel:229751:666590:2"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    },
+    {
+      "case_id": "T2I_I04",
+      "museum_id": "mnaz",
+      "mode": "text_to_image",
+      "query": "painel com Leda e o Cisne",
+      "target_artifact": "raiz:movel:229762",
+      "exclude_image_ids": [
+        "raiz:image:movel:229762:257174:1"
+      ],
+      "notes": "Auto-derivado do caso text_single com o mesmo alvo."
+    },
+    {
+      "case_id": "IT_I04",
+      "museum_id": "mnaz",
+      "mode": "image_text",
+      "image_path": "../assets/mnaz/images/artifact_100025.jpg",
+      "query": "peças de cerâmica semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:229762",
+      "exclude_image_ids": [
+        "raiz:image:movel:229762:257174:1"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    },
+    {
+      "case_id": "IT_I14",
+      "museum_id": "mnt",
+      "mode": "image_text",
+      "image_path": "../assets/mnt/images/artifact_11343.jpg",
+      "query": "peças de traje e adereços semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:1044091",
+      "exclude_image_ids": [
+        "raiz:image:movel:1044091:764749:1"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    },
+    {
+      "case_id": "IT_I15",
+      "museum_id": "mnt",
+      "mode": "image_text",
+      "image_path": "../assets/mnt/images/artifact_12464.jpg",
+      "query": "peças de traje e adereços semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:1046660",
+      "exclude_image_ids": [
+        "raiz:image:movel:1046660:829139:1"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    },
+    {
+      "case_id": "IT_I16",
+      "museum_id": "mnt",
+      "mode": "image_text",
+      "image_path": "../assets/mnt/images/artifact_12519.jpg",
+      "query": "peças de traje e adereços semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:1046773",
+      "exclude_image_ids": [
+        "raiz:image:movel:1046773:508093:1"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    },
+    {
+      "case_id": "IT_I17",
+      "museum_id": "mnt",
+      "mode": "image_text",
+      "image_path": "../assets/mnt/images/artifact_12581.jpg",
+      "query": "peças de traje e adereços semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:1046843",
+      "exclude_image_ids": [
+        "raiz:image:movel:1046843:782196:1"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    },
+    {
+      "case_id": "IT_I18",
+      "museum_id": "mnt",
+      "mode": "image_text",
+      "image_path": "../assets/mnt/images/artifact_12596.jpg",
+      "query": "peças de traje e adereços semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:1046877",
+      "exclude_image_ids": [
+        "raiz:image:movel:1046877:508232:1"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    },
+    {
+      "case_id": "IT_I19",
+      "museum_id": "mnt",
+      "mode": "image_text",
+      "image_path": "../assets/mnt/images/artifact_13022.jpg",
+      "query": "peças de traje e adereços semelhantes a esta imagem",
+      "target_artifact": "raiz:movel:1047963",
+      "exclude_image_ids": [
+        "raiz:image:movel:1047963:510804:1"
+      ],
+      "notes": "AUTO-GERADO (curar manualmente: substituir por restrição composicional real)."
+    }
+  ]
+}
