@@ -64,13 +64,11 @@ class BenchmarkServiceBundle:
         self,
         *,
         include_multimodal: bool,
-        include_reranker: bool,
         include_multiview_worker: bool,
     ) -> None:
         await warmup_chat_stack(
             service=self.chat_service,
             include_multimodal=include_multimodal,
-            include_reranker=include_reranker,
             include_multiview_worker=include_multiview_worker,
         )
 
@@ -108,7 +106,6 @@ def build_service_bundle(
         opensearch_gateway=opensearch_gateway,
         embedding_provider=embedding_provider,
         model_retrieval_service=model_retrieval_service,
-        reranker_service=reranker_service,
         tour_navigation_service=TourNavigationService(settings),
         llm_service=llm_service,
         session_store=session_store,

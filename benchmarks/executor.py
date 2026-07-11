@@ -72,7 +72,6 @@ class OfflineBenchmarkExecutor:
             return
         await self.services.warmup(
             include_multimodal=self.include_multimodal_warmup,
-            include_reranker=self.services.settings.CHAT_ENABLE_RERANKING,
             include_multiview_worker=self.include_multiview_worker_warmup,
         )
         self._warmup_completed = True
