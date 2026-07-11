@@ -40,7 +40,8 @@ class Settings(BaseSettings):
     OPENSEARCH_VERIFY_CERTS: bool = False
     OPENSEARCH_SSL_SHOW_WARN: bool = False
 
-    OPENSEARCH_INDEX_ARTIFACT: str = "cultural_heritage_artifacts_v1"
+    # Defaults reflect the live production indexes; .env still overrides.
+    OPENSEARCH_INDEX_ARTIFACT: str = "cultural_heritage_artifacts"
     OPENSEARCH_INDEX_IMAGE: str = "cultural_heritage_images"
     OPENSEARCH_INDEX_MUSEUM: str = "cultural_heritage_museums"
     # Indices das entidades relacionais (autores, conjuntos, exposicoes).
@@ -52,12 +53,14 @@ class Settings(BaseSettings):
     # Top N de artefactos por conjunto / exposicao a mostrar no modal.
     CHAT_RELATED_ARTIFACTS_TOP_K: int = 24
 
-    ARTIFACT_TEXT_EMBEDDING_DIMENSION: int = 1024
+    # Defaults reflect the production embedding stack (Qwen3-Embedding-4B /
+    # Qwen3-VL-Embedding-2B); .env still overrides.
+    ARTIFACT_TEXT_EMBEDDING_DIMENSION: int = 2560
     ARTIFACT_MULTIMODAL_EMBEDDING_DIMENSION: int = 2048
-    MUSEUM_TEXT_EMBEDDING_DIMENSION: int = 1024
+    MUSEUM_TEXT_EMBEDDING_DIMENSION: int = 2560
     IMAGE_MULTIMODAL_EMBEDDING_DIMENSION: int = 2048
 
-    QWEN_TEXT_EMBEDDING_MODEL_ID: str = "BAAI/bge-m3"
+    QWEN_TEXT_EMBEDDING_MODEL_ID: str = "Qwen/Qwen3-Embedding-4B"
     QWEN_MULTIMODAL_EMBEDDING_MODEL_ID: str = "Qwen/Qwen3-VL-Embedding-2B"
     USE_OPENROUTER_BGE_M3: bool = False
     OPENROUTER_API_KEY: str | None = None
@@ -136,6 +139,30 @@ class Settings(BaseSettings):
     QUERY_LOG_PATH: str = "logs/evaluation/backend_queries.jsonl"
     FRONTEND_EVENT_LOG_PATH: str = "logs/evaluation/frontend_events.jsonl"
 
+    # Reranker (second-stage; disabled by default). These keys existed in .env but
+    # were silently dropped by extra="ignore" until declared here — declaring them
+    # is what makes PairwiseRerankerService constructible at all.
+    CHAT_ENABLE_RERANKING: bool = False
+    RERANKER_MODEL_ID: str = "Qwen/Qwen3-Reranker-4B"
+    RERANKER_MAX_LENGTH: int = 1024
+    RERANKER_BATCH_SIZE: int = 10
+    RERANKER_INSTRUCTION: str = (
+        "Given a web search query, retrieve relevant passages that answer the query"
+    )
+    RERANKER_PREFER_BF16: bool = True
+
+    # Declared for .env parity (currently without consumers in app code).
+    CHAT_ENABLE_STRUCTURED_QUERY_PLANNING: bool = False
+    CHAT_ANALYTICS_PLANNER_MIN_CONFIDENCE: float = 0.55
+    CHAT_ANALYTICS_LIST_TOP_K: int = 8
+    LOG_JSON: bool = False
+    LOG_JSON_PRETTY: bool = False
+    LOG_JSON_INDENT: int = 2
+    LOG_LEVEL: str = "INFO"
+    LOG_CHAT_MESSAGES: bool = False
+    LOG_CHAT_STATE_HISTORY: bool = False
+    DEBUG_EMBEDDINGS: bool = False
+
     @property
     def cors_allow_origins_list(self) -> list[str]:
         return _parse_csv(self.CORS_ALLOW_ORIGINS)
@@ -195,6 +222,11 @@ class Settings(BaseSettings):
         if self.MULTIMODAL_EMBEDDING_MODEL and self.MULTIMODAL_EMBEDDING_MODEL.strip():
             return self.MULTIMODAL_EMBEDDING_MODEL.strip()
         return self.QWEN_MULTIMODAL_EMBEDDING_MODEL_ID.strip()
+
+    @property
+    def reranker_model_resolved(self) -> str:
+        raw = (self.RERANKER_MODEL_ID or "").strip()
+        return raw or "Qwen/Qwen3-Reranker-4B"
 
     @property
     def openrouter_base_url_resolved(self) -> str:

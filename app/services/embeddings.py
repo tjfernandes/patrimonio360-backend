@@ -532,6 +532,51 @@ class QwenMultimodalImageEmbedder:
 
         return vectors
 
+    def embed_text_query(self, text: str) -> list[float]:
+        """Embed a text query into the multimodal (visual) space.
+
+        Used for text-to-image retrieval: the Qwen3-VL embedding model encodes
+        plain text into the same space as its image embeddings.
+        """
+        cleaned = (text or "").strip()
+        if not cleaned:
+            raise EmbeddingProviderError("Cannot generate multimodal embedding for empty text.")
+        encoded = self.model.encode(
+            [cleaned],
+            batch_size=1,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
+        return encoded.tolist()[0]
+
+    def embed_joint_image_bytes(self, image_bytes: bytes, text: str) -> list[float]:
+        """Embed an image together with text as one joint multimodal input.
+
+        sentence-transformers >= 5.4 converts ``{"image": ..., "text": ...}``
+        inputs into the model's chat-message format, interleaving the image and
+        text in a single user turn.
+        """
+        cleaned = (text or "").strip()
+        image = self._load_image_bytes(image_bytes)
+        if not cleaned:
+            encoded = self.model.encode(
+                [image],
+                batch_size=1,
+                normalize_embeddings=True,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+            )
+            return encoded.tolist()[0]
+        encoded = self.model.encode(
+            [{"image": image, "text": cleaned}],
+            batch_size=1,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
+        return encoded.tolist()[0]
+
     def embed(self, *, text: str | None = None, image_source: str | None = None) -> list[float]:
         del text
         if image_source is None:
@@ -826,6 +871,80 @@ class EmbeddingProvider:
             duration_ms=round(duration_ms, 1),
         )
         return vectors
+
+    async def embed_multimodal_text_query(self, text: str) -> list[float]:
+        started_at = time.perf_counter()
+        embedder = self._get_multimodal_embedder()
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.multimodal_text_query.start",
+            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            chars=len((text or "").strip()),
+        )
+        try:
+            vector = await asyncio.to_thread(embedder.embed_text_query, text)
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "embedding.multimodal_text_query.error",
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.multimodal_text_query.finish",
+            dimension=len(vector),
+            duration_ms=round(duration_ms, 1),
+        )
+        return vector
+
+    async def embed_multimodal_joint_image_bytes(
+        self,
+        *,
+        image_bytes: bytes,
+        text: str,
+    ) -> list[float]:
+        started_at = time.perf_counter()
+        embedder = self._get_multimodal_embedder()
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.multimodal_joint.start",
+            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            bytes=len(image_bytes or b""),
+            chars=len((text or "").strip()),
+        )
+        try:
+            vector = await asyncio.to_thread(
+                embedder.embed_joint_image_bytes,
+                image_bytes,
+                text,
+            )
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "embedding.multimodal_joint.error",
+                duration_ms=round(duration_ms, 1),
+                error=exc,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "embedding.multimodal_joint.finish",
+            dimension=len(vector),
+            duration_ms=round(duration_ms, 1),
+        )
+        return vector
 
     def preload_models(self) -> None:
         # Eager-load both embedders at server startup to avoid first-request latency.

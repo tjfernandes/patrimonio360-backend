@@ -977,7 +977,10 @@ class OpenSearchGateway:
         size_override: int | None = None,
         pagination_depth: int | None = None,
         retrieval_window_size: int | None = None,
+        retrieval_mode: str = "hybrid",
     ) -> dict[str, Any]:
+        if retrieval_mode not in {"hybrid", "bm25_only", "dense_only"}:
+            raise ValueError(f"Unsupported retrieval_mode '{retrieval_mode}'.")
         from_value = max(int(from_offset), 0)
         size = (
             max(int(size_override), 1)
@@ -997,9 +1000,11 @@ class OpenSearchGateway:
         )
         in_tour_boost_clause = self._build_in_tour_boost_clause()
         hybrid_queries: list[dict[str, Any]] = []
-        embedding_only = self.settings.CHAT_RETRIEVAL_EMBEDDING_ONLY
+        embedding_only = (
+            self.settings.CHAT_RETRIEVAL_EMBEDDING_ONLY or retrieval_mode == "dense_only"
+        )
 
-        if query_embedding:
+        if query_embedding and retrieval_mode != "bm25_only":
             knn_query: dict[str, Any] = {
                 "knn": {
                     "text_embedding": {
@@ -1163,6 +1168,10 @@ class OpenSearchGateway:
                 body["query"] = {"bool": bool_query}
             else:
                 body["query"] = knn_query
+        elif retrieval_mode == "bm25_only":
+            # Lexical-only mode: unwrap the single lexical (or match_all fallback) branch so
+            # the query runs without the hybrid clause or its normalization pipeline.
+            body["query"] = hybrid_queries[0]
 
         sort_payload = self._build_sort(sort)
         if sort_payload:
@@ -1264,6 +1273,7 @@ class OpenSearchGateway:
         filters: dict[str, Any] | None,
         sort: dict[str, Any] | None,
         retrieval_window_size: int | None = None,
+        retrieval_mode: str = "hybrid",
     ) -> OpenSearchRetrievalPage:
         client = self._ensure_client()
         body = self._build_query_body(
@@ -1283,13 +1293,16 @@ class OpenSearchGateway:
                 else max(int(from_offset), 0) + max(int(page_size), 1)
             ),
             retrieval_window_size=retrieval_window_size,
+            retrieval_mode=retrieval_mode,
         )
 
         search_kwargs: dict[str, Any] = {
             "index": self.settings.OPENSEARCH_INDEX_ARTIFACT,
             "body": body,
         }
-        if not self.settings.CHAT_RETRIEVAL_EMBEDDING_ONLY:
+        # The hybrid normalization pipeline only applies to the hybrid query shape;
+        # single-path (bm25_only/dense_only) bodies must run without it.
+        if retrieval_mode == "hybrid" and not self.settings.CHAT_RETRIEVAL_EMBEDDING_ONLY:
             search_kwargs["search_pipeline"] = "nlp-search-pipeline"
 
         response = client.search(**search_kwargs)
@@ -1349,6 +1362,7 @@ class OpenSearchGateway:
         filters: dict[str, Any] | None = None,
         sort: dict[str, Any] | None = None,
         retrieval_window_size: int | None = None,
+        retrieval_mode: str = "hybrid",
     ) -> OpenSearchRetrievalPage:
         return await self._to_thread_logged(
             "opensearch.search_relevant_context_page",
@@ -1362,6 +1376,7 @@ class OpenSearchGateway:
                 "has_filters": bool(filters),
                 "has_sort": bool(sort),
                 "embedding_dim": len(query_embedding),
+                "retrieval_mode": retrieval_mode,
             },
             museum_slug=museum_slug,
             museum_id=museum_id,
@@ -1373,6 +1388,7 @@ class OpenSearchGateway:
             filters=filters,
             sort=sort,
             retrieval_window_size=retrieval_window_size,
+            retrieval_mode=retrieval_mode,
         )
 
     def _image_results_from_hits(self, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
