@@ -327,6 +327,7 @@ def _append_single_target_tables(lines: list[str], section: dict[str, list[dict[
                     str(row.get("scored_cases", 0)),
                     _format_metric(row.get("recall_at_1")),
                     _format_metric(row.get("recall_at_5")),
+                    _format_metric(row.get("recall_at_10")),
                     _format_metric(row.get("mrr")),
                     _format_metric(row.get("selected_hit")),
                     _format_metric(row.get("latency_final_ms")),

@@ -308,7 +308,9 @@ class OfflineBenchmarkExecutor:
                 filters=filters,
                 sort=sort,
             )
-        _, _, docs = await self.services.chat_service._retrieve_context(
+        # _retrieve_context returns (resolved_query, total, docs, extra); we only
+        # need the docs (3rd element).
+        _, _, docs, *_ = await self.services.chat_service._retrieve_context(
             museum_slug=museum_id,
             museum_id=museum_id,
             query=query,
