@@ -266,20 +266,23 @@ class QwenTextEmbedder:
         max_length: int,
         prefer_bf16: bool,
         batch_size: int,
+        revision: str | None = None,
     ) -> None:
         SentenceTransformer = _import_sentence_transformers()
         self.model_id = model_id
+        self.revision = (revision or "").strip() or None
         self.max_length = max(1, max_length)
         self.batch_size = max(1, batch_size)
         self.device, self.dtype, self.precision = _pick_runtime(prefer_bf16)
 
-
-        self.model = SentenceTransformer(
-            self.model_id,
-            trust_remote_code=True,
-            model_kwargs={"dtype": self.dtype},
-            device=self.device,
-        )
+        constructor_kwargs: dict[str, Any] = {
+            "trust_remote_code": True,
+            "model_kwargs": {"dtype": self.dtype},
+            "device": self.device,
+        }
+        if self.revision:
+            constructor_kwargs["revision"] = self.revision
+        self.model = SentenceTransformer(self.model_id, **constructor_kwargs)
         tokenizer = getattr(self.model, "tokenizer", None)
         if tokenizer is not None:
             tokenizer.padding_side = "left"
@@ -464,20 +467,23 @@ class QwenMultimodalImageEmbedder:
         max_length: int,
         prefer_bf16: bool,
         image_batch_size: int,
+        revision: str | None = None,
     ) -> None:
         SentenceTransformer = _import_sentence_transformers()
         self.model_id = model_id
+        self.revision = (revision or "").strip() or None
         self.max_length = max(1, max_length)
         self.image_batch_size = max(1, image_batch_size)
         self.device, self.dtype, self.precision = _pick_runtime(prefer_bf16)
 
-
-        self.model = SentenceTransformer(
-            self.model_id,
-            trust_remote_code=True,
-            model_kwargs={"dtype": self.dtype},
-            device=self.device,
-        )
+        constructor_kwargs: dict[str, Any] = {
+            "trust_remote_code": True,
+            "model_kwargs": {"dtype": self.dtype},
+            "device": self.device,
+        }
+        if self.revision:
+            constructor_kwargs["revision"] = self.revision
+        self.model = SentenceTransformer(self.model_id, **constructor_kwargs)
         self.model.max_seq_length = self.max_length
         self.embedding_dimension = int(self.model.get_embedding_dimension())
 
@@ -677,6 +683,7 @@ class EmbeddingProvider:
                     max_length=self.settings.EMBEDDING_MAX_LENGTH,
                     prefer_bf16=self.settings.EMBEDDING_PREFER_BF16,
                     batch_size=self.settings.TEXT_EMBEDDING_BATCH_SIZE,
+                    revision=self.settings.QWEN_TEXT_EMBEDDING_MODEL_REVISION,
                 )
             duration_ms = (time.perf_counter() - started_at) * 1000
             log_event(
@@ -703,6 +710,7 @@ class EmbeddingProvider:
                 max_length=self.settings.EMBEDDING_MAX_LENGTH,
                 prefer_bf16=self.settings.EMBEDDING_PREFER_BF16,
                 image_batch_size=self.settings.MULTIMODAL_IMAGE_EMBEDDING_BATCH_SIZE,
+                revision=self.settings.QWEN_MULTIMODAL_EMBEDDING_MODEL_REVISION,
             )
             duration_ms = (time.perf_counter() - started_at) * 1000
             log_event(

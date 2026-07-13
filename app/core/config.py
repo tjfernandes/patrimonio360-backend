@@ -62,6 +62,11 @@ class Settings(BaseSettings):
 
     QWEN_TEXT_EMBEDDING_MODEL_ID: str = "Qwen/Qwen3-Embedding-4B"
     QWEN_MULTIMODAL_EMBEDDING_MODEL_ID: str = "Qwen/Qwen3-VL-Embedding-2B"
+    # Optional pinned HF revisions (snapshot hashes). Empty = unpinned, which
+    # preserves the pre-existing loading behavior; the v4/8B deploy pins these
+    # to the snapshots used by the index rebuild (see indexer .env.example).
+    QWEN_TEXT_EMBEDDING_MODEL_REVISION: str = ""
+    QWEN_MULTIMODAL_EMBEDDING_MODEL_REVISION: str = ""
     USE_OPENROUTER_BGE_M3: bool = False
     OPENROUTER_API_KEY: str | None = None
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
