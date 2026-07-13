@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -122,6 +123,66 @@ class Settings(BaseSettings):
     CHAT_MODEL_TOTAL_VIEWS: int = 5
     CHAT_MODEL_LOW_CONFIDENCE_SCORE_THRESHOLD: float = 0.35
     CHAT_MODEL_CACHE_SIZE: int = 12
+
+    # --- Fase 3: retrieval multimodal de produção (tudo atrás de flags) ---
+    # off    -> comportamento atual, sem ramo visual nem alteração de ranking.
+    # intent -> ramo texto→imagem só quando a intenção visual é identificada.
+    # always -> ramo texto→imagem em todas as pesquisas textuais (avaliação).
+    MULTIMODAL_RETRIEVAL_MODE: str = "off"
+    MULTIMODAL_RRF_K: int = 60
+    MULTIMODAL_ARTIFACT_WEIGHT: float = 1.0
+    MULTIMODAL_IMAGE_WEIGHT: float = 0.7
+    # Floor de score do ramo visual antes da fusão. 0.0 = sem floor; o valor
+    # conservador definitivo é calibrado empiricamente na Etapa 5 da Fase 3
+    # (distribuições de positivos/negativos documentadas) antes de qualquer
+    # ativação — até lá o ramo fica protegido pelo MODE=off.
+    MULTIMODAL_MIN_IMAGE_SCORE: float = 0.0
+    MULTIMODAL_IMAGE_TOP_K: int = 30
+    MULTIMODAL_DEBUG: bool = False
+
+    @field_validator("MULTIMODAL_RETRIEVAL_MODE")
+    @classmethod
+    def _validate_multimodal_mode(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        allowed = {"off", "intent", "always"}
+        if normalized not in allowed:
+            raise ValueError(
+                f"MULTIMODAL_RETRIEVAL_MODE must be one of {sorted(allowed)}; got {value!r}"
+            )
+        return normalized
+
+    @field_validator("MULTIMODAL_RRF_K")
+    @classmethod
+    def _validate_multimodal_rrf_k(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError(f"MULTIMODAL_RRF_K must be >= 1; got {value}")
+        return value
+
+    @field_validator("MULTIMODAL_ARTIFACT_WEIGHT", "MULTIMODAL_IMAGE_WEIGHT")
+    @classmethod
+    def _validate_multimodal_weights(cls, value: float) -> float:
+        if value < 0:
+            raise ValueError(f"multimodal fusion weights must be >= 0; got {value}")
+        return value
+
+    @field_validator("MULTIMODAL_MIN_IMAGE_SCORE")
+    @classmethod
+    def _validate_multimodal_min_image_score(cls, value: float) -> float:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(
+                f"MULTIMODAL_MIN_IMAGE_SCORE must be within [0, 1]; got {value}"
+            )
+        return value
+
+    @field_validator("MULTIMODAL_IMAGE_TOP_K")
+    @classmethod
+    def _validate_multimodal_image_top_k(cls, value: int) -> int:
+        if not 1 <= value <= 500:
+            raise ValueError(
+                f"MULTIMODAL_IMAGE_TOP_K must be within [1, 500]; got {value}"
+            )
+        return value
+
     IMAGE_ASSET_ROOT: str | None = None
     POI_TOURS_DIR: str | None = None
     MULTIVIEW_WORKER_HOST: str = "127.0.0.1"
