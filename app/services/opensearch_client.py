@@ -588,7 +588,17 @@ class OpenSearchGateway:
         resolved = self._configured_query_boost() if boost is None else float(boost or 0)
         if resolved <= 0:
             return None
-        return {"term": {"in_tour": {"value": True, "boost": resolved}}}
+        # constant_score: soma EXATAMENTE `resolved` pontos aos docs in_tour.
+        # Um `term` com boost multiplicava o idf do BM25 (~+2.0 com boost=1 —
+        # o dobro do maximo do cosseno), fazendo imagens in_tour sequestrar o
+        # topo acima de matches perfeitos. Com constant_score o valor e um
+        # desempate previsivel (ex.: 0.05), nao um sequestro.
+        return {
+            "constant_score": {
+                "filter": {"term": {"in_tour": True}},
+                "boost": resolved,
+            }
+        }
 
     def _configured_query_boost(self) -> float:
         """Boost de in_tour para pesquisas de texto."""

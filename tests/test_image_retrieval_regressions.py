@@ -29,6 +29,28 @@ from app.services.chat_service import ChatService  # noqa: E402
 from app.services.opensearch_client import OpenSearchGateway  # noqa: E402
 
 
+class TestInTourBoostClause(unittest.TestCase):
+    def _gateway(self) -> OpenSearchGateway:
+        return OpenSearchGateway.__new__(OpenSearchGateway)
+
+    def test_clause_is_constant_score_not_scored_term(self) -> None:
+        clause = self._gateway()._build_in_tour_boost_clause(boost=0.05)
+        self.assertIsNotNone(clause)
+        self.assertIn("constant_score", clause)
+        self.assertEqual(clause["constant_score"]["boost"], 0.05)
+        self.assertEqual(
+            clause["constant_score"]["filter"], {"term": {"in_tour": True}}
+        )
+        # A forma antiga ({"term": {"in_tour": {"boost": ...}}}) multiplicava o
+        # idf do BM25 e não pode voltar.
+        self.assertNotIn("term", clause)
+
+    def test_zero_or_negative_boost_yields_no_clause(self) -> None:
+        gateway = self._gateway()
+        self.assertIsNone(gateway._build_in_tour_boost_clause(boost=0))
+        self.assertIsNone(gateway._build_in_tour_boost_clause(boost=-1))
+
+
 class _StubGateway:
     def __init__(self, by_ids_result=None, by_inventory_result=None) -> None:
         self.by_ids_result = by_ids_result if by_ids_result is not None else []
