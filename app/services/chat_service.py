@@ -671,33 +671,38 @@ class ChatService:
         if not image_hits:
             return []
 
-        inventory_numbers = [
-            self._image_hit_inventory(hit)
-            for hit in image_hits
-            if self._image_hit_inventory(hit)
-        ]
-        artifact_docs: list[dict[str, object]] = []
-        if inventory_numbers:
-            artifact_docs = await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
-                museum_slug=museum_slug,
-                museum_id=artifact_museum_id,
-                inventory_numbers=inventory_numbers,
-                top_k=max(top_k, 1),
-            )
-        if artifact_docs:
-            return artifact_docs
-
+        # Join artifact_id-first: os image hits trazem sempre artifact_id, e o
+        # fetch por ids é exato (terms em filtro) e preserva a ordem dos hits.
+        # O join por inventário perde artefactos quando os inventários partilham
+        # tokens ("260 Cer MNSR" vs "260 Cer CMP/ MNSR"): a query de inventários
+        # pontua por multi_match e corta em size, deixando artefactos pedidos de
+        # fora. Inventário fica apenas como fallback para hits sem artifact_id.
         artifact_ids = [
             str(hit.get("artifact_id") or "").strip()
             for hit in image_hits
             if str(hit.get("artifact_id") or "").strip()
         ]
-        if not artifact_ids:
+        if artifact_ids:
+            artifact_docs = await self.opensearch_gateway.fetch_artifacts_by_ids(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                artifact_ids=artifact_ids,
+                top_k=max(top_k, 1),
+            )
+            if artifact_docs:
+                return artifact_docs
+
+        inventory_numbers = [
+            self._image_hit_inventory(hit)
+            for hit in image_hits
+            if self._image_hit_inventory(hit)
+        ]
+        if not inventory_numbers:
             return []
-        return await self.opensearch_gateway.fetch_artifacts_by_ids(
+        return await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
             museum_slug=museum_slug,
-            museum_id=museum_id,
-            artifact_ids=artifact_ids,
+            museum_id=artifact_museum_id,
+            inventory_numbers=inventory_numbers,
             top_k=max(top_k, 1),
         )
 
