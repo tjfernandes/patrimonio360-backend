@@ -124,6 +124,7 @@ def _build_section_summary(
             )
         ],
         "by_variant": [],
+        "by_variant_mode": [],
         "by_mode": [],
         "by_museum": [],
     }
@@ -141,6 +142,32 @@ def _build_section_summary(
                 group_value=variant_name,
             )
         )
+
+    if include_by_mode:
+        # Variant x mode cross-tab: the ONLY fair way to compare variants, because
+        # single-path variants (bm25_only/dense_only) run only text cases while
+        # `full` runs every mode — aggregating a variant across modes mixes them.
+        variant_mode_pairs = sorted(
+            {
+                (str(record.get("variant") or ""), str(record.get("mode") or ""))
+                for record in section_records
+                if record.get("variant") and record.get("mode")
+            }
+        )
+        for variant_name, mode_name in variant_mode_pairs:
+            vm_records = [
+                record
+                for record in section_records
+                if record.get("variant") == variant_name and record.get("mode") == mode_name
+            ]
+            section["by_variant_mode"].append(
+                _aggregate_records(
+                    vm_records,
+                    section=section_name,
+                    group_type="variant_mode",
+                    group_value=f"{variant_name} / {mode_name}",
+                )
+            )
 
     if include_by_mode:
         mode_values = sorted(
@@ -205,7 +232,7 @@ def _flatten_summary(summary: dict[str, Any]) -> list[dict[str, Any]]:
     rows.extend(list(summary.get("overall_counts", [])))
     for section_name in ("single_target_family", "text_multi"):
         section = summary.get(section_name, {})
-        for bucket_name in ("overall", "by_variant", "by_mode", "by_museum"):
+        for bucket_name in ("overall", "by_variant", "by_variant_mode", "by_mode", "by_museum"):
             rows.extend(list(section.get(bucket_name, [])))
     return rows
 
@@ -361,10 +388,33 @@ def _append_single_target_tables(lines: list[str], section: dict[str, list[dict[
         lines.append("")
 
     if section.get("by_variant"):
-        lines.append("### By Variant")
+        lines.append("### By Variant (all modes mixed — NOT a fair variant comparison)")
         lines.append("| Variant | Scored | Recall@1 | Recall@5 | Recall@10 | MRR | LLM Final Selection | Avg Final ms |")
         lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
         for row in section["by_variant"]:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        str(row.get("group_value")),
+                        str(row.get("scored_cases", 0)),
+                        _format_metric(row.get("recall_at_1")),
+                        _format_metric(row.get("recall_at_5")),
+                        _format_metric(row.get("recall_at_10")),
+                        _format_metric(row.get("mrr")),
+                        _format_metric(row.get("selected_hit")),
+                        _format_metric(row.get("latency_final_ms")),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+
+    if section.get("by_variant_mode"):
+        lines.append("### By Variant and Mode (fair comparison — compare within a mode)")
+        lines.append("| Variant / Mode | Scored | Recall@1 | Recall@5 | Recall@10 | MRR | LLM Final Selection | Avg Final ms |")
+        lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+        for row in section["by_variant_mode"]:
             lines.append(
                 "| "
                 + " | ".join(
