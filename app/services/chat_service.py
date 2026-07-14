@@ -706,6 +706,72 @@ class ChatService:
             top_k=max(top_k, 1),
         )
 
+    async def _maybe_fuse_text_to_image(
+        self,
+        *,
+        query_text: str,
+        museum_slug: str,
+        museum_id: str | None,
+        artifact_docs: list[dict[str, object]],
+        conversation_id: str,
+        query_id: str,
+    ):
+        """Ramo texto→imagem da Fase 3, atrás de MULTIMODAL_RETRIEVAL_MODE.
+
+        Devolve None sempre que o ramo visual não deva/consiga correr — o
+        chamador mantém a baseline intacta (artifact_search nunca é
+        substituído). Em ``off`` sai antes de importar/instanciar o que quer
+        que seja (equivalência funcional e nenhum load do modelo VL).
+        """
+        mode = str(self.settings.MULTIMODAL_RETRIEVAL_MODE or "off").strip().lower()
+        if mode == "off":
+            return None
+
+        from app.services.retrieval.visual_intent import decide_visual_intent
+
+        decision = decide_visual_intent(query_text, mode=mode)
+        log_event(
+            logger,
+            logging.INFO,
+            "multimodal.router.decision",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            mode=mode,
+            **decision.as_dict(),
+        )
+        if not decision.use_visual:
+            return None
+
+        service = getattr(self, "_multimodal_text_retrieval", None)
+        if service is None:
+            from app.services.retrieval.multimodal_retrieval import MultimodalTextRetrieval
+
+            service = MultimodalTextRetrieval(
+                settings=self.settings,
+                opensearch_gateway=self.opensearch_gateway,
+                embedding_provider=self.embedding_provider,
+            )
+            self._multimodal_text_retrieval = service
+        try:
+            return await service.fuse_text_search(
+                query_text=query_text,
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                artifact_docs=artifact_docs,
+                router_decision=decision,
+                trace_id=query_id,
+            )
+        except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "multimodal.fusion.error",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                error=exc,
+            )
+            return None
+
     def _artifact_results_as_prompt_docs(
         self,
         artifact_results: list[ArtifactResult],
@@ -2342,6 +2408,37 @@ class ChatService:
             )
             retrieval_request["museum_slug"] = search_museum_slug
             retrieval_request["search_scope"] = search_scope.model_dump(mode="json")
+            multimodal_outcome = None
+            if retrieved_docs and str(retrieval_request.get("kind") or "") == "text":
+                multimodal_outcome = await self._maybe_fuse_text_to_image(
+                    query_text=retrieval_query,
+                    museum_slug=search_museum_slug,
+                    museum_id=search_museum_id,
+                    artifact_docs=retrieved_docs,
+                    conversation_id=conversation_id,
+                    query_id=query_id,
+                )
+            if multimodal_outcome is not None:
+                retrieved_docs = multimodal_outcome.docs
+                retrieved_docs_count = multimodal_outcome.total
+                context_top_k = max(self.settings.CHAT_RETRIEVAL_TOP_K, 1)
+                retrieval_context = self._format_docs_for_prompt(
+                    docs=retrieved_docs[:context_top_k],
+                    top_k=context_top_k,
+                )
+                retrieval_request["kind"] = "multimodal_text"
+                retrieval_request["results_total"] = multimodal_outcome.total
+                retrieval_request["multimodal"] = (
+                    multimodal_outcome.debug_payload()
+                    if self.settings.MULTIMODAL_DEBUG
+                    else {
+                        "router_rule": multimodal_outcome.router.rule,
+                        "t2i_kept": multimodal_outcome.diagnostics.get(
+                            "text_to_image", {}
+                        ).get("kept_after_floor"),
+                        "fused_size": multimodal_outcome.total,
+                    }
+                )
             retrieval_latency_ms = (time.monotonic() - retrieval_started_at) * 1000
             await self._emit_status(
                 status_cb,
@@ -2350,10 +2447,21 @@ class ChatService:
                 artifact_count=retrieved_docs_count,
             )
             if retrieved_docs:
+                matched_image_hits = (
+                    list(multimodal_outcome.matched_image_hits)
+                    if multimodal_outcome is not None
+                    else []
+                )
+                matched_artifact_ids = {
+                    str(hit.get("artifact_id") or "").strip()
+                    for hit in matched_image_hits
+                    if str(hit.get("artifact_id") or "").strip()
+                }
                 artifact_ids = [
                     str(doc.get("artifact_id") or "").strip()
                     for doc in retrieved_docs
                     if str(doc.get("artifact_id") or "").strip()
+                    and str(doc.get("artifact_id") or "").strip() not in matched_artifact_ids
                 ]
                 if artifact_ids:
                     try:
@@ -2375,6 +2483,10 @@ class ChatService:
                             error=exc,
                         )
                         artifact_image_hits = []
+                # A imagem que fez match no ramo visual manda na thumbnail; os
+                # restantes artefactos usam a imagem principal (fallback atual).
+                artifact_image_hits = matched_image_hits + artifact_image_hits
+                if artifact_image_hits:
                     image_matches = self._build_image_matches(
                         image_hits=artifact_image_hits,
                         artifact_docs=retrieved_docs,

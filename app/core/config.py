@@ -132,11 +132,13 @@ class Settings(BaseSettings):
     MULTIMODAL_RRF_K: int = 60
     MULTIMODAL_ARTIFACT_WEIGHT: float = 1.0
     MULTIMODAL_IMAGE_WEIGHT: float = 0.7
-    # Floor de score do ramo visual antes da fusão. 0.0 = sem floor; o valor
-    # conservador definitivo é calibrado empiricamente na Etapa 5 da Fase 3
-    # (distribuições de positivos/negativos documentadas) antes de qualquer
-    # ativação — até lá o ramo fica protegido pelo MODE=off.
-    MULTIMODAL_MIN_IMAGE_SCORE: float = 0.0
+    # Floor de score do ramo visual antes da fusão. Calibrado 2026-07-13 com
+    # dados reais (12 positivos com alvo + 12 queries factuais como negativos):
+    # positivos observados >= 0.6677; amostra visual >= 0.645; negativos top-1
+    # mediana 0.682/max 0.712 — o espaço cross-modal é estreito e o score tem
+    # fraco poder separador, por isso o floor corta apenas a cauda fraca
+    # (< 0.64) e a qualidade é garantida pelo router + pesos RRF por rank.
+    MULTIMODAL_MIN_IMAGE_SCORE: float = 0.64
     MULTIMODAL_IMAGE_TOP_K: int = 30
     MULTIMODAL_DEBUG: bool = False
 

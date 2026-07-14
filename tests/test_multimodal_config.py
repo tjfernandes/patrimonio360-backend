@@ -26,7 +26,7 @@ class TestMultimodalDefaults(unittest.TestCase):
         self.assertEqual(s.MULTIMODAL_RRF_K, 60)
         self.assertEqual(s.MULTIMODAL_ARTIFACT_WEIGHT, 1.0)
         self.assertEqual(s.MULTIMODAL_IMAGE_WEIGHT, 0.7)
-        self.assertEqual(s.MULTIMODAL_MIN_IMAGE_SCORE, 0.0)
+        self.assertEqual(s.MULTIMODAL_MIN_IMAGE_SCORE, 0.64)
         self.assertEqual(s.MULTIMODAL_IMAGE_TOP_K, 30)
         self.assertFalse(s.MULTIMODAL_DEBUG)
 
