@@ -1,0 +1,185 @@
+{
+ "modes": {
+  "off": {
+   "n": 32,
+   "errors": 0,
+   "retrieval_p50_ms": 152.1,
+   "retrieval_p95_ms": 428.8,
+   "contamination_cases": 0,
+   "duplicate_cases": 0,
+   "documental": {
+    "R@1": 0.625,
+    "R@5": 0.625,
+    "R@10": 0.625,
+    "MRR": 0.6363636363636364,
+    "n": 8
+   },
+   "visual": {
+    "R@1": 0.75,
+    "R@5": 0.75,
+    "R@10": 0.75,
+    "MRR": 0.7727272727272727,
+    "n": 4,
+    "zero_rate": 0.0
+   },
+   "image_only": {
+    "R@1": 0.5,
+    "R@5": 0.5,
+    "MRR": 0.5267857142857143,
+    "n": 14
+   },
+   "image_text": {
+    "R@1": 0.3333333333333333,
+    "R@5": 0.3333333333333333,
+    "MRR": 0.3819444444444445,
+    "n": 6
+   }
+  },
+  "intent": {
+   "n": 32,
+   "errors": 0,
+   "retrieval_p50_ms": 177.6,
+   "retrieval_p95_ms": 506.8,
+   "contamination_cases": 0,
+   "duplicate_cases": 0,
+   "documental": {
+    "R@1": 0.625,
+    "R@5": 0.625,
+    "R@10": 0.625,
+    "MRR": 0.6363636363636364,
+    "n": 8
+   },
+   "visual": {
+    "R@1": 0.75,
+    "R@5": 0.75,
+    "R@10": 0.75,
+    "MRR": 0.7727272727272727,
+    "n": 4,
+    "zero_rate": 0.0
+   },
+   "image_only": {
+    "R@1": 0.5,
+    "R@5": 0.5,
+    "MRR": 0.5267857142857143,
+    "n": 14
+   },
+   "image_text": {
+    "R@1": 0.0,
+    "R@5": 0.0,
+    "MRR": 0.048611111111111105,
+    "n": 6
+   }
+  },
+  "always": {
+   "n": 32,
+   "errors": 0,
+   "retrieval_p50_ms": 249.2,
+   "retrieval_p95_ms": 421.0,
+   "contamination_cases": 0,
+   "duplicate_cases": 0,
+   "documental": {
+    "R@1": 0.5,
+    "R@5": 0.625,
+    "R@10": 0.625,
+    "MRR": 0.5738636363636364,
+    "n": 8
+   },
+   "visual": {
+    "R@1": 0.5,
+    "R@5": 0.75,
+    "R@10": 0.75,
+    "MRR": 0.6477272727272727,
+    "n": 4,
+    "zero_rate": 0.0
+   },
+   "image_only": {
+    "R@1": 0.5,
+    "R@5": 0.5,
+    "MRR": 0.5267857142857143,
+    "n": 14
+   },
+   "image_text": {
+    "R@1": 0.0,
+    "R@5": 0.0,
+    "MRR": 0.048611111111111105,
+    "n": 6
+   }
+  }
+ },
+ "gates": {
+  "off_intent_text_only_identical": {
+   "text_only_cases_identical_off_vs_intent": true,
+   "diffs": []
+  },
+  "image_text_both_inputs_change": {
+   "changed": 3,
+   "total": 6,
+   "rate": 0.5,
+   "per_case": [
+    {
+     "query_id": "Q027",
+     "changed_by_text": false
+    },
+    {
+     "query_id": "Q028",
+     "changed_by_text": false
+    },
+    {
+     "query_id": "Q029",
+     "changed_by_text": true
+    },
+    {
+     "query_id": "Q030",
+     "changed_by_text": false
+    },
+    {
+     "query_id": "Q031",
+     "changed_by_text": true
+    },
+    {
+     "query_id": "Q032",
+     "changed_by_text": true
+    }
+   ]
+  },
+  "temporal_cases": [
+   {
+    "query_id": "Q029",
+    "n": 35,
+    "interval": {
+     "start_year": 1700,
+     "end_year": 1799,
+     "include_unknown": false
+    }
+   },
+   {
+    "query_id": "Q032",
+    "n": 30,
+    "interval": {
+     "start_year": 1700,
+     "end_year": 1799,
+     "include_unknown": false
+    }
+   }
+  ],
+  "e12_5xx": {
+   "off": 0,
+   "intent": 0,
+   "always": 0
+  },
+  "e12_museum_pure": {
+   "off": true,
+   "intent": true,
+   "always": true
+  }
+ },
+ "deltas": {
+  "intent_minus_off": {
+   "documental_R@5_pp": 0.0,
+   "documental_MRR_pp": 0.0,
+   "visual_R@5_pp": 0.0,
+   "visual_zero_pp": 0.0,
+   "retrieval_p95_delta_ms": 78.0
+  }
+ }
+}
