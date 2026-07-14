@@ -1,0 +1,592 @@
+{
+ "version": "phase3-mm-benchmark-v1",
+ "frozen_at": "2026-07-14",
+ "seed": 20260714,
+ "n_cases": 32,
+ "by_type": {
+  "text_documental": 8,
+  "text_visual": 4,
+  "image_only": 14,
+  "image_text": 6
+ },
+ "by_museum": {
+  "mnt": 10,
+  "mnaz": 16,
+  "mnsr": 4,
+  "mj": 2
+ },
+ "cases": [
+  {
+   "museum_id": "mnaz",
+   "category": "documental",
+   "subtype": "text_single",
+   "type": "text_documental",
+   "text": "painel com cabeça de perfil e coração",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:229739"
+   ],
+   "filters": {},
+   "notes": "target remapeado Fase 0A",
+   "source": "live_ids:T01",
+   "query_id": "Q001"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "documental",
+   "subtype": "text_single",
+   "type": "text_documental",
+   "text": "painel com a estação Déak Tér",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:229740"
+   ],
+   "filters": {},
+   "notes": "target remapeado Fase 0A",
+   "source": "live_ids:T02",
+   "query_id": "Q002"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "documental",
+   "subtype": "text_single",
+   "type": "text_documental",
+   "text": "encontra um painel de Édipo e a Esfinge",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:229751"
+   ],
+   "filters": {},
+   "notes": "target remapeado Fase 0A",
+   "source": "live_ids:T03",
+   "query_id": "Q003"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "documental",
+   "subtype": "text_single",
+   "type": "text_documental",
+   "text": "painel com Leda e o Cisne",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:229762"
+   ],
+   "filters": {},
+   "notes": "target remapeado Fase 0A",
+   "source": "live_ids:T05",
+   "query_id": "Q004"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "documental",
+   "subtype": "text_single",
+   "type": "text_documental",
+   "text": "vestido madras azul amarelo e verde",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:61963"
+   ],
+   "filters": {},
+   "notes": "target remapeado Fase 0A",
+   "source": "live_ids:T11",
+   "query_id": "Q005"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "documental",
+   "subtype": "text_single",
+   "type": "text_documental",
+   "text": "bolsa vermelha com contas de aço",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:45836"
+   ],
+   "filters": {},
+   "notes": "target remapeado Fase 0A",
+   "source": "live_ids:T12",
+   "query_id": "Q006"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "documental",
+   "subtype": "text_single",
+   "type": "text_documental",
+   "text": "leque com erupção do Vesúvio",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:45888"
+   ],
+   "filters": {},
+   "notes": "target remapeado Fase 0A",
+   "source": "live_ids:T13",
+   "query_id": "Q007"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "documental",
+   "subtype": "text_single",
+   "type": "text_documental",
+   "text": "saiote branco com monograma E",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:48082"
+   ],
+   "filters": {},
+   "notes": "target remapeado Fase 0A",
+   "source": "live_ids:T15",
+   "query_id": "Q008"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "visual",
+   "subtype": "text_to_image",
+   "type": "text_visual",
+   "text": "painel com cabeça de perfil e coração",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:229739"
+   ],
+   "filters": {},
+   "notes": "alvo visual conhecido (proxy: 1 alvo)",
+   "source": "multimodal:T2I_I01",
+   "query_id": "Q009"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "visual",
+   "subtype": "text_to_image",
+   "type": "text_visual",
+   "text": "painel com a estação Déak Tér",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:229740"
+   ],
+   "filters": {},
+   "notes": "alvo visual conhecido (proxy: 1 alvo)",
+   "source": "multimodal:T2I_I02",
+   "query_id": "Q010"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "visual",
+   "subtype": "text_to_image",
+   "type": "text_visual",
+   "text": "encontra um painel de Édipo e a Esfinge",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:229751"
+   ],
+   "filters": {},
+   "notes": "alvo visual conhecido (proxy: 1 alvo)",
+   "source": "multimodal:T2I_I03",
+   "query_id": "Q011"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "visual",
+   "subtype": "text_to_image",
+   "type": "text_visual",
+   "text": "painel com Leda e o Cisne",
+   "image_ref": null,
+   "relevant": [
+    "raiz:movel:229762"
+   ],
+   "filters": {},
+   "notes": "alvo visual conhecido (proxy: 1 alvo)",
+   "source": "multimodal:T2I_I04",
+   "query_id": "Q012"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_do_azulejo/obj_mnaz_1140_proj/fileid_878275_3.jpg",
+   "image_id": "raiz:image:movel:236546:878275:3",
+   "relevant": [
+    "raiz:movel:236546"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:236546:878275:3"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q013"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_do_azulejo/obj_mnaz_478_cer/fileid_259032_1.jpg",
+   "image_id": "raiz:image:movel:241469:259032:1",
+   "relevant": [
+    "raiz:movel:241469"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:241469:259032:1"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q014"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_do_azulejo/obj_mnaz_9138_az/fileid_455760_1.jpg",
+   "image_id": "raiz:image:movel:1027742:455760:1",
+   "relevant": [
+    "raiz:movel:1027742"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:1027742:455760:1"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q015"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_do_azulejo/obj_mnaz_6973_az/fileid_445901_1.jpg",
+   "image_id": "raiz:image:movel:232975:445901:1",
+   "relevant": [
+    "raiz:movel:232975"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:232975:445901:1"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q016"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_do_traje/obj_8137/fileid_69673_2.jpg",
+   "image_id": "raiz:image:movel:80425:69673:2",
+   "relevant": [
+    "raiz:movel:80425"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:80425:69673:2"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q017"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_do_traje/obj_38302/fileid_609869_1.jpg",
+   "image_id": "raiz:image:movel:1086351:609869:1",
+   "relevant": [
+    "raiz:movel:1086351"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:1086351:609869:1"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q018"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_do_traje/obj_31529/fileid_810327_3.jpg",
+   "image_id": "raiz:image:movel:57494:810327:3",
+   "relevant": [
+    "raiz:movel:57494"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:57494:810327:3"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q019"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_do_traje/obj_3570_18/fileid_596178_1.jpg",
+   "image_id": "raiz:image:movel:1080274:596178:1",
+   "relevant": [
+    "raiz:movel:1080274"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:1080274:596178:1"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q020"
+  },
+  {
+   "museum_id": "mnsr",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_soares_dos_reis/obj_299_cer_mnsr/fileid_599185_1.jpg",
+   "image_id": "raiz:image:movel:1081963:599185:1",
+   "relevant": [
+    "raiz:movel:1081963"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:1081963:599185:1"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q021"
+  },
+  {
+   "museum_id": "mnsr",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_soares_dos_reis/obj_1982_cer_cmp_mnsr/fileid_586623_3.jpg",
+   "image_id": "raiz:image:movel:304829:586623:3",
+   "relevant": [
+    "raiz:movel:304829"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:304829:586623:3"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q022"
+  },
+  {
+   "museum_id": "mnsr",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_soares_dos_reis/obj_229_vid_cmp_mnsr/fileid_328457_3.jpg",
+   "image_id": "raiz:image:movel:305507:328457:3",
+   "relevant": [
+    "raiz:movel:305507"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:305507:328457:3"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q023"
+  },
+  {
+   "museum_id": "mnsr",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/museu_nacional_soares_dos_reis/obj_105_esc_mnsr/fileid_542678_1.jpg",
+   "image_id": "raiz:image:movel:309336:542678:1",
+   "relevant": [
+    "raiz:movel:309336"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:309336:542678:1"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q024"
+  },
+  {
+   "museum_id": "mj",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/mosteiro_dos_jeronimos/obj_mj_es032_6/IMG_0792.JPG",
+   "image_id": "manual:image:Images/mosteiro_dos_jeronimos/obj_mj_es032_6/IMG_0792.JPG",
+   "relevant": [
+    "manual:mj_es032_6"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "manual:image:Images/mosteiro_dos_jeronimos/obj_mj_es032_6/IMG_0792.JPG"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q025"
+  },
+  {
+   "museum_id": "mj",
+   "category": "image_only",
+   "subtype": "self_retrieval",
+   "type": "image_only",
+   "text": null,
+   "image_ref": "Images/mosteiro_dos_jeronimos/obj_mj_es900/IMG_1008.JPG",
+   "image_id": "manual:image:Images/mosteiro_dos_jeronimos/obj_mj_es900/IMG_1008.JPG",
+   "relevant": [
+    "manual:mj_es900"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "manual:image:Images/mosteiro_dos_jeronimos/obj_mj_es900/IMG_1008.JPG"
+   ],
+   "notes": "self-retrieval leave-self-out",
+   "source": "sampled",
+   "query_id": "Q026"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "image_text",
+   "subtype": "refine_visual",
+   "type": "image_text",
+   "text": "com decoracao floral",
+   "image_ref": "Images/museu_nacional_do_azulejo/obj_mnaz_1140_proj/fileid_878275_3.jpg",
+   "image_id": "raiz:image:movel:236546:878275:3",
+   "relevant": [
+    "raiz:movel:236546"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:236546:878275:3"
+   ],
+   "notes": "imagem + refinamento visual; alvo=proprio artefacto",
+   "source": "derived",
+   "query_id": "Q027"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "image_text",
+   "subtype": "refine_visual",
+   "type": "image_text",
+   "text": "mais azul",
+   "image_ref": "Images/museu_nacional_do_azulejo/obj_mnaz_478_cer/fileid_259032_1.jpg",
+   "image_id": "raiz:image:movel:241469:259032:1",
+   "relevant": [
+    "raiz:movel:241469"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:241469:259032:1"
+   ],
+   "notes": "imagem + refinamento visual; alvo=proprio artefacto",
+   "source": "derived",
+   "query_id": "Q028"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "image_text",
+   "subtype": "refine_documental",
+   "type": "image_text",
+   "text": "apenas do seculo XVIII",
+   "image_ref": "Images/museu_nacional_do_azulejo/obj_mnaz_9138_az/fileid_455760_1.jpg",
+   "image_id": "raiz:image:movel:1027742:455760:1",
+   "relevant": [
+    "raiz:movel:1027742"
+   ],
+   "filters": {
+    "_temporal_interval": {
+     "start_year": 1700,
+     "end_year": 1799,
+     "include_unknown": false
+    }
+   },
+   "exclude_image_ids": [
+    "raiz:image:movel:1027742:455760:1"
+   ],
+   "notes": "imagem + refinamento documental; alvo=proprio artefacto",
+   "source": "derived",
+   "query_id": "Q029"
+  },
+  {
+   "museum_id": "mnaz",
+   "category": "image_text",
+   "subtype": "refine_visual",
+   "type": "image_text",
+   "text": "com decoracao floral",
+   "image_ref": "Images/museu_nacional_do_azulejo/obj_mnaz_6973_az/fileid_445901_1.jpg",
+   "image_id": "raiz:image:movel:232975:445901:1",
+   "relevant": [
+    "raiz:movel:232975"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:232975:445901:1"
+   ],
+   "notes": "imagem + refinamento visual; alvo=proprio artefacto",
+   "source": "derived",
+   "query_id": "Q030"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "image_text",
+   "subtype": "refine_visual",
+   "type": "image_text",
+   "text": "mais azul",
+   "image_ref": "Images/museu_nacional_do_traje/obj_8137/fileid_69673_2.jpg",
+   "image_id": "raiz:image:movel:80425:69673:2",
+   "relevant": [
+    "raiz:movel:80425"
+   ],
+   "filters": {},
+   "exclude_image_ids": [
+    "raiz:image:movel:80425:69673:2"
+   ],
+   "notes": "imagem + refinamento visual; alvo=proprio artefacto",
+   "source": "derived",
+   "query_id": "Q031"
+  },
+  {
+   "museum_id": "mnt",
+   "category": "image_text",
+   "subtype": "refine_documental",
+   "type": "image_text",
+   "text": "apenas do seculo XVIII",
+   "image_ref": "Images/museu_nacional_do_traje/obj_38302/fileid_609869_1.jpg",
+   "image_id": "raiz:image:movel:1086351:609869:1",
+   "relevant": [
+    "raiz:movel:1086351"
+   ],
+   "filters": {
+    "_temporal_interval": {
+     "start_year": 1700,
+     "end_year": 1799,
+     "include_unknown": false
+    }
+   },
+   "exclude_image_ids": [
+    "raiz:image:movel:1086351:609869:1"
+   ],
+   "notes": "imagem + refinamento documental; alvo=proprio artefacto",
+   "source": "derived",
+   "query_id": "Q032"
+  }
+ ]
+}
