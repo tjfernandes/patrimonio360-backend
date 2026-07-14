@@ -14,8 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.retrieval.fusion import (  # noqa: E402
     BranchHit,
+    FusedResult,
     apply_score_floor,
     group_image_hits_by_artifact,
+    promote_in_tour_within_margin,
     weighted_rrf,
 )
 
@@ -202,6 +204,59 @@ class TestScoreFloor(unittest.TestCase):
         kept, dropped = apply_score_floor([hit("A", 1, None)], min_score=0.5)
         self.assertEqual(len(kept), 1)
         self.assertEqual(dropped, [])
+
+
+def fused(aid, score):
+    return FusedResult(artifact_id=aid, fusion_score=score)
+
+
+class TestInTourPostFusionPolicy(unittest.TestCase):
+    """E10 — preferência in_tour pós-fusão, conservadora e desligável."""
+
+    def test_promotes_one_position_within_margin(self) -> None:
+        results = [fused("A", 0.500), fused("B", 0.498)]
+        ordered, n = promote_in_tour_within_margin(
+            results, in_tour_by_artifact={"B": True}, margin=0.01
+        )
+        self.assertEqual([r.artifact_id for r in ordered], ["B", "A"])
+        self.assertEqual(n, 1)
+        # scores originais intactos
+        self.assertEqual(ordered[0].fusion_score, 0.498)
+
+    def test_never_overtakes_a_clear_match_beyond_margin(self) -> None:
+        # Cenário do bug histórico: match perfeito no topo, in_tour abaixo com
+        # gap grande — NUNCA ultrapassa.
+        results = [fused("perfect", 1.0), fused("tour", 0.62)]
+        ordered, n = promote_in_tour_within_margin(
+            results, in_tour_by_artifact={"tour": True}, margin=0.05
+        )
+        self.assertEqual([r.artifact_id for r in ordered], ["perfect", "tour"])
+        self.assertEqual(n, 0)
+
+    def test_single_step_only_no_chained_climbing(self) -> None:
+        results = [fused("A", 0.503), fused("B", 0.502), fused("T", 0.501)]
+        ordered, n = promote_in_tour_within_margin(
+            results, in_tour_by_artifact={"T": True}, margin=0.01
+        )
+        # T sobe UMA posição (acima de B), não em cadeia até ao topo.
+        self.assertEqual([r.artifact_id for r in ordered], ["A", "T", "B"])
+        self.assertEqual(n, 1)
+
+    def test_disabled_at_zero_margin(self) -> None:
+        results = [fused("A", 0.500), fused("B", 0.4999)]
+        ordered, n = promote_in_tour_within_margin(
+            results, in_tour_by_artifact={"B": True}, margin=0.0
+        )
+        self.assertEqual([r.artifact_id for r in ordered], ["A", "B"])
+        self.assertEqual(n, 0)
+
+    def test_in_tour_above_stays_put(self) -> None:
+        results = [fused("T", 0.5), fused("A", 0.5)]
+        ordered, n = promote_in_tour_within_margin(
+            results, in_tour_by_artifact={"T": True}, margin=0.01
+        )
+        self.assertEqual([r.artifact_id for r in ordered], ["T", "A"])
+        self.assertEqual(n, 0)
 
 
 if __name__ == "__main__":

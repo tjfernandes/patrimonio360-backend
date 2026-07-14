@@ -1266,7 +1266,7 @@ class OpenSearchGateway:
 
         return self._prioritize_in_tour_results(results, top_k=top_k)
 
-    def _search_relevant_context_page_sync(
+    def build_relevant_context_page_request(
         self,
         *,
         museum_slug: str,
@@ -1280,8 +1280,9 @@ class OpenSearchGateway:
         sort: dict[str, Any] | None,
         retrieval_window_size: int | None = None,
         retrieval_mode: str = "hybrid",
-    ) -> OpenSearchRetrievalPage:
-        client = self._ensure_client()
+    ) -> dict[str, Any]:
+        """Constrói o pedido (index/body[/search_pipeline]) da página de
+        contexto de artefactos — partilhado por search e _msearch (E9)."""
         body = self._build_query_body(
             museum_slug=museum_slug,
             museum_id=museum_id,
@@ -1301,7 +1302,6 @@ class OpenSearchGateway:
             retrieval_window_size=retrieval_window_size,
             retrieval_mode=retrieval_mode,
         )
-
         search_kwargs: dict[str, Any] = {
             "index": self.settings.OPENSEARCH_INDEX_ARTIFACT,
             "body": body,
@@ -1310,16 +1310,52 @@ class OpenSearchGateway:
         # single-path (bm25_only/dense_only) bodies must run without it.
         if retrieval_mode == "hybrid" and not self.settings.CHAT_RETRIEVAL_EMBEDDING_ONLY:
             search_kwargs["search_pipeline"] = "nlp-search-pipeline"
+        return search_kwargs
 
-        response = client.search(**search_kwargs)
+    def parse_relevant_context_page_response(
+        self,
+        response: dict[str, Any],
+        *,
+        request: dict[str, Any],
+    ) -> OpenSearchRetrievalPage:
         hits = response.get("hits", {}).get("hits", [])
-        total_value = self._total_hits_value(response)
-        results = self._artifact_results_from_hits(hits)
         return OpenSearchRetrievalPage(
-            results=results,
-            total=total_value,
-            query_body=dict(search_kwargs),
+            results=self._artifact_results_from_hits(hits),
+            total=self._total_hits_value(response),
+            query_body=dict(request),
         )
+
+    def _search_relevant_context_page_sync(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        query_text: str,
+        lexical_query: str | None,
+        query_embedding: list[float],
+        from_offset: int,
+        page_size: int,
+        filters: dict[str, Any] | None,
+        sort: dict[str, Any] | None,
+        retrieval_window_size: int | None = None,
+        retrieval_mode: str = "hybrid",
+    ) -> OpenSearchRetrievalPage:
+        client = self._ensure_client()
+        search_kwargs = self.build_relevant_context_page_request(
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            query_text=query_text,
+            lexical_query=lexical_query,
+            query_embedding=query_embedding,
+            from_offset=from_offset,
+            page_size=page_size,
+            filters=filters,
+            sort=sort,
+            retrieval_window_size=retrieval_window_size,
+            retrieval_mode=retrieval_mode,
+        )
+        response = client.search(**search_kwargs)
+        return self.parse_relevant_context_page_response(response, request=search_kwargs)
 
     async def search_relevant_context(
         self,
@@ -1477,7 +1513,7 @@ class OpenSearchGateway:
         results = self._image_results_from_hits(hits)
         return self._prioritize_in_tour_results(results, top_k=requested_top_k)
 
-    def _search_similar_images_page_sync(
+    def build_similar_images_page_request(
         self,
         *,
         museum_slug: str,
@@ -1486,8 +1522,8 @@ class OpenSearchGateway:
         from_offset: int,
         page_size: int,
         retrieval_window_size: int | None = None,
-    ) -> OpenSearchRetrievalPage:
-        client = self._ensure_client()
+    ) -> dict[str, Any]:
+        """Constrói o pedido kNN visual — partilhado por search e _msearch."""
         from_value = max(int(from_offset), 0)
         size = max(int(page_size), 1)
         retrieval_window = (
@@ -1517,7 +1553,6 @@ class OpenSearchGateway:
                 }
             ],
         }
-
         body: dict[str, Any] = {
             "from": from_value,
             "size": size,
@@ -1537,18 +1572,85 @@ class OpenSearchGateway:
             ],
             "query": {"bool": bool_query},
         }
-        search_kwargs: dict[str, Any] = {
-            "index": self.settings.OPENSEARCH_INDEX_IMAGE,
-            "body": body,
-        }
-        response = client.search(**search_kwargs)
+        return {"index": self.settings.OPENSEARCH_INDEX_IMAGE, "body": body}
+
+    def parse_similar_images_page_response(
+        self,
+        response: dict[str, Any],
+        *,
+        request: dict[str, Any],
+    ) -> OpenSearchRetrievalPage:
         hits = response.get("hits", {}).get("hits", [])
-        total_value = self._total_hits_value(response)
         return OpenSearchRetrievalPage(
             results=self._image_results_from_hits(hits),
-            total=total_value,
-            query_body=dict(search_kwargs),
+            total=self._total_hits_value(response),
+            query_body=dict(request),
         )
+
+    def _msearch_sync(
+        self,
+        requests: list[dict[str, Any]],
+    ) -> list[dict[str, Any] | Exception]:
+        """E9 — executa vários pedidos numa única chamada ``_msearch``.
+
+        Cada pedido: {index, body[, search_pipeline]}. Devolve, por item, o
+        response dict OU uma Exception (erros por ramo isolados: um ramo
+        falhar não elimina os restantes). Só levanta em falha transport-level
+        — o chamador faz fallback para pesquisas separadas.
+        """
+        client = self._ensure_client()
+        payload: list[dict[str, Any]] = []
+        for request in requests:
+            header: dict[str, Any] = {"index": request["index"]}
+            if request.get("search_pipeline"):
+                header["search_pipeline"] = request["search_pipeline"]
+            payload.append(header)
+            payload.append(request["body"])
+        response = client.msearch(body=payload)
+        results: list[dict[str, Any] | Exception] = []
+        for item in response.get("responses", []):
+            if isinstance(item, dict) and item.get("error"):
+                results.append(RuntimeError(str(item.get("error"))[:300]))
+            else:
+                results.append(item)
+        # Paridade defensiva: garante uma entrada por pedido.
+        while len(results) < len(requests):
+            results.append(RuntimeError("msearch: missing response item"))
+        return results
+
+    async def msearch_requests(
+        self,
+        requests: list[dict[str, Any]],
+    ) -> list[dict[str, Any] | Exception]:
+        return await self._to_thread_logged(
+            "opensearch.msearch",
+            self._msearch_sync,
+            log_fields={"request_count": len(requests)},
+            result_size=len,
+            requests=requests,
+        )
+
+    def _search_similar_images_page_sync(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        image_embedding: list[float],
+        from_offset: int,
+        page_size: int,
+        retrieval_window_size: int | None = None,
+    ) -> OpenSearchRetrievalPage:
+        client = self._ensure_client()
+        search_kwargs = self.build_similar_images_page_request(
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            image_embedding=image_embedding,
+            from_offset=from_offset,
+            page_size=page_size,
+            retrieval_window_size=retrieval_window_size,
+        )
+        response = client.search(**search_kwargs)
+        return self.parse_similar_images_page_response(response, request=search_kwargs)
 
     def _search_similar_images_multi_sync(
         self,

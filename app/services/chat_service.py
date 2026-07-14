@@ -810,6 +810,75 @@ class ChatService:
             )
             return None
 
+    async def _maybe_fuse_image_text(
+        self,
+        *,
+        message_text: str,
+        museum_slug: str,
+        museum_id: str | None,
+        i2i_hits: list[dict[str, object]],
+        conversation_id: str,
+        query_id: str,
+    ):
+        """Etapa 8 — imagem+texto atrás de MULTIMODAL_RETRIEVAL_MODE.
+
+        Só corre quando o utilizador forneceu texto real com a imagem e o modo
+        multimodal está ligado. Em off (ou falha), devolve None e o endpoint
+        mantém o fluxo imagem-only atual, byte-idêntico."""
+        mode = str(self.settings.MULTIMODAL_RETRIEVAL_MODE or "off").strip().lower()
+        if mode == "off" or not (message_text or "").strip():
+            return None
+
+        from app.services.retrieval.visual_intent import decide_visual_intent
+
+        # O probe decide o ramo t2i; a componente documental corre sempre que
+        # há texto (o texto refina a imagem, nunca é ignorado).
+        probe = decide_visual_intent(message_text, mode="intent")
+        temporal_query = await self._interpret_temporal_query(message_text)
+        temporal_filter = self._merge_temporal_filter({}, temporal_query)
+        log_event(
+            logger,
+            logging.INFO,
+            "multimodal.image_text.plan",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            run_t2i=probe.use_visual,
+            probe_rule=probe.rule,
+            temporal="_temporal_interval" in temporal_filter,
+        )
+
+        service = getattr(self, "_multimodal_text_retrieval", None)
+        if service is None:
+            from app.services.retrieval.multimodal_retrieval import MultimodalTextRetrieval
+
+            service = MultimodalTextRetrieval(
+                settings=self.settings,
+                opensearch_gateway=self.opensearch_gateway,
+                embedding_provider=self.embedding_provider,
+            )
+            self._multimodal_text_retrieval = service
+        try:
+            return await service.fuse_image_text_search(
+                message_text=message_text,
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                i2i_hits=list(i2i_hits),
+                run_t2i=probe.use_visual,
+                temporal_filter=temporal_filter or None,
+                router_decision=probe,
+                trace_id=query_id,
+            )
+        except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "multimodal.image_text.error",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                error=exc,
+            )
+            return None
+
     def _artifact_results_as_prompt_docs(
         self,
         artifact_results: list[ArtifactResult],
@@ -3127,7 +3196,33 @@ class ChatService:
             )
             image_hits = []
 
+        # E8: imagem+texto — quando o utilizador forneceu texto real e o modo
+        # multimodal está ligado, funde i2i + t2i + pesquisa documental.
+        image_text_outcome = None
         if image_hits:
+            image_text_outcome = await self._maybe_fuse_image_text(
+                message_text=(payload.message or "").strip(),
+                museum_slug=search_museum_slug,
+                museum_id=search_museum_id,
+                i2i_hits=image_hits,
+                conversation_id=conversation_id,
+                query_id=query_id,
+            )
+
+        if image_text_outcome is not None:
+            artifact_docs = image_text_outcome.docs
+            image_results_total = image_text_outcome.total
+            image_matches = self._build_image_matches(
+                image_hits=image_text_outcome.matched_image_hits,
+                artifact_docs=artifact_docs,
+            )
+            await self._emit_status(
+                status_cb,
+                "status.artifacts_found",
+                language=language,
+                artifact_count=len(artifact_docs),
+            )
+        elif image_hits:
             try:
                 artifact_docs = await self._fetch_artifact_docs_for_image_hits(
                     museum_slug=search_museum_slug,
@@ -3211,7 +3306,10 @@ class ChatService:
             default_page_size=max(self.settings.CHAT_IMAGE_ARTIFACT_TOP_K, 1),
             total_override=image_results_total,
             retrieval_request={
-                "kind": "image",
+                # multimodal_image: paginação pós-fusão via snapshot cacheado
+                # (o materializer media re-executaria a pesquisa e desfaria a
+                # fusão página a página).
+                "kind": "multimodal_image" if image_text_outcome is not None else "image",
                 "museum_id": search_museum_id,
                 "museum_slug": search_museum_slug,
                 "artifact_museum_id": explicit_museum_id,
@@ -3220,6 +3318,7 @@ class ChatService:
                 "retrieval_window_size": image_retrieval_window_size,
                 "results_total": image_results_total,
                 "opensearch_query": image_opensearch_query,
+                "user_message": (payload.message or "").strip() or None,
             },
         )
         results_request_id = str(

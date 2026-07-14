@@ -103,5 +103,52 @@ class TestVisualBuildersHaveNoInTour(unittest.TestCase):
         self._assert_clean(client.calls[0])
 
 
+class MsearchRecorderClient(RecorderClient):
+    def __init__(self, responses):
+        super().__init__()
+        self.msearch_payloads = []
+        self._responses = responses
+
+    def msearch(self, body):
+        self.msearch_payloads.append(body)
+        return {"responses": self._responses}
+
+
+class TestMsearch(unittest.TestCase):
+    """E9 — _msearch com erros por ramo isolados e headers corretos."""
+
+    def test_per_item_errors_are_isolated(self) -> None:
+        gateway = OpenSearchGateway.__new__(OpenSearchGateway)
+        gateway.settings = SimpleNamespace(
+            OPENSEARCH_INDEX_IMAGE="imgs", OPENSEARCH_INDEX_ARTIFACT="arts"
+        )
+        ok = {"hits": {"hits": [], "total": {"value": 0}}}
+        client = MsearchRecorderClient([ok, {"error": {"reason": "shard fail"}}])
+        gateway._ensure_client = lambda: client
+        out = gateway._msearch_sync(
+            [
+                {"index": "imgs", "body": {"q": 1}},
+                {"index": "arts", "body": {"q": 2}, "search_pipeline": "nlp-search-pipeline"},
+            ]
+        )
+        self.assertEqual(out[0], ok)
+        self.assertIsInstance(out[1], Exception)
+        # header do 2º pedido transporta o search_pipeline
+        payload = client.msearch_payloads[0]
+        self.assertEqual(payload[0], {"index": "imgs"})
+        self.assertEqual(
+            payload[2], {"index": "arts", "search_pipeline": "nlp-search-pipeline"}
+        )
+        self.assertEqual(payload[3], {"q": 2})
+
+    def test_missing_response_items_become_errors(self) -> None:
+        gateway = OpenSearchGateway.__new__(OpenSearchGateway)
+        gateway.settings = SimpleNamespace()
+        gateway._ensure_client = lambda: MsearchRecorderClient([])
+        out = gateway._msearch_sync([{"index": "a", "body": {}}])
+        self.assertEqual(len(out), 1)
+        self.assertIsInstance(out[0], Exception)
+
+
 if __name__ == "__main__":
     unittest.main()

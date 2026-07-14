@@ -144,6 +144,27 @@ class Settings(BaseSettings):
     MULTIMODAL_MIN_IMAGE_SCORE: float = 0.64
     MULTIMODAL_IMAGE_TOP_K: int = 30
     MULTIMODAL_DEBUG: bool = False
+    # Pesos da fusão imagem+texto (Etapa 8): a semelhança visual (i2i) é o
+    # ramo principal; o texto refina via t2i (MULTIMODAL_IMAGE_WEIGHT) e/ou
+    # pesquisa documental de artefactos com peso reduzido.
+    MULTIMODAL_I2I_WEIGHT: float = 1.0
+    MULTIMODAL_IMAGE_TEXT_ARTIFACT_WEIGHT: float = 0.5
+    # E9: ramos múltiplos numa mensagem usam _msearch (erros por ramo isolados;
+    # fallback automático para queries separadas em falha transport-level).
+    MULTIMODAL_USE_MSEARCH: bool = True
+    # E10: preferência in_tour APÓS a fusão — um resultado in_tour sobe no
+    # máximo uma posição quando a diferença de fusion_score é <= margem.
+    # 0.0 desliga a política. Nunca altera scores nem introduz candidatos.
+    MULTIMODAL_IN_TOUR_MARGIN: float = 0.0
+
+    @field_validator("MULTIMODAL_IN_TOUR_MARGIN")
+    @classmethod
+    def _validate_multimodal_in_tour_margin(cls, value: float) -> float:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(
+                f"MULTIMODAL_IN_TOUR_MARGIN must be within [0, 1]; got {value}"
+            )
+        return value
 
     @field_validator("MULTIMODAL_RETRIEVAL_MODE")
     @classmethod
@@ -163,7 +184,12 @@ class Settings(BaseSettings):
             raise ValueError(f"MULTIMODAL_RRF_K must be >= 1; got {value}")
         return value
 
-    @field_validator("MULTIMODAL_ARTIFACT_WEIGHT", "MULTIMODAL_IMAGE_WEIGHT")
+    @field_validator(
+        "MULTIMODAL_ARTIFACT_WEIGHT",
+        "MULTIMODAL_IMAGE_WEIGHT",
+        "MULTIMODAL_I2I_WEIGHT",
+        "MULTIMODAL_IMAGE_TEXT_ARTIFACT_WEIGHT",
+    )
     @classmethod
     def _validate_multimodal_weights(cls, value: float) -> float:
         if value < 0:

@@ -197,6 +197,45 @@ def weighted_rrf(
     )
 
 
+def promote_in_tour_within_margin(
+    results: list[FusedResult],
+    *,
+    in_tour_by_artifact: dict[str, bool],
+    margin: float,
+) -> tuple[list[FusedResult], int]:
+    """Etapa 10 — preferência in_tour APÓS a fusão, conservadora.
+
+    Uma única passagem estável: um resultado in_tour sobe no máximo UMA posição,
+    e apenas quando a diferença de fusion_score para o vizinho acima é <= margin.
+    Nunca altera scores, nunca introduz candidatos, e um match destacado (gap >
+    margin) nunca é ultrapassado. margin <= 0 desliga a política (ordem intacta).
+
+    Devolve (nova_ordem, nº de promoções).
+    """
+
+    if margin <= 0 or len(results) < 2:
+        return list(results), 0
+    ordered = list(results)
+    promotions = 0
+    index = 1
+    while index < len(ordered):
+        above = ordered[index - 1]
+        current = ordered[index]
+        above_in_tour = bool(in_tour_by_artifact.get(above.artifact_id, False))
+        current_in_tour = bool(in_tour_by_artifact.get(current.artifact_id, False))
+        if (
+            current_in_tour
+            and not above_in_tour
+            and (above.fusion_score - current.fusion_score) <= margin
+        ):
+            ordered[index - 1], ordered[index] = current, above
+            promotions += 1
+            index += 2  # o promovido não continua a subir em cadeia
+        else:
+            index += 1
+    return ordered, promotions
+
+
 def _matched_image_rank(result: FusedResult) -> int | None:
     ranks = [
         prov.rank

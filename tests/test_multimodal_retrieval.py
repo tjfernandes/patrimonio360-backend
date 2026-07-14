@@ -29,6 +29,10 @@ def make_settings(**overrides):
         MULTIMODAL_MIN_IMAGE_SCORE=0.0,
         MULTIMODAL_IMAGE_TOP_K=30,
         MULTIMODAL_DEBUG=False,
+        MULTIMODAL_I2I_WEIGHT=1.0,
+        MULTIMODAL_IMAGE_TEXT_ARTIFACT_WEIGHT=0.5,
+        MULTIMODAL_USE_MSEARCH=False,
+        MULTIMODAL_IN_TOUR_MARGIN=0.0,
         OPENSEARCH_INDEX_IMAGE="cultural_heritage_images_v4",
         QWEN_MULTIMODAL_EMBEDDING_MODEL_REVISION="rev123",
         multimodal_embedding_model_resolved="Qwen/Qwen3-VL-Embedding-8B",
@@ -328,6 +332,285 @@ class TestTextToImageOnly(unittest.TestCase):
         # único candidato é de outro museu -> guarda remove -> None (nunca
         # despromover a baseline para uma lista vazia)
         self.assertIsNone(outcome)
+
+
+class StubGatewayImageText(StubGateway):
+    """Stub com o ramo documental (search_relevant_context_page)."""
+
+    def __init__(self, *, artifact_page=None, artifact_error=None, **kw):
+        super().__init__(**kw)
+        self.artifact_page = artifact_page or []
+        self.artifact_error = artifact_error
+        self.artifact_calls = []
+
+    async def search_relevant_context_page(self, **kwargs):
+        self.artifact_calls.append(kwargs)
+        if self.artifact_error:
+            raise self.artifact_error
+        return SimpleNamespace(
+            results=list(self.artifact_page), total=len(self.artifact_page), query_body={}
+        )
+
+
+class StubProviderImageText(StubProvider):
+    def __init__(self, *, text_vector=None, **kw):
+        super().__init__(**kw)
+        self.text_vector = text_vector or [0.5, 0.5]
+        self.text_calls = 0
+
+    async def embed_text(self, text):
+        self.text_calls += 1
+        return self.text_vector
+
+
+def run_image_text(service, *, i2i, run_t2i=True, temporal=None, text="com decoração floral"):
+    return run(
+        service.fuse_image_text_search(
+            message_text=text,
+            museum_slug="s",
+            museum_id="mnt",
+            i2i_hits=i2i,
+            run_t2i=run_t2i,
+            temporal_filter=temporal,
+            router_decision=DECISION,
+            trace_id="it",
+        )
+    )
+
+
+class TestImageTextFusion(unittest.TestCase):
+    def test_uses_all_three_branches_with_i2i_primary(self) -> None:
+        gateway = StubGatewayImageText(
+            image_hits=[img_hit("T1", "t1", 0.9)],          # t2i
+            artifact_page=[art_doc("D1", score=10.0)],       # documental
+            by_ids={"I1": art_doc("I1"), "T1": art_doc("T1")},
+        )
+        provider = StubProviderImageText()
+        service = MultimodalTextRetrieval(
+            settings=make_settings(), opensearch_gateway=gateway, embedding_provider=provider
+        )
+        outcome = run_image_text(
+            service, i2i=[img_hit("I1", "i1", 0.95)], run_t2i=True
+        )
+        ids = [d["artifact_id"] for d in outcome.docs]
+        # i2i (peso 1.0) > t2i (0.7) > artifact (0.5), todos rank 1 nos seus ramos
+        self.assertEqual(ids, ["I1", "T1", "D1"])
+        self.assertEqual(provider.calls, 1)       # t2i embed
+        self.assertEqual(provider.text_calls, 1)  # embed documental
+        self.assertEqual(len(gateway.artifact_calls), 1)
+        fused_i1 = next(r for r in outcome.fused if r.artifact_id == "I1")
+        self.assertIn("image_to_image", fused_i1.sources)
+
+    def test_debug_mode_logging_does_not_break_fusion(self) -> None:
+        # Regressão: com MULTIMODAL_DEBUG=true o _log fazia trace_id duplicado
+        # (payload contém trace_id) e a fusão inteira caía para o fallback.
+        gateway = StubGatewayImageText(by_ids={"I1": art_doc("I1")})
+        service = MultimodalTextRetrieval(
+            settings=make_settings(MULTIMODAL_DEBUG=True),
+            opensearch_gateway=gateway,
+            embedding_provider=StubProviderImageText(),
+        )
+        outcome = run_image_text(service, i2i=[img_hit("I1", "i1", 0.95)], run_t2i=False)
+        self.assertIsNotNone(outcome)
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["I1"])
+
+    def test_without_visual_text_component_skips_t2i(self) -> None:
+        gateway = StubGatewayImageText(by_ids={"I1": art_doc("I1")})
+        provider = StubProviderImageText()
+        service = MultimodalTextRetrieval(
+            settings=make_settings(), opensearch_gateway=gateway, embedding_provider=provider
+        )
+        outcome = run_image_text(
+            service, i2i=[img_hit("I1", "i1", 0.95)], run_t2i=False, text="do século XVIII"
+        )
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["I1"])
+        self.assertEqual(provider.calls, 0)  # sem embed t2i
+        self.assertEqual(len(gateway.search_calls), 0)
+
+    def test_temporal_filter_drops_out_of_window_and_unknown(self) -> None:
+        in_window = art_doc("I1"); in_window.update(start_year=1701, end_year=1750)
+        out_window = art_doc("I2"); out_window.update(start_year=1900, end_year=1920)
+        unknown = art_doc("I3")  # sem anos -> include_unknown=False
+        gateway = StubGatewayImageText(
+            by_ids={"I1": in_window, "I2": out_window, "I3": unknown}
+        )
+        service = MultimodalTextRetrieval(
+            settings=make_settings(),
+            opensearch_gateway=gateway,
+            embedding_provider=StubProviderImageText(),
+        )
+        temporal = {"_temporal_interval": {"start_year": 1700, "end_year": 1799,
+                                           "include_unknown": False}}
+        outcome = run_image_text(
+            service,
+            i2i=[img_hit("I1", "a", 0.9), img_hit("I2", "b", 0.85), img_hit("I3", "c", 0.8)],
+            run_t2i=False,
+            temporal=temporal,
+            text="apenas do século XVIII",
+        )
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["I1"])
+        self.assertEqual(outcome.diagnostics["fusion"]["dropped_temporal"], 2)
+
+    def test_floor_applies_to_t2i_but_not_i2i(self) -> None:
+        gateway = StubGatewayImageText(
+            image_hits=[img_hit("T1", "t1", 0.2)],  # t2i fraco -> floor corta
+            by_ids={"I1": art_doc("I1"), "T1": art_doc("T1")},
+        )
+        service = MultimodalTextRetrieval(
+            settings=make_settings(MULTIMODAL_MIN_IMAGE_SCORE=0.5),
+            opensearch_gateway=gateway,
+            embedding_provider=StubProviderImageText(),
+        )
+        outcome = run_image_text(
+            service, i2i=[img_hit("I1", "i1", 0.3)], run_t2i=True  # i2i fraco MANTIDO
+        )
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["I1"])
+
+    def test_artifact_branch_failure_keeps_visual_results(self) -> None:
+        gateway = StubGatewayImageText(
+            artifact_error=RuntimeError("os down"),
+            by_ids={"I1": art_doc("I1")},
+        )
+        service = MultimodalTextRetrieval(
+            settings=make_settings(),
+            opensearch_gateway=gateway,
+            embedding_provider=StubProviderImageText(),
+        )
+        outcome = run_image_text(service, i2i=[img_hit("I1", "i1", 0.95)], run_t2i=False)
+        self.assertIsNotNone(outcome)
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["I1"])
+        self.assertIn("error", outcome.diagnostics["artifact_search"])
+
+    def test_matched_image_prefers_best_visual_rank(self) -> None:
+        gateway = StubGatewayImageText(
+            image_hits=[img_hit("I1", "t2i-img", 0.9)],
+            by_ids={"I1": art_doc("I1")},
+        )
+        service = MultimodalTextRetrieval(
+            settings=make_settings(),
+            opensearch_gateway=gateway,
+            embedding_provider=StubProviderImageText(),
+        )
+        outcome = run_image_text(service, i2i=[img_hit("I1", "i2i-img", 0.95)], run_t2i=True)
+        matched = {h["artifact_id"]: h["image_id"] for h in outcome.matched_image_hits}
+        # ambos rank 1; desempate determinístico por nome de ramo (alfabético):
+        # image_to_image < text_to_image -> vence a imagem do i2i.
+        self.assertEqual(matched, {"I1": "i2i-img"})
+
+
+class MsearchStubGateway(StubGatewayImageText):
+    """Stub que expõe a superfície _msearch do gateway (E9)."""
+
+    def __init__(self, *, msearch_responses=None, msearch_transport_error=None, **kw):
+        super().__init__(**kw)
+        self.msearch_responses = msearch_responses
+        self.msearch_transport_error = msearch_transport_error
+        self.msearch_calls = []
+
+    def build_similar_images_page_request(self, **kw):
+        return {"index": "imgs", "body": {"kind": "t2i"}}
+
+    def build_relevant_context_page_request(self, **kw):
+        return {"index": "arts", "body": {"kind": "art"}, "search_pipeline": "nlp"}
+
+    async def msearch_requests(self, requests):
+        self.msearch_calls.append(requests)
+        if self.msearch_transport_error:
+            raise self.msearch_transport_error
+        return self.msearch_responses
+
+    def parse_similar_images_page_response(self, response, *, request):
+        return SimpleNamespace(results=response["_hits"], total=len(response["_hits"]), query_body=request)
+
+    def parse_relevant_context_page_response(self, response, *, request):
+        return SimpleNamespace(results=response["_hits"], total=len(response["_hits"]), query_body=request)
+
+
+class TestMsearchExecution(unittest.TestCase):
+    def _fuse(self, gateway):
+        service = MultimodalTextRetrieval(
+            settings=make_settings(MULTIMODAL_USE_MSEARCH=True),
+            opensearch_gateway=gateway,
+            embedding_provider=StubProviderImageText(),
+        )
+        return run_image_text(service, i2i=[img_hit("I1", "i1", 0.95)], run_t2i=True)
+
+    def test_msearch_path_produces_same_shape_as_sequential(self) -> None:
+        t2i_hits = [img_hit("T1", "t1", 0.9)]
+        art_docs = [art_doc("D1", score=9.0)]
+        gateway = MsearchStubGateway(
+            msearch_responses=[{"_hits": t2i_hits}, {"_hits": art_docs}],
+            by_ids={"I1": art_doc("I1"), "T1": art_doc("T1")},
+        )
+        outcome = self._fuse(gateway)
+        self.assertEqual(len(gateway.msearch_calls), 1)
+        self.assertEqual(outcome.diagnostics["execution"]["via"], "msearch")
+        ids = [d["artifact_id"] for d in outcome.docs]
+        # mesma ordem que o caminho sequencial equivalente (i2i > t2i > artifact)
+        self.assertEqual(ids, ["I1", "T1", "D1"])
+
+    def test_branch_error_inside_msearch_keeps_other_branch(self) -> None:
+        gateway = MsearchStubGateway(
+            msearch_responses=[RuntimeError("t2i shard fail"), {"_hits": [art_doc("D1", score=9.0)]}],
+            by_ids={"I1": art_doc("I1"), "D1": art_doc("D1")},
+        )
+        outcome = self._fuse(gateway)
+        ids = [d["artifact_id"] for d in outcome.docs]
+        self.assertEqual(ids, ["I1", "D1"])  # t2i caiu; i2i + documental vivos
+        self.assertIn("error", outcome.diagnostics["text_to_image"])
+
+    def test_transport_failure_falls_back_to_sequential(self) -> None:
+        gateway = MsearchStubGateway(
+            msearch_transport_error=RuntimeError("connection reset"),
+            image_hits=[img_hit("T1", "t1", 0.9)],
+            artifact_page=[art_doc("D1", score=9.0)],
+            by_ids={"I1": art_doc("I1"), "T1": art_doc("T1")},
+        )
+        outcome = self._fuse(gateway)
+        self.assertEqual(outcome.diagnostics["execution"]["via"], "sequential_fallback")
+        ids = [d["artifact_id"] for d in outcome.docs]
+        self.assertEqual(ids, ["I1", "T1", "D1"])
+        # fallback usou as pesquisas separadas
+        self.assertEqual(len(gateway.search_calls), 1)
+        self.assertEqual(len(gateway.artifact_calls), 1)
+
+
+class TestChatServiceImageTextGating(unittest.TestCase):
+    def _service(self, mode):
+        service = ChatService.__new__(ChatService)
+        service.settings = make_settings(MULTIMODAL_RETRIEVAL_MODE=mode)
+        return service
+
+    def test_off_returns_none_without_side_effects(self) -> None:
+        service = self._service("off")
+        out = run(
+            ChatService._maybe_fuse_image_text(
+                service,
+                message_text="com decoração floral",
+                museum_slug="s",
+                museum_id="mnt",
+                i2i_hits=[img_hit("I1", "i1", 0.9)],
+                conversation_id="c",
+                query_id="q",
+            )
+        )
+        self.assertIsNone(out)
+        self.assertFalse(hasattr(service, "_multimodal_text_retrieval"))
+
+    def test_empty_text_returns_none(self) -> None:
+        service = self._service("intent")
+        out = run(
+            ChatService._maybe_fuse_image_text(
+                service,
+                message_text="   ",
+                museum_slug="s",
+                museum_id="mnt",
+                i2i_hits=[img_hit("I1", "i1", 0.9)],
+                conversation_id="c",
+                query_id="q",
+            )
+        )
+        self.assertIsNone(out)
 
 
 class _SpyFuser:
