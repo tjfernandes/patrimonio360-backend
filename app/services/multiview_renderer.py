@@ -9,6 +9,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import signal
 import subprocess
 import threading
 import tempfile
@@ -129,6 +130,11 @@ class PersistentMultiviewRenderer:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                # New session/process group so close() can kill the whole tree
+                # (node + the puppeteer-launched Chromium children). Without
+                # this, a hard teardown orphans Chromium processes that pile up
+                # and starve future renders.
+                start_new_session=True,
             )
         except FileNotFoundError as exc:  # pragma: no cover - runtime-only path
             raise MultiviewRenderError(
@@ -212,12 +218,25 @@ class PersistentMultiviewRenderer:
                 "ensure_top": bool(self.settings.MULTIVIEW_RENDER_ENSURE_TOP),
                 "delay_ms": int(self.settings.MULTIVIEW_RENDER_DELAY_MS),
             }
-            response = self._http_json(
-                method="POST",
-                url=f"{self._base_url}/render",
-                payload=payload,
-                timeout=max(self.settings.MULTIVIEW_WORKER_START_TIMEOUT_SECONDS, 60.0),
+            render_timeout = max(
+                float(getattr(self.settings, "MULTIVIEW_RENDER_TIMEOUT_SECONDS", 0) or 0),
+                float(self.settings.MULTIVIEW_WORKER_START_TIMEOUT_SECONDS),
+                60.0,
             )
+            try:
+                response = self._http_json(
+                    method="POST",
+                    url=f"{self._base_url}/render",
+                    payload=payload,
+                    timeout=render_timeout,
+                )
+            except MultiviewRenderError:
+                # A failed/timed-out render can leave the worker's Chromium page
+                # wedged; discard the worker so the NEXT upload spawns a fresh
+                # one instead of reusing a poisoned page.
+                with self._lock:
+                    self._restart_worker_locked()
+                raise
         finally:
             try:
                 os.remove(temp_path)
@@ -333,20 +352,49 @@ class PersistentMultiviewRenderer:
     async def ensure_worker_running(self) -> None:
         await asyncio.to_thread(self._ensure_worker_running_sync)
 
+    def _terminate_process_tree(self, process: subprocess.Popen) -> None:
+        """Kill the worker AND its Chromium children via the process group."""
+        if process.poll() is not None:
+            return
+        log_event(logger, logging.INFO, "multiview.worker.stop")
+        try:
+            pgid = os.getpgid(process.pid)
+        except (ProcessLookupError, OSError):
+            pgid = None
+        try:
+            if pgid is not None:
+                os.killpg(pgid, signal.SIGTERM)
+            else:
+                process.terminate()
+        except (ProcessLookupError, OSError):
+            return
+        try:
+            process.wait(timeout=5)
+            return
+        except subprocess.TimeoutExpired:
+            log_event(logger, logging.WARNING, "multiview.worker.kill")
+        try:
+            if pgid is not None:
+                os.killpg(pgid, signal.SIGKILL)
+            else:
+                process.kill()
+        except (ProcessLookupError, OSError):
+            pass
+
     def close(self) -> None:
         with self._lock:
-            if self._process is None:
-                return
             process = self._process
             self._process = None
-            if process.poll() is None:  # pragma: no branch - runtime-only path
-                log_event(logger, logging.INFO, "multiview.worker.stop")
-                process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    log_event(logger, logging.WARNING, "multiview.worker.kill")
-                    process.kill()
+            if process is not None:
+                self._terminate_process_tree(process)
+
+    def _restart_worker_locked(self) -> None:
+        """Discard a poisoned worker (wedged Chromium) and spawn a fresh one so
+        one bad render does not break every subsequent 3D upload."""
+        process = self._process
+        self._process = None
+        if process is not None:
+            self._terminate_process_tree(process)
 
 
 @lru_cache(maxsize=1)

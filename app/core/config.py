@@ -219,6 +219,11 @@ class Settings(BaseSettings):
     MULTIVIEW_WORKER_HOST: str = "127.0.0.1"
     MULTIVIEW_WORKER_PORT: int = 3101
     MULTIVIEW_WORKER_START_TIMEOUT_SECONDS: float = 30.0
+    # Render HTTP timeout. Kept at the historical 60s floor by default so a
+    # broken/hung render fails FAST and the worker recovers, rather than making
+    # the user wait. Operators can raise it once GPU-accelerated rendering (or a
+    # known-good Chromium) makes genuinely-slow renders viable.
+    MULTIVIEW_RENDER_TIMEOUT_SECONDS: float = 60.0
     MULTIVIEW_RENDER_SIZE: int = 512
     MULTIVIEW_RENDER_BACKGROUND: str = "#FFFFFF"
     MULTIVIEW_RENDER_FOV: int = 35

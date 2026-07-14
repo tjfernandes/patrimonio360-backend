@@ -98,6 +98,11 @@ async function createBrowserPage({ size, dpr }) {
 
   browser = await puppeteer.launch({
     headless: "new",
+    // Bound CDP calls so a wedged page fails instead of blocking forever. The
+    // Python client's render timeout is the outer backstop (it kills this
+    // worker's process group on timeout), so keep this comfortably above the
+    // slowest legitimate software render.
+    protocolTimeout: Number.parseInt(process.env.MULTIVIEW_PROTOCOL_TIMEOUT_MS || "300000", 10) || 300000,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -186,8 +191,12 @@ async function renderMultiview(payload) {
       });
       break;
     } catch (error) {
+      // Discard the (possibly wedged) page so the retry / next request gets a
+      // fresh browser. On the first attempt with a recoverable/target-closed
+      // error, retry immediately; otherwise tear down and rethrow so the
+      // caller and the Python-side worker recovery start clean.
+      await closeBrowserState().catch(() => {});
       if (attempt === 1 && isTargetClosedError(error)) {
-        await closeBrowserState();
         continue;
       }
       throw error;
