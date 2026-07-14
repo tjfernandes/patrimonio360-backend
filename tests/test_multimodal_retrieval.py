@@ -501,17 +501,22 @@ class TestImageTextFusion(unittest.TestCase):
 class MsearchStubGateway(StubGatewayImageText):
     """Stub que expõe a superfície _msearch do gateway (E9)."""
 
-    def __init__(self, *, msearch_responses=None, msearch_transport_error=None, **kw):
+    def __init__(self, *, msearch_responses=None, msearch_transport_error=None,
+                 artifact_pipeline=False, **kw):
         super().__init__(**kw)
         self.msearch_responses = msearch_responses
         self.msearch_transport_error = msearch_transport_error
+        self.artifact_pipeline = artifact_pipeline
         self.msearch_calls = []
 
     def build_similar_images_page_request(self, **kw):
         return {"index": "imgs", "body": {"kind": "t2i"}}
 
     def build_relevant_context_page_request(self, **kw):
-        return {"index": "arts", "body": {"kind": "art"}, "search_pipeline": "nlp"}
+        req = {"index": "arts", "body": {"kind": "art"}}
+        if self.artifact_pipeline:
+            req["search_pipeline"] = "nlp-search-pipeline"
+        return req
 
     async def msearch_requests(self, requests):
         self.msearch_calls.append(requests)
@@ -548,6 +553,21 @@ class TestMsearchExecution(unittest.TestCase):
         ids = [d["artifact_id"] for d in outcome.docs]
         # mesma ordem que o caminho sequencial equivalente (i2i > t2i > artifact)
         self.assertEqual(ids, ["I1", "T1", "D1"])
+
+    def test_pipeline_branch_forces_sequential(self) -> None:
+        # OpenSearch _msearch rejeita search_pipeline no header -> um ramo que o
+        # exige nunca é batched; corre sequencial (sem round-trip inválido).
+        gateway = MsearchStubGateway(
+            artifact_pipeline=True,
+            image_hits=[img_hit("T1", "t1", 0.9)],
+            artifact_page=[art_doc("D1", score=9.0)],
+            by_ids={"I1": art_doc("I1"), "T1": art_doc("T1")},
+        )
+        outcome = self._fuse(gateway)
+        self.assertEqual(outcome.diagnostics["execution"]["via"], "sequential")
+        self.assertEqual(len(gateway.msearch_calls), 0)  # nunca tentou msearch
+        self.assertEqual(outcome.diagnostics["msearch"]["skipped"], "branch requires search_pipeline")
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["I1", "T1", "D1"])
 
     def test_branch_error_inside_msearch_keeps_other_branch(self) -> None:
         gateway = MsearchStubGateway(

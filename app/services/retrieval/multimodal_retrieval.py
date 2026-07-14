@@ -230,18 +230,30 @@ class MultimodalTextRetrieval:
             retrieval_window_size=top_k,
         )
         if use_msearch and t2i_embedding is not None and doc_embedding is not None:
+            t2i_request = self.gateway.build_similar_images_page_request(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                image_embedding=t2i_embedding,
+                from_offset=0,
+                page_size=top_k,
+                retrieval_window_size=top_k,
+            )
+            artifact_request = self.gateway.build_relevant_context_page_request(
+                **artifact_request_kwargs
+            )
+            # OpenSearch _msearch does NOT accept `search_pipeline` in the
+            # per-request metadata header. The artifact hybrid branch requires
+            # the nlp-search-pipeline, so this pair cannot be batched — run it
+            # sequentially (correct results, no invalid round-trip). _msearch
+            # stays available for pipeline-free multi-branch batching.
+            requires_pipeline = any(
+                r.get("search_pipeline") for r in (t2i_request, artifact_request)
+            )
+            if requires_pipeline:
+                diagnostics["msearch"] = {"skipped": "branch requires search_pipeline"}
+                use_msearch = False
+        if use_msearch and t2i_embedding is not None and doc_embedding is not None:
             try:
-                t2i_request = self.gateway.build_similar_images_page_request(
-                    museum_slug=museum_slug,
-                    museum_id=museum_id,
-                    image_embedding=t2i_embedding,
-                    from_offset=0,
-                    page_size=top_k,
-                    retrieval_window_size=top_k,
-                )
-                artifact_request = self.gateway.build_relevant_context_page_request(
-                    **artifact_request_kwargs
-                )
                 msearch_started = time.monotonic()
                 responses = await self.gateway.msearch_requests(
                     [t2i_request, artifact_request]
