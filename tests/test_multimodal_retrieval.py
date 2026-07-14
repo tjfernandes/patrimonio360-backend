@@ -261,6 +261,75 @@ class TestOrchestrator(unittest.TestCase):
         self.assertEqual(diag["revision"], "rev123")
 
 
+class TestTextToImageOnly(unittest.TestCase):
+    """E7B — o ramo t2i é independente do resultado de artifact_search."""
+
+    def test_empty_artifact_branch_with_t2i_results_yields_t2i_only(self) -> None:
+        gateway = StubGateway(
+            image_hits=[img_hit("A7", "i7", 0.9), img_hit("A8", "i8", 0.8)],
+            by_ids={"A7": art_doc("A7"), "A8": art_doc("A8")},
+        )
+        service = MultimodalTextRetrieval(
+            settings=make_settings(), opensearch_gateway=gateway, embedding_provider=StubProvider()
+        )
+        outcome = run(
+            service.fuse_text_search(
+                query_text="objetos com flores", museum_slug="s", museum_id="mnt",
+                artifact_docs=[], router_decision=DECISION, trace_id="t2i-only",
+            )
+        )
+        self.assertIsNotNone(outcome)
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["A7", "A8"])
+        matched = {h["artifact_id"]: h["image_id"] for h in outcome.matched_image_hits}
+        self.assertEqual(matched, {"A7": "i7", "A8": "i8"})
+        # hidratados por artifact_id, ordem do ramo visual preservada
+        self.assertEqual(gateway.ids_calls[0]["artifact_ids"], ["A7", "A8"])
+
+    def test_artifact_results_with_empty_t2i_keeps_baseline(self) -> None:
+        gateway = StubGateway(image_hits=[])
+        service = MultimodalTextRetrieval(
+            settings=make_settings(), opensearch_gateway=gateway, embedding_provider=StubProvider()
+        )
+        outcome = run(
+            service.fuse_text_search(
+                query_text="q", museum_slug="s", museum_id="mnt",
+                artifact_docs=[art_doc("A1")], router_decision=DECISION, trace_id="tb",
+            )
+        )
+        self.assertIsNone(outcome)  # caller mantém a baseline textual
+
+    def test_both_branches_empty_returns_none(self) -> None:
+        gateway = StubGateway(image_hits=[])
+        service = MultimodalTextRetrieval(
+            settings=make_settings(), opensearch_gateway=gateway, embedding_provider=StubProvider()
+        )
+        outcome = run(
+            service.fuse_text_search(
+                query_text="q", museum_slug="s", museum_id="mnt",
+                artifact_docs=[], router_decision=DECISION, trace_id="te",
+            )
+        )
+        self.assertIsNone(outcome)
+
+    def test_t2i_only_respects_museum_filter_guard(self) -> None:
+        gateway = StubGateway(
+            image_hits=[img_hit("A9", "i9", 0.9, museum="mnaz")],
+            by_ids={"A9": art_doc("A9", museum="mnaz")},
+        )
+        service = MultimodalTextRetrieval(
+            settings=make_settings(), opensearch_gateway=gateway, embedding_provider=StubProvider()
+        )
+        outcome = run(
+            service.fuse_text_search(
+                query_text="q", museum_slug="s", museum_id="mnt",
+                artifact_docs=[], router_decision=DECISION, trace_id="tg",
+            )
+        )
+        # único candidato é de outro museu -> guarda remove -> None (nunca
+        # despromover a baseline para uma lista vazia)
+        self.assertIsNone(outcome)
+
+
 class _SpyFuser:
     def __init__(self):
         self.calls = 0
@@ -314,6 +383,72 @@ class TestChatServiceGating(unittest.TestCase):
         spy = _SpyFuser()
         service._multimodal_text_retrieval = spy
         self._call(service, "quem foi o autor da peça?")
+        self.assertEqual(spy.calls, 1)
+
+    def test_llm_only_override_promotes_visual_queries_to_rag(self) -> None:
+        service = self._service("intent")
+        decision = {"mode": "llm_only", "intent": "overview"}
+        out = ChatService._maybe_override_llm_only_for_visual(
+            service, router_decision=decision, query_text="objetos com flores"
+        )
+        self.assertEqual(out["mode"], "rag")
+        self.assertEqual(out["intent"], "visual_search")
+
+    def test_llm_only_override_skips_factual_and_off(self) -> None:
+        factual = {"mode": "llm_only", "intent": "overview"}
+        out = ChatService._maybe_override_llm_only_for_visual(
+            self._service("intent"),
+            router_decision=factual,
+            query_text="quem foi o diretor do museu?",
+        )
+        self.assertEqual(out["mode"], "llm_only")
+        out_off = ChatService._maybe_override_llm_only_for_visual(
+            self._service("off"),
+            router_decision=factual,
+            query_text="objetos com flores",
+        )
+        self.assertEqual(out_off["mode"], "llm_only")
+
+    def test_llm_only_override_uses_intent_rules_even_in_always(self) -> None:
+        # always não converte conversa em pesquisa: o probe usa regras intent.
+        chatty = {"mode": "llm_only", "intent": "smalltalk"}
+        out = ChatService._maybe_override_llm_only_for_visual(
+            self._service("always"), router_decision=chatty, query_text="olá, tudo bem?"
+        )
+        self.assertEqual(out["mode"], "llm_only")
+        visual = ChatService._maybe_override_llm_only_for_visual(
+            self._service("always"),
+            router_decision=chatty,
+            query_text="peças com animais",
+        )
+        self.assertEqual(visual["mode"], "rag")
+
+    def test_llm_only_override_never_touches_other_modes(self) -> None:
+        for m in ("rag", "selected_artifact", "analytics"):
+            decision = {"mode": m}
+            out = ChatService._maybe_override_llm_only_for_visual(
+                self._service("intent"),
+                router_decision=decision,
+                query_text="objetos com flores",
+            )
+            self.assertEqual(out["mode"], m)
+
+    def test_intent_visual_runs_even_with_empty_artifact_docs(self) -> None:
+        # E7B: t2i-only — o ramo visual corre mesmo com artifact_search vazio.
+        service = self._service("intent")
+        spy = _SpyFuser()
+        service._multimodal_text_retrieval = spy
+        run(
+            ChatService._maybe_fuse_text_to_image(
+                service,
+                query_text="objetos com flores",
+                museum_slug="s",
+                museum_id="mnt",
+                artifact_docs=[],
+                conversation_id="c",
+                query_id="q",
+            )
+        )
         self.assertEqual(spy.calls, 1)
 
 

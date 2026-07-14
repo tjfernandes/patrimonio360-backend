@@ -604,10 +604,6 @@ class OpenSearchGateway:
         """Boost de in_tour para pesquisas de texto."""
         return float(getattr(self.settings, "CHAT_IN_TOUR_BOOST", 0) or 0)
 
-    def _configured_image_boost(self) -> float:
-        """Boost de in_tour para pesquisas por imagem/modelo 3D."""
-        return float(getattr(self.settings, "IMAGE_IN_TOUR_BOOST", 0) or 0)
-
     def _is_in_tour(self, value: Any) -> bool:
         if isinstance(value, bool):
             return value
@@ -1423,9 +1419,10 @@ class OpenSearchGateway:
     ) -> list[dict[str, Any]]:
         client = self._ensure_client()
         requested_top_k = max(top_k, 1)
-        image_boost = self._configured_image_boost()
-        size = self._artifact_candidate_size(requested_top_k, boost=image_boost)
-        in_tour_boost_clause = self._build_in_tour_boost_clause(boost=image_boost)
+        # E7A: as queries visuais nao transportam QUALQUER preferencia in_tour
+        # (a preferencia e pos-fusao, Etapa 10). boost=1.0 apenas preserva a
+        # janela de candidatos expandida que existia antes da remocao.
+        size = self._artifact_candidate_size(requested_top_k, boost=1.0)
         bool_query: dict[str, Any] = {
             "filter": self._build_image_filter_clauses(
                 museum_slug=museum_slug,
@@ -1442,8 +1439,6 @@ class OpenSearchGateway:
                 }
             ],
         }
-        if in_tour_boost_clause:
-            bool_query["should"] = [in_tour_boost_clause]
 
         body: dict[str, Any] = {
             "size": size,
@@ -1505,7 +1500,7 @@ class OpenSearchGateway:
             size=size,
             retrieval_window_size=retrieval_window,
         )
-        in_tour_boost_clause = self._build_in_tour_boost_clause(boost=self._configured_image_boost())
+        # E7A: sem preferencia in_tour na query visual (pos-fusao, Etapa 10).
         bool_query: dict[str, Any] = {
             "filter": self._build_image_filter_clauses(
                 museum_slug=museum_slug,
@@ -1522,8 +1517,6 @@ class OpenSearchGateway:
                 }
             ],
         }
-        if in_tour_boost_clause:
-            bool_query["should"] = [in_tour_boost_clause]
 
         body: dict[str, Any] = {
             "from": from_value,
@@ -1571,13 +1564,13 @@ class OpenSearchGateway:
 
         client = self._ensure_client()
         requested_top_k = max(top_k, 1)
-        image_boost = self._configured_image_boost()
-        size = self._artifact_candidate_size(requested_top_k, boost=image_boost)
+        # E7A: sem preferencia in_tour na query visual (pos-fusao, Etapa 10);
+        # boost=1.0 preserva apenas a janela de candidatos expandida.
+        size = self._artifact_candidate_size(requested_top_k, boost=1.0)
         filter_clauses = self._build_image_filter_clauses(
             museum_slug=museum_slug,
             museum_id=museum_id,
         )
-        in_tour_boost_clause = self._build_in_tour_boost_clause(boost=image_boost)
 
         should_clauses: list[dict[str, Any]] = []
         for embedding in embeddings:
@@ -1587,8 +1580,7 @@ class OpenSearchGateway:
                         "visual_embedding": {
                             "vector": embedding,
                             "k": max(30, size * 3),
-                            # Ponderacao por imagem (modelo 3D -> varias vistas),
-                            # nao confundir com o boost de in_tour.
+                            # Ponderacao por imagem (modelo 3D -> varias vistas).
                             "boost": 3.0,
                         }
                     }
@@ -1599,8 +1591,6 @@ class OpenSearchGateway:
             "filter": filter_clauses,
             "must": [{"bool": {"should": should_clauses, "minimum_should_match": 1}}],
         }
-        if in_tour_boost_clause:
-            bool_query["should"] = [in_tour_boost_clause]
 
         body: dict[str, Any] = {
             "size": size,
@@ -1671,7 +1661,7 @@ class OpenSearchGateway:
             museum_slug=museum_slug,
             museum_id=museum_id,
         )
-        in_tour_boost_clause = self._build_in_tour_boost_clause(boost=self._configured_image_boost())
+        # E7A: sem preferencia in_tour na query visual (pos-fusao, Etapa 10).
 
         should_clauses: list[dict[str, Any]] = []
         for embedding in embeddings:
@@ -1681,8 +1671,7 @@ class OpenSearchGateway:
                         "visual_embedding": {
                             "vector": embedding,
                             "k": knn_k,
-                            # Ponderacao por imagem (modelo 3D -> varias vistas),
-                            # nao confundir com o boost de in_tour.
+                            # Ponderacao por imagem (modelo 3D -> varias vistas).
                             "boost": 3.0,
                         }
                     }
@@ -1693,8 +1682,6 @@ class OpenSearchGateway:
             "filter": filter_clauses,
             "must": [{"bool": {"should": should_clauses, "minimum_should_match": 1}}],
         }
-        if in_tour_boost_clause:
-            bool_query["should"] = [in_tour_boost_clause]
 
         body: dict[str, Any] = {
             "from": from_value,

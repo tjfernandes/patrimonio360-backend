@@ -706,6 +706,44 @@ class ChatService:
             top_k=max(top_k, 1),
         )
 
+    def _maybe_override_llm_only_for_visual(
+        self,
+        *,
+        router_decision: dict[str, object],
+        query_text: str,
+    ) -> dict[str, object]:
+        """E7B: o router LLM pode classificar pesquisas visuais ("objetos com
+        flores") como llm_only, saltando o retrieval por completo. Com o
+        multimodal ligado, um probe determinístico de intenção visual (regras
+        de modo intent, MESMO quando MULTIMODAL_RETRIEVAL_MODE=always — para
+        não converter conversa em pesquisa) promove a rota a rag, onde o fluxo
+        normal artifact_search + t2i[-only] decide os ramos. Em off devolve a
+        decisão intacta."""
+        mode = str(self.settings.MULTIMODAL_RETRIEVAL_MODE or "off").strip().lower()
+        if mode == "off" or router_decision.get("mode") != "llm_only":
+            return router_decision
+        from app.services.retrieval.visual_intent import decide_visual_intent
+
+        probe = decide_visual_intent(query_text, mode="intent")
+        if not probe.use_visual:
+            return router_decision
+        log_event(
+            logger,
+            logging.INFO,
+            "multimodal.router.override",
+            original_mode="llm_only",
+            new_mode="rag",
+            rule=probe.rule,
+            reason=probe.reason,
+        )
+        return {
+            **router_decision,
+            "mode": "rag",
+            "intent": "visual_search",
+            "needs_retrieval": True,
+            "reason": f"visual override: {probe.rule}",
+        }
+
     async def _maybe_fuse_text_to_image(
         self,
         *,
@@ -2126,6 +2164,10 @@ class ChatService:
             context_policy=context_policy,
             user_message=payload.message,
         )
+        router_decision = self._maybe_override_llm_only_for_visual(
+            router_decision=router_decision,
+            query_text=payload.message,
+        )
         rewritten_query = str(router_decision.get("rewritten_query", payload.message)).strip()
         original_message = (payload.message or "").strip()
         current_museum_id = self._resolve_museum_id(payload)
@@ -2409,7 +2451,10 @@ class ChatService:
             retrieval_request["museum_slug"] = search_museum_slug
             retrieval_request["search_scope"] = search_scope.model_dump(mode="json")
             multimodal_outcome = None
-            if retrieved_docs and str(retrieval_request.get("kind") or "") == "text":
+            # E7B: o ramo t2i é independente do resultado de artifact_search —
+            # corre também com zero docs textuais (t2i-only), desde que o
+            # retrieval textual tenha sido tentado (kind=="text").
+            if str(retrieval_request.get("kind") or "") == "text":
                 multimodal_outcome = await self._maybe_fuse_text_to_image(
                     query_text=retrieval_query,
                     museum_slug=search_museum_slug,

@@ -72,6 +72,7 @@ _VISUAL_PATTERNS: list[tuple[str, str, float]] = [
     (r" padrao| padrão| padroes| padrões| motivo| listras| riscas | as riscas| axadrezado| estampad| decorac| decoração| ornament| relevo ", "pattern_pt", 0.75),
     (r" pattern| motif | striped | checkered | decorated | ornament| composition ", "pattern_en", 0.75),
     (r" floral | flores | flor | folhagem| vegetalista ", "floral", 0.75),
+    (r" animais | animal | passaro| passaros| aves? | cavalo| leao| leoes| peixes? | serpente| dragao| animals? | birds? | horses? | lions? | fish ", "animals", 0.75),
     # representação / conteúdo pictórico
     (r" imagens de | imagem de | figuras de | figura de | representando | que representem| que representam| que mostrem| que mostram| retratando| depicting | images of | with figures ", "depiction", 0.7),
     (r" visualmente| aparencia| aparência| aspecto | aspeto ", "visual_explicit", 0.85),

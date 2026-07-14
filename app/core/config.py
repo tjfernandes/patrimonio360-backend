@@ -113,6 +113,9 @@ class Settings(BaseSettings):
     CHAT_RELATED_ARTIFACTS_PAGE_SIZE: int = 10
     CHAT_RETRIEVAL_PAGINATION_WINDOW: int = 150
     CHAT_IN_TOUR_BOOST: float = 5
+    # Legacy (sem efeito desde a Fase 3/E7A): as queries visuais deixaram de
+    # transportar preferencia in_tour; a preferencia passa a ser pos-fusao
+    # (MULTIMODAL_IN_TOUR_MARGIN, Etapa 10). Declarado para paridade de .env.
     IMAGE_IN_TOUR_BOOST: float = 5
     CHAT_IMAGE_RETRIEVAL_TOP_K: int = 6
     CHAT_IMAGE_ARTIFACT_TOP_K: int = 5

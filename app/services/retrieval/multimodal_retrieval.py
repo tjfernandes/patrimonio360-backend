@@ -184,6 +184,13 @@ class MultimodalTextRetrieval:
                 if hit is not None:
                     matched_image_hits.append(hit)
 
+        if not ordered_docs:
+            # Nunca despromover a baseline: sem docs utilizáveis pós-guardas,
+            # o chamador mantém o que tinha (mesmo que também vazio).
+            diagnostics["outcome"] = "empty_after_guards"
+            self._log(trace_id, "multimodal.fusion.empty", diagnostics)
+            return None
+
         diagnostics["fusion"] = {
             "rrf_k": int(self.settings.MULTIMODAL_RRF_K),
             "weights": {
@@ -277,6 +284,9 @@ class MultimodalTextRetrieval:
         *,
         level: int = logging.INFO,
     ) -> None:
+        if bool(getattr(self.settings, "MULTIMODAL_DEBUG", False)):
+            log_event(logger, level, event, trace_id=trace_id, **payload)
+            return
         log_event(
             logger,
             level,
