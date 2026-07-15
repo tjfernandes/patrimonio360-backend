@@ -2602,8 +2602,24 @@ class ChatService:
                         artifact_docs=retrieved_docs,
                     )
         elif router_decision["mode"] == "rag" and self.settings.CHAT_ENABLE_RAG:
-            # Retrieval must stay strict to user wording (no expansion/rewrite additions).
-            retrieval_query = search_query_message
+            # A query de retrieval e a rewritten do router (resolve follow-ups
+            # com o contexto: "e de linho?" -> "vestidos de linho") quando passa
+            # os guardrails; senao a mensagem do utilizador. Alimenta embedding,
+            # extrator lexical, reranker e ramo t2i de forma consistente.
+            retrieval_query, retrieval_query_source = self._resolve_contextual_retrieval_query(
+                original_query=search_query_message,
+                rewritten_query=rewritten_query,
+                state=state,
+                requested_museum=requested_museum,
+                museum_slug=search_museum_slug,
+                museum_id=search_museum_id,
+                museum_name=search_museum_name,
+            )
+            # A query aceite passa a ser A rewritten do sistema: alinha o
+            # prompt de resposta e os logs com o que foi realmente pesquisado
+            # (uma rewritten alucinada rejeitada nunca deve chegar ao LLM final).
+            rewritten_query = retrieval_query
+            router_decision["rewritten_query"] = retrieval_query
             await self._emit_status(status_cb, "status.searching_collection", language=language)
             retrieval_started_at = time.monotonic()
             (
@@ -2621,6 +2637,8 @@ class ChatService:
             )
             retrieval_request["museum_slug"] = search_museum_slug
             retrieval_request["search_scope"] = search_scope.model_dump(mode="json")
+            retrieval_request["resolved_query"] = retrieval_query
+            retrieval_request["resolved_query_source"] = retrieval_query_source
             multimodal_outcome = None
             # E7B: o ramo t2i é independente do resultado de artifact_search —
             # corre também com zero docs textuais (t2i-only), desde que o
@@ -5229,6 +5247,137 @@ class ChatService:
             return True
         return False
 
+    def _strip_unrequested_museum_terms(
+        self,
+        *,
+        text: str,
+        original: str,
+        museum_slug: str | None,
+        museum_id: str | None,
+        museum_name: str | None,
+    ) -> str:
+        """Remove nome/slug/id do museu de ``text`` quando o utilizador NAO os
+        escreveu em ``original`` (a pesquisa ja esta limitada ao museu; termos
+        do museu injetados pelo LLM so poluem BM25/embeddings)."""
+        original_folded = self._fold_query_text(original)
+        banned_sequences: list[list[str]] = []
+        for term in (museum_slug, museum_id, museum_name):
+            term_folded = self._fold_query_text(str(term or ""))
+            if not term_folded or term_folded in original_folded:
+                continue
+            banned_sequences.append(term_folded.split())
+        if not banned_sequences:
+            return text
+
+        raw_tokens = text.split()
+        folded_tokens = [self._fold_query_text(token) for token in raw_tokens]
+        keep = [True] * len(raw_tokens)
+        for sequence in banned_sequences:
+            length = len(sequence)
+            if length == 0:
+                continue
+            for start in range(0, len(folded_tokens) - length + 1):
+                if folded_tokens[start : start + length] == sequence and all(
+                    keep[start : start + length]
+                ):
+                    for index in range(start, start + length):
+                        keep[index] = False
+
+        kept_tokens = [token for token, flag in zip(raw_tokens, keep) if flag]
+        # preposicoes orfas no fim ("vestidos pretos no" -> "vestidos pretos")
+        dangling = {"no", "na", "nos", "nas", "do", "da", "dos", "das", "de", "em", "ao", "a", "o"}
+        while kept_tokens and self._fold_query_text(kept_tokens[-1]) in dangling:
+            kept_tokens.pop()
+        return " ".join(kept_tokens).strip()
+
+    def _filter_lexical_to_source(self, candidate: str, source: str) -> str:
+        """Garantia dura de que o extrator lexical so EXTRAI: qualquer token do
+        candidato que nao exista na fonte e descartado (o prompt proibe
+        sinonimos/traducoes, logo subset e o contrato)."""
+        source_tokens = set(self._fold_query_text(source).split())
+        kept: list[str] = []
+        for token in candidate.split():
+            folded = self._fold_query_text(token)
+            if folded and folded in source_tokens:
+                kept.append(token)
+        return " ".join(kept).strip()
+
+    def _resolve_contextual_retrieval_query(
+        self,
+        *,
+        original_query: str,
+        rewritten_query: str,
+        state: ChatSessionState,
+        requested_museum: Any | None,
+        museum_slug: str | None,
+        museum_id: str | None,
+        museum_name: str | None,
+    ) -> tuple[str, str]:
+        """Escolhe a query de retrieval: a rewritten do router (resolvida com o
+        contexto conversacional, ex. "e de linho?" -> "vestidos de linho") quando
+        passa os guardrails, senao a mensagem do utilizador.
+
+        Guardrails deterministicos, por ordem: strip de museu pedido/injetado,
+        lingua igual, tamanho, e anti-invencao (a rewritten tem de partilhar
+        pelo menos um token significativo com a mensagem atual ou com as
+        ultimas mensagens do utilizador — mata reescritas alucinadas tipo
+        "Ola" -> "Qual e o nome do museu?").
+        """
+        original = (original_query or "").strip()
+        candidate = (rewritten_query or "").strip()
+        if not candidate or not original:
+            return original, "user_message"
+
+        candidate = self._strip_search_museum_expression_from_query(
+            candidate,
+            requested_museum,
+        )
+        candidate = self._strip_unrequested_museum_terms(
+            text=candidate,
+            original=original,
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            museum_name=museum_name,
+        ).strip()
+        if not candidate:
+            return original, "user_message"
+        if self._fold_query_text(candidate) == self._fold_query_text(original):
+            return original, "user_message"
+        if len(candidate) > 220:
+            return original, "user_message"
+        if self._has_query_language_mismatch(original, candidate):
+            return original, "user_message"
+
+        candidate_tokens = {
+            token
+            for token in self._fold_query_text(candidate).split()
+            if len(token) >= 3
+        }
+        if not candidate_tokens:
+            return original, "user_message"
+        source_tokens: set[str] = set()
+        source_texts = [original]
+        user_turns = [
+            turn.text
+            for turn in state.history
+            if str(getattr(turn, "role", "")) == "user"
+        ]
+        source_texts.extend(user_turns[-3:])
+        for source_text in source_texts:
+            source_tokens.update(
+                self._fold_query_text(source_text).split()
+            )
+        # Anti-invencao estrito: a rewritten so RESOLVE referencias — TODOS os
+        # seus tokens significativos tem de existir na mensagem atual ou nas
+        # ultimas mensagens do utilizador. Um follow-up legitimo ("e de linho?"
+        # -> "vestidos de linho") passa porque "vestidos" vem do historico;
+        # substituicoes alucinadas ("vestidos de seda" -> "vestidos de linho"
+        # na primeira mensagem) sao rejeitadas.
+        if not candidate_tokens.issubset(source_tokens):
+            return original, "user_message"
+
+        return candidate, "router_rewrite"
+
     async def _rewrite_retrieval_query_with_llm(
         self,
         *,
@@ -5264,6 +5413,11 @@ class ChatService:
         lexical_query = str(payload.get("lexical_query") or "").strip()
         if lexical_query and self._has_query_language_mismatch(raw_query, lexical_query):
             lexical_query = ""
+        # O extrator so pode EXTRAIR: tokens fora da fonte (museus injetados,
+        # pesquisas inventadas para saudacoes, etc.) sao descartados; se nada
+        # sobrar, o chamador cai na heuristica deterministica.
+        if lexical_query:
+            lexical_query = self._filter_lexical_to_source(lexical_query, raw_query)
         return lexical_query, ""
 
     def _build_lexical_query(
