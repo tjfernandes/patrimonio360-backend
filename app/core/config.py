@@ -246,12 +246,31 @@ class Settings(BaseSettings):
     # is what makes PairwiseRerankerService constructible at all.
     CHAT_ENABLE_RERANKING: bool = False
     RERANKER_MODEL_ID: str = "Qwen/Qwen3-Reranker-4B"
+    RERANKER_MODEL_REVISION: str | None = None
     RERANKER_MAX_LENGTH: int = 1024
     RERANKER_BATCH_SIZE: int = 10
     RERANKER_INSTRUCTION: str = (
         "Given a web search query, retrieve relevant passages that answer the query"
     )
     RERANKER_PREFER_BF16: bool = True
+    # Candidate pool reranked on the first page of text retrieval. When reranking
+    # is enabled the OpenSearch request is widened to this size and truncated back
+    # to the original page size after reordering.
+    RERANKER_CANDIDATES: int = 24
+
+    # Visual reranker (second-stage for image retrieval; disabled by default).
+    # Scores (query image/text, candidate image+caption) pairs with Qwen3-VL-Reranker.
+    CHAT_ENABLE_VL_RERANKING: bool = False
+    VL_RERANKER_MODEL_ID: str = "Qwen/Qwen3-VL-Reranker-8B"
+    VL_RERANKER_MODEL_REVISION: str | None = None
+    VL_RERANKER_INSTRUCTION: str = (
+        "Given a user query (image and/or text), retrieve museum artifact images "
+        "that match the queried object"
+    )
+    VL_RERANKER_BATCH_SIZE: int = 4
+    VL_RERANKER_CANDIDATES: int = 16
+    # Candidate images are downscaled to this max side (px) before scoring.
+    VL_RERANKER_MAX_IMAGE_SIDE: int = 1024
 
     # Declared for .env parity (currently without consumers in app code).
     CHAT_ENABLE_STRUCTURED_QUERY_PLANNING: bool = False
@@ -329,6 +348,21 @@ class Settings(BaseSettings):
     def reranker_model_resolved(self) -> str:
         raw = (self.RERANKER_MODEL_ID or "").strip()
         return raw or "Qwen/Qwen3-Reranker-4B"
+
+    @property
+    def reranker_model_revision_resolved(self) -> str | None:
+        raw = (self.RERANKER_MODEL_REVISION or "").strip()
+        return raw or None
+
+    @property
+    def vl_reranker_model_resolved(self) -> str:
+        raw = (self.VL_RERANKER_MODEL_ID or "").strip()
+        return raw or "Qwen/Qwen3-VL-Reranker-8B"
+
+    @property
+    def vl_reranker_model_revision_resolved(self) -> str | None:
+        raw = (self.VL_RERANKER_MODEL_REVISION or "").strip()
+        return raw or None
 
     @property
     def openrouter_base_url_resolved(self) -> str:

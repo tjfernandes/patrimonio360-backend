@@ -29,6 +29,8 @@ async def warmup_chat_stack(
         "opensearch_ready": False,
         "text_embeddings_ready": False,
         "multimodal_ready": False,
+        "reranker_ready": False,
+        "vl_reranker_ready": False,
         "multiview_worker_ready": False,
     }
 
@@ -36,6 +38,18 @@ async def warmup_chat_stack(
     await resolved_service.embedding_provider.warmup(include_multimodal=include_multimodal)
     results["text_embeddings_ready"] = True
     results["multimodal_ready"] = include_multimodal
+
+    settings = resolved_service.settings
+    if settings.CHAT_ENABLE_RERANKING:
+        from app.services.reranker import get_reranker_service
+
+        await get_reranker_service().warmup()
+        results["reranker_ready"] = True
+    if settings.CHAT_ENABLE_VL_RERANKING:
+        from app.services.reranker import get_vl_reranker_service
+
+        await get_vl_reranker_service().warmup()
+        results["vl_reranker_ready"] = True
 
     if include_multiview_worker:
         await resolved_service.model_retrieval_service.renderer.ensure_worker_running()

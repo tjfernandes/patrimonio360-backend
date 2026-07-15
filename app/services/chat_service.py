@@ -352,6 +352,8 @@ class ChatService:
         llm_service: LLMService,
         session_store: ChatSessionStore,
         query_logger: QueryLogger | None = None,
+        reranker_service: Any | None = None,
+        vl_reranker_service: Any | None = None,
     ) -> None:
         self.settings = settings
         self.opensearch_gateway = opensearch_gateway
@@ -361,6 +363,106 @@ class ChatService:
         self.llm_service = llm_service
         self.session_store = session_store
         self.query_logger = query_logger or get_query_logger()
+        self._reranker_service = reranker_service
+        self._vl_reranker_service = vl_reranker_service
+
+    def _get_reranker_service(self) -> Any:
+        if self._reranker_service is None:
+            from app.services.reranker import get_reranker_service
+
+            self._reranker_service = get_reranker_service()
+        return self._reranker_service
+
+    def _get_vl_reranker_service(self) -> Any:
+        if self._vl_reranker_service is None:
+            from app.services.reranker import get_vl_reranker_service
+
+            self._vl_reranker_service = get_vl_reranker_service()
+        return self._vl_reranker_service
+
+    async def _maybe_rerank_text_docs(
+        self,
+        *,
+        query_text: str,
+        docs: list[dict[str, object]],
+        top_k: int,
+    ) -> list[dict[str, object]]:
+        """Second-stage rerank of the text retrieval pool (graceful fallback).
+
+        Returns ``docs`` untouched when reranking is disabled or fails; the
+        first-stage (hybrid search) order is always a valid answer.
+        """
+        effective_top_k = max(int(top_k), 1)
+        if not self.settings.CHAT_ENABLE_RERANKING or not docs:
+            return docs[:effective_top_k]
+        started_at = time.monotonic()
+        try:
+            reranked = await self._get_reranker_service().rerank(
+                query_text=query_text,
+                documents=docs,
+                top_k=effective_top_k,
+            )
+        except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "chat.retrieval.rerank.error",
+                doc_count=len(docs),
+                duration_ms=round((time.monotonic() - started_at) * 1000, 1),
+                error=exc,
+            )
+            # First-stage order stays valid; truncate the widened pool back
+            # to the requested page size so downstream shape is unchanged.
+            return docs[:effective_top_k]
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.retrieval.rerank.finish",
+            doc_count=len(docs),
+            kept=len(reranked),
+            duration_ms=round((time.monotonic() - started_at) * 1000, 1),
+        )
+        return reranked
+
+    async def _maybe_rerank_image_hits(
+        self,
+        *,
+        query_text: str,
+        query_image_bytes: bytes | None,
+        image_hits: list[dict[str, Any]],
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """Second-stage visual rerank of i2i candidates (graceful fallback)."""
+        effective_top_k = max(int(top_k), 1)
+        if not self.settings.CHAT_ENABLE_VL_RERANKING or not image_hits:
+            return image_hits[:effective_top_k]
+        started_at = time.monotonic()
+        try:
+            reranked = await self._get_vl_reranker_service().rerank_image_hits(
+                query_text=query_text,
+                query_image_bytes=query_image_bytes,
+                image_hits=image_hits,
+                top_k=effective_top_k,
+            )
+        except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "chat.image.rerank.error",
+                hit_count=len(image_hits),
+                duration_ms=round((time.monotonic() - started_at) * 1000, 1),
+                error=exc,
+            )
+            return image_hits[:effective_top_k]
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.image.rerank.finish",
+            hit_count=len(image_hits),
+            kept=len(reranked),
+            duration_ms=round((time.monotonic() - started_at) * 1000, 1),
+        )
+        return reranked
 
 
     def health(self) -> ChatHealthResponse:
@@ -3166,8 +3268,16 @@ class ChatService:
             self.settings.CHAT_RETRIEVAL_CANDIDATES,
             1,
         )
+        # Visual reranking scores a wider i2i pool and truncates back to
+        # image_candidates_k afterwards (downstream shape unchanged).
+        image_rerank_pool_k = image_candidates_k
+        if self.settings.CHAT_ENABLE_VL_RERANKING:
+            image_rerank_pool_k = max(
+                image_candidates_k,
+                int(self.settings.VL_RERANKER_CANDIDATES),
+            )
         image_retrieval_window_size = self._image_retrieval_window_size(
-            minimum=image_candidates_k,
+            minimum=image_rerank_pool_k,
         )
         try:
             image_page = await self.opensearch_gateway.search_similar_images_page(
@@ -3175,7 +3285,7 @@ class ChatService:
                 museum_id=search_museum_id,
                 image_embedding=image_embedding,
                 from_offset=0,
-                page_size=image_candidates_k,
+                page_size=image_rerank_pool_k,
                 retrieval_window_size=image_retrieval_window_size,
             )
             image_opensearch_query = image_page.query_body
@@ -3195,6 +3305,13 @@ class ChatService:
                 error=exc,
             )
             image_hits = []
+
+        image_hits = await self._maybe_rerank_image_hits(
+            query_text=(payload.message or "").strip(),
+            query_image_bytes=image_bytes,
+            image_hits=image_hits,
+            top_k=image_candidates_k,
+        )
 
         # E8: imagem+texto — quando o utilizador forneceu texto real e o modo
         # multimodal está ligado, funde i2i + t2i + pesquisa documental.
@@ -4584,8 +4701,16 @@ class ChatService:
             )
         else:
             retrieval_page_size = max(int(result_window_size), final_top_k, 1)
+        # Second-stage reranking scores a wider first-stage pool and truncates
+        # back to retrieval_page_size afterwards (downstream shape unchanged).
+        rerank_pool_size = retrieval_page_size
+        if self.settings.CHAT_ENABLE_RERANKING:
+            rerank_pool_size = max(
+                retrieval_page_size,
+                int(self.settings.RERANKER_CANDIDATES),
+            )
         retrieval_window_size = self._text_retrieval_window_size(
-            minimum=retrieval_page_size,
+            minimum=rerank_pool_size,
         )
         retrieval_boosts = self._matched_retrieval_boosts_for_log(
             query_text=embedding_query,
@@ -4620,7 +4745,7 @@ class ChatService:
                 lexical_query=lexical_query,
                 query_embedding=query_embedding,
                 from_offset=0,
-                page_size=retrieval_page_size,
+                page_size=rerank_pool_size,
                 filters=retrieval_filters,
                 sort=sort,
                 retrieval_window_size=retrieval_window_size,
@@ -4662,6 +4787,12 @@ class ChatService:
 
         if not docs:
             return "", results_total, [], retrieval_request
+
+        docs = await self._maybe_rerank_text_docs(
+            query_text=embedding_query,
+            docs=docs,
+            top_k=retrieval_page_size,
+        )
 
         context_top_k = final_top_k
         if result_window_size is not None:
