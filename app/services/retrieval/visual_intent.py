@@ -40,7 +40,13 @@ class VisualIntentDecision:
 def _fold(text: str) -> str:
     normalized = unicodedata.normalize("NFKD", text or "")
     stripped = "".join(ch for ch in normalized if not unicodedata.combining(ch))
-    return f" {stripped.casefold().strip()} "
+    lowered = stripped.casefold()
+    # Pontuação vira espaço para as fronteiras por espaço funcionarem em
+    # "pretos, de couro" / "shoes in black." (hífens incluídos: "mostra-me"
+    # -> "mostra me", coberto pelas regras).
+    lowered = re.sub(r"[^\w\s]+", " ", lowered, flags=re.UNICODE)
+    lowered = re.sub(r"\s+", " ", lowered).strip()
+    return f" {lowered} "
 
 
 # Sinais factuais/administrativos/biográficos/cronológicos — não ativam o ramo
@@ -64,9 +70,24 @@ _FACTUAL_PATTERNS: list[tuple[str, str]] = [
 _VISUAL_PATTERNS: list[tuple[str, str, float]] = [
     # similaridade visual explícita
     (r" parecid| semelhant| similar | identic| como est[ae] | mesmo estilo| do mesmo genero| do mesmo género| like this | resembl| looks like ", "similarity", 0.9),
-    # cores (PT + EN)
-    (r" azul| azuis| vermelh| verde | verdes | amarel| dourad| prateado| preto | pretas | pretos | branc| rosa | roxo | roxas | castanh| laranja | turquesa ", "color_pt", 0.8),
-    (r" blue | red | green | yellow | golden | gold | silver | black | white | pink | purple | brown | orange ", "color_en", 0.8),
+    # construção explícita "de cor X" / "cor de X" / "da cor X" (qualquer cor)
+    (r" de cor | cor de | da cor | de cores | com a cor | in colou?r ", "color_phrase", 0.85),
+    # cores (PT + EN) — flexões género/número completas
+    # fronteiras fechadas onde o prefixo geraria falsos positivos:
+    # " azul" aberto apanhava "azulejos" (fatal no MNAZ); " rosa" apanhava "rosário".
+    (
+        r" azul | azuis | vermelh| verdes? | amarel| dourad| pratead| pret[oa]s? "
+        r"| negr[oa]s? | branc| rosas? | rose[oa]s? | rox[oa]s? | castanh| laranja"
+        r"| turquesa| cinzent| beges? | violeta| lilas ",
+        "color_pt",
+        0.8,
+    ),
+    (
+        r" blue | red | green | yellow | golden | gold | silver | black | white "
+        r"| pink | purple | brown | orange | gray | grey | beige | turquoise ",
+        "color_en",
+        0.8,
+    ),
     # forma / padrão / motivo / composição
     (r" forma | formato | circular| redond| quadrad| retangular| oval | esferic| geometric| simetric | round | rounded | square | shaped? | spherical| symmetric", "shape", 0.8),
     (r" padrao| padrão| padroes| padrões| motivo| listras| riscas | as riscas| axadrezado| estampad| decorac| decoração| ornament| relevo ", "pattern_pt", 0.75),
