@@ -324,7 +324,7 @@ class Settings(BaseSettings):
             return self.LLM_MODEL_TEXT.strip()
         if self.LLM_MODEL_JSON and self.LLM_MODEL_JSON.strip():
             return self.LLM_MODEL_JSON.strip()
-        return "carminho/AMALIA-9B-50-DPO"
+        return "amalia-llm/AMALIA-9B-0626-DPO"
 
     @property
     def llm_auth_header(self) -> dict[str, str]:
