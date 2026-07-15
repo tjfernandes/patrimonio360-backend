@@ -19,7 +19,9 @@ from app.prompts import (
     get_router_system_prompt,
 )
 from app.prompts.query_planner_prompts import (
+    FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
     RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
+    build_follow_up_resolution_prompt,
     build_retrieval_query_rewrite_prompt,
 )
 from app.schemas.chat import (
@@ -2615,6 +2617,31 @@ class ChatService:
                 museum_id=search_museum_id,
                 museum_name=search_museum_name,
             )
+            # O router e erratico a resolver elipses ("e de prata?"): quando a
+            # politica de contexto marca follow-up e a rewritten do router nao
+            # sobreviveu aos guardrails, um resolver LLM dedicado tenta a
+            # resolucao — validado pelos mesmos guardrails.
+            if (
+                retrieval_query_source == "user_message"
+                and bool(context_policy.get("use_history_for_query", False))
+            ):
+                follow_up_rewrite = await self._resolve_follow_up_query_with_llm(
+                    current_message=search_query_message,
+                    state=state,
+                )
+                if follow_up_rewrite:
+                    resolved_query, resolved_source = self._resolve_contextual_retrieval_query(
+                        original_query=search_query_message,
+                        rewritten_query=follow_up_rewrite,
+                        state=state,
+                        requested_museum=requested_museum,
+                        museum_slug=search_museum_slug,
+                        museum_id=search_museum_id,
+                        museum_name=search_museum_name,
+                    )
+                    if resolved_source == "router_rewrite":
+                        retrieval_query = resolved_query
+                        retrieval_query_source = "follow_up_resolver"
             # A query aceite passa a ser A rewritten do sistema: alinha o
             # prompt de resposta e os logs com o que foi realmente pesquisado
             # (uma rewritten alucinada rejeitada nunca deve chegar ao LLM final).
@@ -5378,6 +5405,48 @@ class ChatService:
 
         return candidate, "router_rewrite"
 
+    async def _resolve_follow_up_query_with_llm(
+        self,
+        *,
+        current_message: str,
+        state: ChatSessionState,
+    ) -> str:
+        """Resolver dedicado de follow-ups elipticos ("e de prata?").
+
+        Chamada LLM pequena e de tarefa unica, usada apenas quando o router
+        nao resolveu a referencia. O output passa pelos MESMOS guardrails
+        deterministicos antes de ser aceite.
+        """
+        cleaned = (current_message or "").strip()
+        if not cleaned:
+            return ""
+        user_turns = [
+            str(turn.text)
+            for turn in state.history
+            if str(getattr(turn, "role", "")) == "user"
+        ]
+        previous_user_messages = [text for text in user_turns[:-1] if text.strip()][-3:]
+        if not previous_user_messages:
+            return ""
+
+        prompt = build_follow_up_resolution_prompt(
+            current_message=cleaned,
+            previous_user_messages=previous_user_messages,
+        )
+        try:
+            response = await self.llm_service.generate(
+                message=prompt,
+                response_format=ResponseFormatObject(type="json_object"),
+                system_prompt=FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
+                model_override=None,
+            )
+        except Exception:
+            return ""
+        payload = response.parsed_json
+        if not isinstance(payload, dict):
+            return ""
+        return str(payload.get("resolved_query") or "").strip()
+
     async def _rewrite_retrieval_query_with_llm(
         self,
         *,
@@ -5655,6 +5724,7 @@ class ChatService:
 
         referential_query_patterns = (
             r"^\s*(e|ent[aã]o|agora)\b",
+            r"^\s*(h[aá]|tem|existe[m]?|mostra)\s+mais\b",
             r"\b(deste|desta|desses|dessas|disso|nisso|daquilo)\b",
             r"\b(neste|nesta|nestes|nestas|nesse|nessa|nesses|nessas)\b",
             r"\b(esse|essa|esses|essas)\b",

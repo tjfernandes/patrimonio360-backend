@@ -155,6 +155,87 @@ class TestResolveContextualRetrievalQuery(unittest.TestCase):
         self.assertEqual(source, "user_message")
 
 
+class _FakeLLMService:
+    def __init__(self, payload) -> None:
+        self.payload = payload
+        self.calls = 0
+
+    async def generate(self, **_kwargs):
+        self.calls += 1
+        if isinstance(self.payload, Exception):
+            raise self.payload
+        return SimpleNamespace(parsed_json=self.payload)
+
+
+class TestFollowUpResolver(unittest.TestCase):
+    def _service_with_llm(self, payload) -> ChatService:
+        service = _service()
+        service.llm_service = _FakeLLMService(payload)
+        return service
+
+    def test_resolves_elliptical_follow_up(self) -> None:
+        import asyncio
+
+        service = self._service_with_llm({"resolved_query": "brincos de prata"})
+        state = _state("encontra brincos de ouro", "e de prata?")
+
+        result = asyncio.run(
+            service._resolve_follow_up_query_with_llm(
+                current_message="e de prata?",
+                state=state,
+            )
+        )
+
+        self.assertEqual(result, "brincos de prata")
+
+    def test_no_previous_user_turns_skips_llm(self) -> None:
+        import asyncio
+
+        service = self._service_with_llm({"resolved_query": "nunca chamado"})
+        state = _state("e de prata?")
+
+        result = asyncio.run(
+            service._resolve_follow_up_query_with_llm(
+                current_message="e de prata?",
+                state=state,
+            )
+        )
+
+        self.assertEqual(result, "")
+        self.assertEqual(service.llm_service.calls, 0)
+
+    def test_llm_error_returns_empty(self) -> None:
+        import asyncio
+
+        service = self._service_with_llm(RuntimeError("llm down"))
+        state = _state("encontra brincos de ouro", "e de prata?")
+
+        result = asyncio.run(
+            service._resolve_follow_up_query_with_llm(
+                current_message="e de prata?",
+                state=state,
+            )
+        )
+
+        self.assertEqual(result, "")
+
+    def test_resolver_output_still_subject_to_guardrails(self) -> None:
+        # Output do resolver com termos fora do vocabulario do utilizador
+        # e rejeitado pelo mesmo guardrail de subset.
+        service = _service()
+        state = _state("encontra brincos de ouro", "e de prata?")
+
+        query, source = _resolve(
+            service,
+            original="e de prata?",
+            rewritten="colares de diamantes",
+            state=state,
+        )
+
+        self.assertEqual(query, "e de prata?")
+        self.assertEqual(source, "user_message")
+
+
 class TestStripUnrequestedMuseumTerms(unittest.TestCase):
     def test_strips_full_name_and_dangling_preposition(self) -> None:
         service = _service()

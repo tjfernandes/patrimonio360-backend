@@ -2,6 +2,45 @@ import json
 from typing import Any
 
 
+FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT = (
+    "Resolves referências em follow-ups de pesquisa de um assistente de museu.\n"
+    "A tua única tarefa é reescrever a mensagem atual como pesquisa autocontida,\n"
+    "usando as mensagens anteriores do utilizador para resolver o que está implícito.\n"
+    "Responde APENAS JSON válido.\n"
+)
+
+
+def build_follow_up_resolution_prompt(
+    *,
+    current_message: str,
+    previous_user_messages: list[str],
+) -> str:
+    previous_lines = "\n".join(f"- {message}" for message in previous_user_messages) or "- (vazio)"
+    return (
+        "Reescreve a MENSAGEM_ATUAL como uma pesquisa autocontida, resolvendo referências\n"
+        "com as MENSAGENS_ANTERIORES do utilizador.\n\n"
+        "Regras obrigatórias:\n"
+        "- Usa APENAS palavras da MENSAGEM_ATUAL e das MENSAGENS_ANTERIORES; nunca inventes termos novos.\n"
+        "- Mantém a língua da MENSAGEM_ATUAL; nunca traduzas.\n"
+        "- Nunca acrescentes nomes de museus, slugs ou códigos.\n"
+        "- Se a MENSAGEM_ATUAL já for autocontida, ou não for uma pesquisa, copia-a tal e qual.\n\n"
+        "Exemplos:\n"
+        "MENSAGENS_ANTERIORES:\n- encontra brincos de ouro\nMENSAGEM_ATUAL: e de prata?\n"
+        "output: {\"resolved_query\":\"brincos de prata\"}\n"
+        "MENSAGENS_ANTERIORES:\n- painéis com pássaros\nMENSAGEM_ATUAL: e com flores?\n"
+        "output: {\"resolved_query\":\"painéis com flores\"}\n"
+        "MENSAGENS_ANTERIORES:\n- mostra vestidos de noiva\nMENSAGEM_ATUAL: há mais?\n"
+        "output: {\"resolved_query\":\"vestidos de noiva\"}\n"
+        "MENSAGENS_ANTERIORES:\n- azulejos azuis\nMENSAGEM_ATUAL: quero ver esculturas\n"
+        "output: {\"resolved_query\":\"quero ver esculturas\"}\n\n"
+        "Responde apenas JSON:\n"
+        "{\"resolved_query\":\"...\"}\n\n"
+        "MENSAGENS_ANTERIORES:\n"
+        f"{previous_lines}\n"
+        f"MENSAGEM_ATUAL: {current_message}\n"
+    )
+
+
 RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT = (
     "És um extrator de expressões de pesquisa para um índice de acervo museológico.\n"
     "A tua tarefa NÃO é responder ao utilizador.\n"
