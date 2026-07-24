@@ -62,6 +62,34 @@ from app.services.tour_navigation import TourNavigationService, get_tour_navigat
 StatusCallback = Callable[[dict[str, Any]], Awaitable[None]]
 logger = logging.getLogger(__name__)
 
+# Perguntas "fala-me do museu" (visao geral). Padroes aplicados ao texto
+# folded (_fold_query_text: casefold, sem acentos, sem pontuacao), ancorados
+# a frase completa para nunca capturar pesquisas de objetos ("vestidos no
+# museu"). Uma cauda so e aceite se for parte do nome do museu atual.
+_MUSEUM_OVERVIEW_PATTERNS: tuple[str, ...] = (
+    r"^(?:por favor\s+)?(?:fala|conta|diz)(?:\s+me)?(?:\s+mais)?(?:\s+um\s+(?:pouco|bocado))?\s+(?:sobre|do|da|acerca\s+de)\s+(?:o\s+|este\s+|esta\s+)?(?:museu|mosteiro)(?P<tail>.*)$",
+    r"^o\s+que\s+e\s+(?:este|o)\s+(?:museu|mosteiro)(?P<tail>.*)$",
+    r"^(?:qual\s+e\s+a\s+)?historia\s+(?:deste|do)\s+(?:museu|mosteiro)(?P<tail>.*)$",
+    r"^apresenta(?:\s+me)?\s+(?:o|este)\s+(?:museu|mosteiro)(?P<tail>.*)$",
+    r"^sobre\s+(?:o|este)\s+(?:museu|mosteiro)(?P<tail>.*)$",
+    r"^que\s+(?:museu|mosteiro)\s+e\s+este(?P<tail>.*)$",
+    r"^informacoes?\s+sobre\s+(?:o|este)\s+(?:museu|mosteiro)(?P<tail>.*)$",
+    r"^(?:please\s+)?tell\s+me(?:\s+more)?\s+about\s+(?:this|the)\s+(?:museum|monastery)(?P<tail>.*)$",
+    r"^what\s+is\s+this\s+(?:museum|monastery)(?:\s+about)?(?P<tail>.*)$",
+    r"^(?:what\s+is\s+the\s+)?history\s+of\s+(?:this|the)\s+(?:museum|monastery)(?P<tail>.*)$",
+    r"^about\s+(?:this|the)\s+(?:museum|monastery)(?P<tail>.*)$",
+)
+
+
+@lru_cache(maxsize=1)
+def _load_museum_profiles() -> dict[str, dict[str, object]]:
+    path = Path(__file__).resolve().parents[1] / "data" / "museum_profiles.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # pragma: no cover - ficheiro ausente/corrompido
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
 
 @dataclass(frozen=True, slots=True)
 class TemporalQuery:
@@ -809,6 +837,59 @@ class ChatService:
             inventory_numbers=inventory_numbers,
             top_k=max(top_k, 1),
         )
+
+    def _museum_profile_for(self, museum_id: str | None) -> dict[str, object] | None:
+        key = (museum_id or "").strip().lower()
+        if not key:
+            return None
+        profile = _load_museum_profiles().get(key)
+        return profile if isinstance(profile, dict) else None
+
+    def _is_museum_overview_query(self, text: str, *, museum_name: str | None) -> bool:
+        folded = self._fold_query_text(text)
+        if not folded:
+            return False
+        museum_tokens = set(self._fold_query_text(museum_name or "").split())
+        for pattern in _MUSEUM_OVERVIEW_PATTERNS:
+            match = re.match(pattern, folded)
+            if not match:
+                continue
+            tail_tokens = (match.group("tail") or "").split()
+            if not tail_tokens:
+                return True
+            # "fala-me sobre o museu nacional do traje": a cauda so pode
+            # conter palavras do nome do proprio museu.
+            if museum_tokens and all(token in museum_tokens for token in tail_tokens):
+                return True
+        return False
+
+    def _maybe_override_for_museum_overview(
+        self,
+        *,
+        router_decision: dict[str, object],
+        query_text: str,
+        museum_id: str | None,
+    ) -> dict[str, object]:
+        """Pergunta geral sobre o museu -> forca o caminho rag para que o
+        fast-path de overview (em _retrieve_context) responda com o perfil
+        do museu, mesmo que o router LLM tenha dito llm_only."""
+        profile = self._museum_profile_for(museum_id)
+        if profile is None:
+            return router_decision
+        if not self._is_museum_overview_query(
+            query_text,
+            museum_name=str(profile.get("name") or ""),
+        ):
+            return router_decision
+        updated = dict(router_decision)
+        updated["mode"] = "rag"
+        updated["needs_retrieval"] = True
+        updated["intent"] = "overview"
+        updated["reason"] = self._append_reason_tag(
+            str(updated.get("reason", "")),
+            "deterministic_museum_overview",
+        )
+        return updated
 
     def _maybe_override_llm_only_for_visual(
         self,
@@ -2340,6 +2421,11 @@ class ChatService:
         router_decision = self._maybe_override_llm_only_for_visual(
             router_decision=router_decision,
             query_text=payload.message,
+        )
+        router_decision = self._maybe_override_for_museum_overview(
+            router_decision=router_decision,
+            query_text=payload.message,
+            museum_id=self._resolve_museum_id(payload),
         )
         rewritten_query = str(router_decision.get("rewritten_query", payload.message)).strip()
         original_message = (payload.message or "").strip()
@@ -4584,6 +4670,55 @@ class ChatService:
 
         return candidates
 
+    def _retrieve_museum_overview_context(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        raw_query: str,
+    ) -> tuple[str, int, list[dict[str, object]], dict[str, Any]] | None:
+        """Fast-path deterministico para "fala-me do museu": responde com o
+        perfil estatico do museu (app/data/museum_profiles.json) em vez de
+        pesquisar artefactos — sem cartoes espurios, sem ramo visual (o hook
+        multimodal exige kind=="text")."""
+        profile = self._museum_profile_for(museum_id or museum_slug)
+        if profile is None:
+            return None
+        if not self._is_museum_overview_query(
+            raw_query,
+            museum_name=str(profile.get("name") or ""),
+        ):
+            return None
+
+        lines = [f"nome: {profile.get('name')}"]
+        description = str(profile.get("description") or "").strip()
+        if description:
+            lines.append(f"descricao: {description}")
+        address = str(profile.get("address") or "").strip()
+        if address:
+            lines.append(f"morada: {address}")
+        year = profile.get("inauguration_year")
+        if year:
+            lines.append(f"ano_de_inauguracao: {year}")
+        context = "[museu]\n" + "\n".join(lines)
+
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.retrieval.museum_overview",
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            query_chars=len(raw_query),
+        )
+        retrieval_request: dict[str, Any] = {
+            "kind": "museum_overview",
+            "museum_id": museum_id,
+            "museum_slug": museum_slug,
+            "original_query": raw_query,
+            "results_total": 0,
+        }
+        return context, 0, [], retrieval_request
+
     async def _retrieve_inventory_context(
         self,
         *,
@@ -4645,6 +4780,13 @@ class ChatService:
         result_window_size: int | None = None,
     ) -> tuple[str, int, list[dict[str, object]], dict[str, Any]]:
         raw_query = (query or "").strip()
+        overview_result = self._retrieve_museum_overview_context(
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            raw_query=raw_query,
+        )
+        if overview_result is not None:
+            return overview_result
         inventory_result = await self._retrieve_inventory_context(
             museum_slug=museum_slug,
             museum_id=museum_id,

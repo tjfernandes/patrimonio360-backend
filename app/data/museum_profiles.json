@@ -1,0 +1,26 @@
+{
+  "mnt": {
+    "name": "Museu Nacional do Traje",
+    "description": "Localizado no Palácio Angeja-Palmela, o Museu Nacional do Traje possui coleções de vestuário masculino e feminino desde o século XVIII até ao presente, incluindo acessórios de moda e estudos de conservação têxtil.",
+    "address": "Largo Júlio Castilho, Lumiar, 1600-483 Lisboa, Portugal",
+    "inauguration_year": 1977
+  },
+  "mnaz": {
+    "name": "Museu Nacional do Azulejo",
+    "description": "Situado no antigo Convento da Madre de Deus, o Museu Nacional do Azulejo apresenta a história do azulejo em Portugal, do século XV à contemporaneidade, incluindo o célebre painel panorâmico de Lisboa pré-terremoto de 1755.",
+    "address": "Rua da Madre de Deus, 4, 1900-312 Lisboa, Portugal",
+    "inauguration_year": 1980
+  },
+  "mj": {
+    "name": "Mosteiro dos Jerónimos",
+    "description": "Foi fundado por D. Manuel em 1498 para a Ordem de São Jerónimo, no local onde o Infante D. Henrique (1394-1460) mandara construir uma ermida dedicada a Santa Maria de Belém. A primeira pedra foi lançada em 1502 (ou 1501) segundo o projeto de Diogo de Boitaca, que orientou a primeira campanha de obras (terminada em 1516), e de João de Castilho, que comandou a segunda (1517-1522). A Castilho se deve a porta principal, a sacristia e o claustro. A porta poente é de autoria de Nicolau Chanterene. D. João III (reinado 1521-1557) apoiou a continuação da obra, mas, em 1569, estas foram suspensas e D. Catarina da Áustria (1507-1578) mandou refazer a capela-mor ao gosto renascentista, entregando a empreitada a João de Ruão. O Mosteiro sobrevive ao Terramoto, mas não à extinção das ordens religiosas. Depois de 1834, o edifício foi ocupado pela Casa Pia de Lisboa. As obras de restauro no século XIX alteraram-lhe toda a galeria de arcadas e poente da igreja e acrescentaram-lhe uma cúpula numa das torres. Atualmente o edifício acolhe também a Casa Pia, o Museu da Marinha e o Museu Nacional de Arqueologia.",
+    "address": "Praça do Império, 1400-206 Lisboa, Portugal",
+    "inauguration_year": 1502
+  },
+  "mnsr": {
+    "name": "Museu Nacional Soares dos Reis",
+    "description": "O mais antigo museu público de arte em Portugal, fundado em 1833, reúne obras de pintura, escultura, gravura, cerâmica, ourivesaria, têxteis e joalharia dos séculos XIX e XX, destacando-se o núcleo dedicado ao escultor Soares dos Reis.",
+    "address": "Rua D. Manuel II, 44, 4050-522 Porto, Portugal",
+    "inauguration_year": 1833
+  }
+}
