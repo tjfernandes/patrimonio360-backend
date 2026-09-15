@@ -18,6 +18,7 @@ from app.prompts import (
     build_router_user_prompt,
     get_router_system_prompt,
 )
+from app.prompts.chat_prompts import build_final_answer_prompt_v2
 from app.prompts.query_planner_prompts import (
     FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
     RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
@@ -1267,10 +1268,17 @@ class ChatService:
             "The frontend displays exactly visible_results_count result cards from current_visible_results for this answer.",
         ]
 
-        docs_context = self._format_docs_for_prompt(
-            docs=docs_for_prompt,
-            top_k=max(len(docs_for_prompt), 1),
-        )
+        if self.settings.CHAT_COMPACT_ANSWER_CONTEXT:
+            # Quick win PR-01: cartões compactos legíveis em vez de JSON cru
+            # com todos os campos (menos tokens, menos campos internos a
+            # "não mencionar"). Mesma ordem e mesmos rótulos [doc_N], pelo que
+            # a sanitização por índice continua alinhada.
+            docs_context = self._format_docs_compact(docs=docs_for_prompt)
+        else:
+            docs_context = self._format_docs_for_prompt(
+                docs=docs_for_prompt,
+                top_k=max(len(docs_for_prompt), 1),
+            )
         if docs_context:
             sections.append("current_visible_results:")
             sections.append(docs_context)
@@ -6437,6 +6445,76 @@ class ChatService:
             snippets.append(f"[doc_{index}] {snippet}")
         return "\n".join(snippets)
 
+    _COMPACT_CARD_DESCRIPTION_CHARS = 280
+
+    def _format_docs_compact(self, *, docs: list[dict[str, object]]) -> str:
+        """Cartões compactos para o prompt final (quick win PR-01).
+
+        Um bloco por cartão, rotulado [doc_N] como o formato histórico, com os
+        campos que um visitante pergunta: título, inventário, categoria, data,
+        materiais/técnica, autor, descrição truncada e se está na visita.
+        Nada de artifact_id, image_paths, sets/exhibitions ids ou search_text.
+        """
+        limit = self._COMPACT_CARD_DESCRIPTION_CHARS
+
+        def text(value: object) -> str:
+            if isinstance(value, list):
+                return ", ".join(str(item).strip() for item in value if str(item).strip())
+            return re.sub(r"\s+", " ", str(value or "")).strip()
+
+        def truncate(value: str) -> str:
+            if len(value) <= limit:
+                return value
+            cut = value[: limit + 1]
+            cut = cut[: cut.rfind(" ")] if " " in cut else cut[:limit]
+            return cut.rstrip(" ,;:") + "…"
+
+        cards: list[str] = []
+        for index, doc in enumerate(docs, start=1):
+            title = text(doc.get("title")) or "sem título"
+            inventory = text(doc.get("inventory_number")) or text(doc.get("inventory"))
+            category = text(doc.get("category"))
+            super_category = text(doc.get("super_category"))
+            if super_category and super_category.casefold() != category.casefold():
+                category = f"{category} ({super_category})" if category else super_category
+            creators = text(doc.get("creators")) or text(doc.get("creator"))
+            materials = text(doc.get("support_or_material"))
+            technique = text(doc.get("technique"))
+            date = text(doc.get("date_or_period"))
+            if not date:
+                start, end = doc.get("start_year"), doc.get("end_year")
+                if isinstance(start, int) and isinstance(end, int) and start != end:
+                    date = f"{start}–{end}"
+                elif isinstance(start, int):
+                    date = str(start)
+            description = truncate(text(doc.get("description")))
+            production = text(doc.get("production_center"))
+            in_tour = doc.get("in_tour")
+            museum = text(doc.get("museum"))
+
+            lines = [f"[doc_{index}] Título: {title} | Inventário: {inventory or 'não indicado'}"]
+            facts = [
+                f"Categoria: {category or 'não indicada'}",
+                f"Data: {date or 'não indicada'}",
+            ]
+            if materials:
+                facts.append(f"Materiais: {materials}")
+            if technique:
+                facts.append(f"Técnica: {technique}")
+            if creators:
+                facts.append(f"Autor: {creators}")
+            if production:
+                facts.append(f"Centro de fabrico: {production}")
+            if museum:
+                facts.append(f"Museu: {museum}")
+            lines.append("    " + " | ".join(facts))
+            if description:
+                lines.append(f"    Descrição: {description}")
+            if isinstance(in_tour, bool):
+                lines.append(f"    Na visita virtual: {'sim' if in_tour else 'não'}")
+            cards.append("\n".join(lines))
+        return "\n".join(cards)
+
     def _as_string_list(self, value: object) -> list[str]:
         if not isinstance(value, list):
             return []
@@ -7651,6 +7729,21 @@ class ChatService:
     ) -> str:
         mode = str(router_decision.get("mode", "llm_only"))
         rewritten_query = str(router_decision.get("rewritten_query", payload.message))
+        if self.settings.CHAT_COMPACT_ANSWER_CONTEXT:
+            # Quick win PR-01: prompt final curto em PT acentuado, com os
+            # cartões compactos como única fonte de factos.
+            return build_final_answer_prompt_v2(
+                museum_name=museum_name if museum_name is not None else payload.museum_name,
+                intent=str(router_decision.get("intent", "fallback")),
+                mode=mode,
+                rolling_summary=state.rolling_summary if use_history_for_answer else "",
+                filters_state=effective_filters,
+                user_message=payload.message,
+                rewritten_query=rewritten_query,
+                retrieval_context=retrieval_context,
+                use_history_for_answer=use_history_for_answer,
+                language=state.language,
+            )
         return build_final_answer_prompt(
             museum_slug=museum_slug or payload.museum_slug,
             museum_name=museum_name if museum_name is not None else payload.museum_name,
