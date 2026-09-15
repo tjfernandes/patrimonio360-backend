@@ -5360,13 +5360,20 @@ class ChatService:
         embedding_query = original_search_query
         query_rewrite_source = "heuristic"
 
-        llm_lexical_query, _ = await self._rewrite_retrieval_query_with_llm(
-            query=search_query,
-            museum_slug=museum_slug,
-            museum_id=museum_id,
-            filters=filters,
-            sort=sort,
-        )
+        # CHAT_ENABLE_LLM_LEXICAL_QUERY estava declarado e documentado mas nunca
+        # era lido (auditoria 2026-09-14, achado §6). Passa a ser honrado:
+        # desligado, a query lexical é só a heurística (poupa ~0,35–0,46 s de
+        # ida ao LLM remoto por pesquisa). Default True = comportamento histórico.
+        if self.settings.CHAT_ENABLE_LLM_LEXICAL_QUERY:
+            llm_lexical_query, _ = await self._rewrite_retrieval_query_with_llm(
+                query=search_query,
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                filters=filters,
+                sort=sort,
+            )
+        else:
+            llm_lexical_query = ""
         if llm_lexical_query:
             llm_lexical_query = self._strip_temporal_expression_from_query(
                 llm_lexical_query,
