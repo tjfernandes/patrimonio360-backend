@@ -3,7 +3,7 @@ import logging
 import time
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from openai import APIError, APITimeoutError, AsyncOpenAI
 
@@ -24,6 +24,10 @@ class LLMResponse:
     model: str
     response_format: ResponseFormatObject
     parsed_json: dict[str, Any] | list[Any] | None = None
+    # Quick win LLM-04: motivo de paragem e contagem de tokens quando o
+    # servidor os devolve ("stop" | "length" | ...). None = não reportado.
+    finish_reason: str | None = None
+    usage: dict[str, int] | None = None
 
 
 class LLMService:
@@ -38,14 +42,32 @@ class LLMService:
             default_headers=self.settings.llm_auth_header or None,
         )
 
-    async def generate(
+    def _resolve_max_tokens(self, format_type: str) -> int | None:
+        """Orçamento de saída por tipo de chamada (quick win LLM-04).
+
+        Ordem: LLM_MAX_TOKENS_JSON / LLM_MAX_TOKENS_TEXT (por formato) e, na
+        sua ausência, LLM_MAX_TOKENS global. 0/None mantém o comportamento
+        histórico: nenhum limite enviado ao servidor.
+        """
+        specific = (
+            self.settings.LLM_MAX_TOKENS_JSON
+            if format_type == "json_object"
+            else self.settings.LLM_MAX_TOKENS_TEXT
+        )
+        if specific is not None and int(specific) > 0:
+            return int(specific)
+        if int(self.settings.LLM_MAX_TOKENS or 0) > 0:
+            return int(self.settings.LLM_MAX_TOKENS)
+        return None
+
+    def _build_payload(
         self,
         *,
         message: str,
         response_format: ResponseFormatObject,
-        system_prompt: str | None = None,
-        model_override: str | None = None,
-    ) -> LLMResponse:
+        system_prompt: str | None,
+        model_override: str | None,
+    ) -> tuple[dict[str, Any], str, str, str]:
         provider = self.settings.LLM_PROVIDER.strip().lower()
         if provider != "openai_compatible":
             raise LLMServiceError(
@@ -75,8 +97,26 @@ class LLMService:
             "response_format": {"type": response_format.type},
             "temperature": temperature,
         }
-        # if self.settings.LLM_MAX_TOKENS > 0:
-        #     payload["max_tokens"] = self.settings.LLM_MAX_TOKENS
+        max_tokens = self._resolve_max_tokens(response_format.type)
+        if max_tokens:
+            payload["max_tokens"] = max_tokens
+        return payload, provider, model, user_content
+
+    async def generate(
+        self,
+        *,
+        message: str,
+        response_format: ResponseFormatObject,
+        system_prompt: str | None = None,
+        model_override: str | None = None,
+    ) -> LLMResponse:
+        payload, provider, model, user_content = self._build_payload(
+            message=message,
+            response_format=response_format,
+            system_prompt=system_prompt,
+            model_override=model_override,
+        )
+        system_content = (system_prompt or "").strip()
 
         started_at = time.perf_counter()
         log_event(
@@ -88,6 +128,7 @@ class LLMService:
             response_format=response_format.type,
             prompt_chars=len(user_content),
             has_system_prompt=bool(system_content),
+            max_tokens=payload.get("max_tokens"),
             timeout_seconds=self.settings.LLM_TIMEOUT_SECONDS,
         )
         try:
@@ -147,6 +188,8 @@ class LLMService:
                 )
                 raise
         duration_ms = (time.perf_counter() - started_at) * 1000
+        finish_reason = _extract_finish_reason(completion)
+        usage = _extract_usage(completion)
         log_event(
             logger,
             logging.INFO,
@@ -154,6 +197,9 @@ class LLMService:
             model=model,
             response_format=response_format.type,
             response_chars=len(content.strip()),
+            finish_reason=finish_reason,
+            prompt_tokens=(usage or {}).get("prompt_tokens"),
+            completion_tokens=(usage or {}).get("completion_tokens"),
             duration_ms=round(duration_ms, 1),
         )
 
@@ -162,7 +208,156 @@ class LLMService:
             model=model,
             response_format=response_format,
             parsed_json=parsed_json,
+            finish_reason=finish_reason,
+            usage=usage,
         )
+
+    async def generate_stream(
+        self,
+        *,
+        message: str,
+        response_format: ResponseFormatObject,
+        system_prompt: str | None = None,
+        model_override: str | None = None,
+        on_delta: Callable[[str], Awaitable[None]] | None = None,
+    ) -> LLMResponse:
+        """Geração com `stream=True` (quick win LLM-03).
+
+        Cada delta de texto é entregue a `on_delta` assim que chega; no fim
+        devolve o mesmo LLMResponse que `generate` (texto completo, JSON
+        parseado se pedido, finish_reason/usage quando o servidor os envia).
+        Só é usado quando CHAT_STREAM_FINAL_ANSWER está ligado; a chamada
+        não-stream continua intacta.
+        """
+        payload, provider, model, user_content = self._build_payload(
+            message=message,
+            response_format=response_format,
+            system_prompt=system_prompt,
+            model_override=model_override,
+        )
+        payload["stream"] = True
+        payload["stream_options"] = {"include_usage": True}
+
+        started_at = time.perf_counter()
+        log_event(
+            logger,
+            logging.INFO,
+            "llm.generate.start",
+            provider=provider,
+            model=model,
+            response_format=response_format.type,
+            prompt_chars=len(user_content),
+            has_system_prompt=bool((system_prompt or "").strip()),
+            max_tokens=payload.get("max_tokens"),
+            stream=True,
+            timeout_seconds=self.settings.LLM_TIMEOUT_SECONDS,
+        )
+        parts: list[str] = []
+        finish_reason: str | None = None
+        usage: dict[str, int] | None = None
+        first_delta_ms: float | None = None
+        try:
+            stream = await self.client.chat.completions.create(**payload)
+            async for chunk in stream:
+                chunk_usage = _extract_usage(chunk)
+                if chunk_usage:
+                    usage = chunk_usage
+                choices = getattr(chunk, "choices", None) or []
+                if not choices:
+                    continue
+                choice = choices[0]
+                delta = getattr(getattr(choice, "delta", None), "content", None)
+                if isinstance(delta, str) and delta:
+                    if first_delta_ms is None:
+                        first_delta_ms = (time.perf_counter() - started_at) * 1000
+                    parts.append(delta)
+                    if on_delta is not None:
+                        await on_delta(delta)
+                reason = getattr(choice, "finish_reason", None)
+                if isinstance(reason, str) and reason:
+                    finish_reason = reason
+        except (APIError, APITimeoutError) as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "llm.generate.error",
+                model=model,
+                duration_ms=round(duration_ms, 1),
+                stream=True,
+                error=exc,
+            )
+            raise LLMServiceError(f"LLM request failed: {exc}") from exc
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            log_event(
+                logger,
+                logging.ERROR,
+                "llm.generate.error",
+                model=model,
+                duration_ms=round(duration_ms, 1),
+                stream=True,
+                error=exc,
+            )
+            raise LLMServiceError(f"LLM request failed: {exc}") from exc
+
+        content = "".join(parts)
+        if not content.strip():
+            log_event(
+                logger,
+                logging.ERROR,
+                "llm.generate.empty_response",
+                model=model,
+                stream=True,
+                duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
+            )
+            raise LLMServiceError("LLM returned empty content.")
+        parsed_json: dict[str, Any] | list[Any] | None = None
+        if response_format.type == "json_object":
+            parsed_json = _parse_json_output(content)
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_event(
+            logger,
+            logging.INFO,
+            "llm.generate.finish",
+            model=model,
+            response_format=response_format.type,
+            response_chars=len(content.strip()),
+            finish_reason=finish_reason,
+            prompt_tokens=(usage or {}).get("prompt_tokens"),
+            completion_tokens=(usage or {}).get("completion_tokens"),
+            first_delta_ms=None if first_delta_ms is None else round(first_delta_ms, 1),
+            stream=True,
+            duration_ms=round(duration_ms, 1),
+        )
+        return LLMResponse(
+            text=content.strip(),
+            model=model,
+            response_format=response_format,
+            parsed_json=parsed_json,
+            finish_reason=finish_reason,
+            usage=usage,
+        )
+
+
+def _extract_finish_reason(completion: Any) -> str | None:
+    choices = getattr(completion, "choices", None)
+    if not choices:
+        return None
+    reason = getattr(choices[0], "finish_reason", None)
+    return reason if isinstance(reason, str) and reason else None
+
+
+def _extract_usage(completion: Any) -> dict[str, int] | None:
+    usage = getattr(completion, "usage", None)
+    if usage is None:
+        return None
+    result: dict[str, int] = {}
+    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        value = getattr(usage, key, None)
+        if isinstance(value, int):
+            result[key] = value
+    return result or None
 
 
 def _extract_chat_content(completion: Any) -> str | None:

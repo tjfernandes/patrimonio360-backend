@@ -95,6 +95,26 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "Aqui estao mais resultados encontrados para esta pesquisa.",
         "en": "Here are more results found for this search.",
     },
+    "message.smalltalk_reply": {
+        "pt": (
+            "Olá! Posso ajudar a encontrar peças do museu e a explorá-las nesta visita. "
+            "Diga-me o que procura: um objeto, um tema, uma época ou um autor."
+        ),
+        "en": (
+            "Hello! I can help you find objects in the museum and explore them in this tour. "
+            "Tell me what you are looking for: an object, a theme, a period or a maker."
+        ),
+    },
+    "message.results_page_template": {
+        "pt": {
+            "one": "Página {page}: mais 1 peça desta pesquisa ({total} no total). Abra o cartão para ver a ficha ou peça-me detalhes.",
+            "other": "Página {page}: mais {count} peças desta pesquisa ({total} no total). Abra um cartão para ver a ficha ou peça-me detalhes sobre uma delas.",
+        },
+        "en": {
+            "one": "Page {page}: 1 more object for this search ({total} in total). Open the card to see the record or ask me for details.",
+            "other": "Page {page}: {count} more objects for this search ({total} in total). Open a card to see the record or ask me for details about one of them.",
+        },
+    },
     "llm.final_language_guard": {
         "pt": "A resposta final ao utilizador deve estar integralmente em portugues.",
         "en": "The final user-facing answer must be entirely in English.",

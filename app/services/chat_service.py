@@ -1414,6 +1414,17 @@ class ChatService:
         if not docs_context:
             return translate("message.results_page_fallback", language)
 
+        # Quick win LLM-01: «ver mais resultados» é um clique de UI; uma frase
+        # de template substitui a chamada LLM (os cartões carregam a informação).
+        if self.settings.CHAT_TEMPLATE_RESULTS_PAGE_REPLY:
+            return translate(
+                "message.results_page_template",
+                language,
+                page=max(int(page), 1),
+                count=len(docs_for_prompt),
+                total=max(int(total), len(docs_for_prompt)),
+            )
+
         prompt = self._build_results_page_reply_prompt(
             museum_slug=self._request_museum_slug(payload, request),
             language=language,
@@ -2335,6 +2346,7 @@ class ChatService:
         error: str | None,
         opensearch_query: dict[str, Any] | None = None,
         system_config: dict[str, Any] | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         metadata = getattr(payload, "metadata", None)
         museum_slug = getattr(payload, "museum_slug", None)
@@ -2372,6 +2384,13 @@ class ChatService:
             # Reprodutibilidade por linha (exigido pelo estudo de utilizador):
             # modelos+revisões, configuração de fusão/rerank e índices usados.
             event["system_config"] = system_config
+        if extra:
+            # Quick wins: campos adicionais (fast_path, llm_finish_reason,
+            # llm_usage, grounding). Só aparecem quando há algo a registar,
+            # pelo que os eventos históricos mantêm exatamente o mesmo esquema.
+            for key, value in extra.items():
+                if value is not None and key not in event:
+                    event[key] = value
         await self.query_logger.log_event(event)
 
     def _image_system_config(self, *, modality: str,
@@ -2532,6 +2551,26 @@ class ChatService:
             message=payload.message,
             state=state,
         )
+
+        # Quick win LLM-01: saudação/small talk pura não precisa de router nem
+        # de LLM (custava 2 chamadas remotas e inventava peças). A deteção é a
+        # mesma do fallback do router: igualdade exata após fold, pelo que
+        # «Olá, encontra vestidos» continua a ir ao router.
+        if (
+            self.settings.CHAT_DETERMINISTIC_SMALLTALK
+            and requested_format.type == "text"
+            and self._is_obvious_greeting_or_smalltalk(payload.message)
+        ):
+            return await self._answer_smalltalk_fast_path(
+                payload=payload,
+                state=state,
+                conversation_id=conversation_id,
+                query_id=query_id,
+                language=language,
+                requested_format=requested_format,
+                request_started_at=request_started_at,
+                status_cb=status_cb,
+            )
 
         try:
             router_decision = await self._route_message(
@@ -3263,6 +3302,14 @@ class ChatService:
             docs=reply_docs,
             language=language,
         )
+        # Quick win FILT-02 (modo observação): regista títulos/inventários
+        # citados que não existem nos cartões visíveis. Nunca altera a resposta.
+        grounding_report = self._grounding_report(
+            reply=final_reply_text,
+            docs=reply_docs,
+            conversation_id=conversation_id,
+            query_id=query_id,
+        )
 
         if not carry_filters:
             state.filters = {}
@@ -3321,6 +3368,11 @@ class ChatService:
             status="ok",
             error=None,
             opensearch_query=retrieval_request.get("opensearch_query"),
+            extra={
+                "llm_finish_reason": getattr(llm_response, "finish_reason", None),
+                "llm_usage": getattr(llm_response, "usage", None),
+                "grounding": grounding_report,
+            },
         )
 
         log_event(
@@ -4464,6 +4516,149 @@ class ChatService:
             results_has_more=results_has_more,
             results_request_id=results_request_id,
             search_scope=search_scope,
+        )
+
+    async def _answer_smalltalk_fast_path(
+        self,
+        *,
+        payload: ChatMessageRequest,
+        state: ChatSessionState,
+        conversation_id: str,
+        query_id: str,
+        language: str,
+        requested_format: ResponseFormatObject,
+        request_started_at: float,
+        status_cb: StatusCallback | None,
+    ) -> ChatMessageResponse:
+        """Resposta determinística a saudações (quick win LLM-01).
+
+        Reproduz o que a rota llm_only faz ao estado e ao log — histórico,
+        rolling summary, evento backend_query com route=llm_only /
+        retrieval_mode=none — mas sem qualquer chamada ao LLM. O evento leva
+        `fast_path="smalltalk"` e `latency_llm_ms=0` para ser distinguível.
+        """
+        reply = translate("message.smalltalk_reply", language)
+        router_decision: dict[str, object] = {
+            "mode": "llm_only",
+            "intent": "fallback",
+            "rewritten_query": payload.message,
+            "needs_retrieval": False,
+            "reason": "deterministic_smalltalk_fast_path",
+            "is_follow_up": False,
+            "use_history_for_query": False,
+            "use_history_for_answer": False,
+            "carry_filters": False,
+            "carry_sort": False,
+            "filters_delta": {},
+            "sort_delta": {},
+        }
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.message.route",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            mode="llm_only",
+            intent="fallback",
+            fast_path="smalltalk",
+        )
+        # Mesma rotação da cache de resultados paginados que a rota llm_only
+        # faz (lista vazia): «ver mais» de mensagens antigas continua a
+        # funcionar por results_request_id.
+        (
+            _paged_artifacts,
+            _paged_images,
+            _paged_targets,
+            results_page,
+            results_page_size,
+            results_total,
+            results_has_more,
+        ) = self._build_paged_results(
+            state=state,
+            artifact_results=[],
+            image_matches=[],
+            navigation_targets=[],
+            page=payload.results_page,
+            page_size=payload.results_page_size,
+            default_page_size=self._text_results_default_page_size(),
+            total_override=0,
+            retrieval_request={},
+        )
+        results_request_id = str(
+            state.last_paged_retrieval_request.get("results_request_id") or ""
+        ).strip() or None
+        # Mesma limpeza de estado que a rota llm_only (carry_* = False).
+        state.filters = {}
+        state.sort = {}
+        self._apply_router_decision_to_state(state=state, router_decision=router_decision)
+        self._update_last_result_ids(
+            state=state,
+            artifact_docs=[],
+            preserve_existing_when_empty=False,
+        )
+        self.session_store.append_turn(state, role="assistant", text=reply)
+        self._update_rolling_summary(
+            state=state,
+            latest_user_message=payload.message,
+            latest_assistant_message=reply,
+            router_decision=router_decision,
+        )
+        self.session_store.save(state)
+        await self._emit_status(status_cb, "status.answer_ready", language=language)
+        total_ms = (time.monotonic() - request_started_at) * 1000
+        await self._emit_query_log(
+            payload=payload,
+            conversation_id=conversation_id,
+            query_id=query_id,
+            language=language,
+            raw_query=(payload.message or "").strip(),
+            resolved_query=(payload.message or "").strip(),
+            lexical_query=None,
+            embedding_query=None,
+            route="llm_only",
+            retrieval_mode="none",
+            filters_applied={"filters": {}, "sort": {}},
+            boosts_applied={},
+            retrieved_artifacts=[],
+            shown_artifacts=[],
+            navigation_targets=[],
+            latency_retrieval_ms=None,
+            latency_llm_ms=0.0,
+            latency_total_ms=total_ms,
+            status="ok",
+            error=None,
+            opensearch_query=None,
+            extra={"fast_path": "smalltalk"},
+        )
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.message.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            status="ok",
+            fast_path="smalltalk",
+            duration_ms=round(total_ms, 1),
+        )
+        return ChatMessageResponse(
+            conversation_id=conversation_id,
+            query_id=query_id,
+            response_format=requested_format,
+            reply=reply,
+            model_hint="deterministic:smalltalk",
+            results_page=results_page,
+            results_page_size=results_page_size,
+            results_total=results_total,
+            results_has_more=results_has_more,
+            results_request_id=results_request_id,
+            search_scope=self._build_search_scope(
+                current_museum_slug=payload.museum_slug,
+                current_museum_id=self._resolve_museum_id(payload),
+                current_museum_name=payload.museum_name,
+                search_museum_slug=payload.museum_slug,
+                search_museum_id=self._resolve_museum_id(payload),
+                search_museum_name=payload.museum_name,
+            ),
         )
 
     def _is_obvious_greeting_or_smalltalk(self, message: str) -> bool:
@@ -7183,6 +7378,97 @@ class ChatService:
         cleaned = re.sub(r" +([,.;:!?])", r"\1", cleaned)
         cleaned = self._renumber_ordered_list_markers(cleaned)
         return cleaned.strip()
+
+    _QUOTED_TITLE_PATTERNS: tuple[str, ...] = (
+        r"«([^»]{3,120})»",
+        r"“([^”]{3,120})”",
+        r"\"([^\"\n]{3,120})\"",
+        r"\*\*([^*\n]{3,120})\*\*",
+    )
+    _INVENTORY_MENTION_PATTERN = (
+        r"\b(?:(?:mnt|mnaz|mnsr|mj|mnaa|mnac|mnaj|mnar|mnap|mnmc)\s*[a-z]{0,3}\s*\d[\w./-]*"
+        r"|\d{2,6}\s+[a-z]{2,4}\s+(?:mnt|mnaz|mnsr|mj))\b"
+    )
+
+    def _grounding_report(
+        self,
+        *,
+        reply: str,
+        docs: list[dict[str, object]] | None,
+        conversation_id: str,
+        query_id: str,
+    ) -> dict[str, Any] | None:
+        """Verificação de grounding em modo observação (quick win FILT-02).
+
+        Compara os títulos citados (entre aspas/«»/negrito) e os números de
+        inventário mencionados na resposta com os cartões visíveis. Não altera
+        a resposta: devolve um relatório para o evento backend_query e emite
+        um aviso quando há citações sem correspondência. CHAT_GROUNDING_CHECK
+        = off desliga tudo (comportamento histórico).
+        """
+        mode = str(getattr(self.settings, "CHAT_GROUNDING_CHECK", "off") or "off").strip().lower()
+        if mode == "off":
+            return None
+        text = reply or ""
+        cards = list(docs or [])
+        known_titles = [
+            self._fold_query_text(str(doc.get("title") or ""))
+            for doc in cards
+            if str(doc.get("title") or "").strip()
+        ]
+        known_inventories = {
+            re.sub(r"[^a-z0-9]+", "", self._fold_query_text(str(doc.get(key) or "")))
+            for doc in cards
+            for key in ("inventory_number", "inventory")
+            if str(doc.get(key) or "").strip()
+        }
+
+        quoted: list[str] = []
+        for pattern in self._QUOTED_TITLE_PATTERNS:
+            for match in re.finditer(pattern, text):
+                candidate = match.group(1).strip()
+                if candidate and candidate not in quoted:
+                    quoted.append(candidate)
+        unmatched_titles: list[str] = []
+        for candidate in quoted:
+            folded = self._fold_query_text(candidate)
+            if len(folded) < 4:
+                continue
+            if any(folded in title or title in folded for title in known_titles if title):
+                continue
+            unmatched_titles.append(candidate)
+
+        mentioned_inventories: list[str] = []
+        for match in re.finditer(self._INVENTORY_MENTION_PATTERN, self._fold_query_text(text)):
+            value = match.group(0).strip()
+            if value and value not in mentioned_inventories:
+                mentioned_inventories.append(value)
+        unmatched_inventories = [
+            value
+            for value in mentioned_inventories
+            if re.sub(r"[^a-z0-9]+", "", value) not in known_inventories
+        ]
+
+        report: dict[str, Any] = {
+            "mode": mode,
+            "cards": len(cards),
+            "quoted_titles": len(quoted),
+            "unmatched_titles": unmatched_titles[:10],
+            "unmatched_inventories": unmatched_inventories[:10],
+            "violations": len(unmatched_titles) + len(unmatched_inventories),
+        }
+        if report["violations"]:
+            log_event(
+                logger,
+                logging.WARNING,
+                "chat.grounding.violation",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                cards=len(cards),
+                unmatched_titles=unmatched_titles[:5],
+                unmatched_inventories=unmatched_inventories[:5],
+            )
+        return report
 
     def _renumber_ordered_list_markers(self, text: str) -> str:
         item_pattern = re.compile(r"^(\s*)(\d{1,2})([.)])(\s+)(.+)$")

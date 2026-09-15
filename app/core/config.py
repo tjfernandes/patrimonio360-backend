@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     CHAT_BOUNDED_GPU_EXECUTION: bool = False
     CHAT_SERIALIZE_CONVERSATIONS: bool = False
     QUERY_LOG_COMPACT_VECTORS: bool = False
+    # Quick wins pós-submissão (branch feature/post-submission-quick-wins).
+    # Todos opt-in; desligados reproduzem byte a byte o comportamento do estudo.
+    CHAT_DETERMINISTIC_SMALLTALK: bool = False      # saudação pura sem router nem LLM
+    CHAT_TEMPLATE_RESULTS_PAGE_REPLY: bool = False  # «ver mais» sem chamada LLM
+    CHAT_STREAM_FINAL_ANSWER: bool = False          # tokens da resposta final por SSE
+    CHAT_COMPACT_ANSWER_CONTEXT: bool = False       # cartões compactos + prompt final PT v2
+    CHAT_INVENTORY_GRAMMAR_V2: bool = False         # «793 Mob MNSR» reconhecido como inventário
+    CHAT_GROUNDING_CHECK: str = "off"               # off | log — verifica títulos/inventários citados
     API_PREFIX: str = "/api/v1"
 
     BACKEND_LOG_ENABLED: bool = True
@@ -175,6 +183,16 @@ class Settings(BaseSettings):
     # CHAT_ENABLE_VL_RERANKING=false continua a desligar tudo (master switch).
     MULTIMODAL_VL_RERANK_STAGE: str = "local"
     MULTIMODAL_GLOBAL_VL_RERANK_TOP_N: int = 16
+
+    @field_validator("CHAT_GROUNDING_CHECK")
+    @classmethod
+    def _validate_grounding_check(cls, value: str) -> str:
+        normalized = (value or "").strip().lower() or "off"
+        if normalized not in {"off", "log"}:
+            raise ValueError(
+                f"CHAT_GROUNDING_CHECK must be one of ['log', 'off']; got {value!r}"
+            )
+        return normalized
 
     @field_validator("MULTIMODAL_VL_RERANK_STAGE")
     @classmethod
