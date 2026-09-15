@@ -189,6 +189,34 @@ _INVENTORY_PREFIXES: tuple[str, ...] = (
     "mnt",
 )
 
+# Quick win SRCH-04/LLM-01 (CHAT_INVENTORY_GRAMMAR_V2): gramática dos números
+# de inventário reais, levantada do export congelado (benchmark_dataset/data/
+# corpus/artifacts.jsonl, 2026-09-15):
+#   MNSR  «793 Mob MNSR», «255 Cer CMP/ MNSR», «1 Pin CMP (DHL)/ MNSR», «91/ 51 Pin MNSR»
+#   MNAz  «MNAz 1 Az», «MNAz 1151 Proj», «MNAz 706 Cer», «MNAz 12/3 Az»
+#   MJ    «MJ_ES032/1», «MJ_SN_10», «MJ_IM01/2»
+#   MNT   «1234», «1234/5», «MNT CF 4» (só via marcadores; um número solto é ambíguo)
+# Os padrões correm sobre o texto folded (minúsculas, sem acentos, qualquer
+# pontuação vira um espaço), pelo que «CMP/ MNSR» surge como «cmp mnsr».
+_INVENTORY_TYPE_CODES_MNSR: tuple[str, ...] = (
+    "cer", "pin", "vid", "esc", "our", "grav", "div", "mob", "lap", "obj",
+    "lit", "des", "tex", "leq", "min",
+)
+_INVENTORY_TYPE_CODES_MNAZ: tuple[str, ...] = ("az", "proj", "cer", "tec", "esc")
+_INVENTORY_V2_MNSR_NUMBER_FIRST = re.compile(
+    r"\b(?P<num>\d{1,6}(?: \d{1,6})?) (?P<type>" + "|".join(_INVENTORY_TYPE_CODES_MNSR) + r")"
+    r"(?: (?P<coll>cmp|cmfc)(?: dhl)?)? mnsr\b"
+)
+_INVENTORY_V2_MNSR_PREFIX_FIRST = re.compile(
+    r"\bmnsr (?P<num>\d{1,6}) (?P<type>" + "|".join(_INVENTORY_TYPE_CODES_MNSR) + r")\b"
+)
+_INVENTORY_V2_MNAZ = re.compile(
+    r"\bmnaz (?P<num>\d{1,6}(?: \d{1,6})?) (?P<type>" + "|".join(_INVENTORY_TYPE_CODES_MNAZ) + r")\b"
+)
+_INVENTORY_V2_MJ = re.compile(
+    r"\bmj (?P<kind>es|im)(?P<num>\d{1,4})(?: (?P<sub>\d{1,3}))?\b|\bmj sn (?P<sn>\d{1,4})\b"
+)
+
 _EXPLICIT_INVENTORY_MARKERS: tuple[tuple[str, ...], ...] = (
     ("numero", "de", "inventario"),
     ("n", "de", "inventario"),
@@ -4996,6 +5024,40 @@ class ChatService:
             seen.add(candidate)
             candidates.append(candidate)
 
+    def _extract_structured_inventory_candidates(self, folded: str) -> list[str]:
+        """Candidatos canónicos a partir da gramática real dos inventários
+        (quick win CHAT_INVENTORY_GRAMMAR_V2). Devolve as formas que batem no
+        `term` exato de `inventory_number` (normalizador lowercase+ascii) e,
+        quando há sigla de coleção, também a forma com «cmp/ mnsr».
+        """
+        found: list[str] = []
+
+        def add(value: str) -> None:
+            cleaned = value.strip()
+            if cleaned and cleaned not in found:
+                found.append(cleaned)
+
+        for match in _INVENTORY_V2_MNSR_NUMBER_FIRST.finditer(folded):
+            num = match.group("num")
+            code = match.group("type")
+            coll = match.group("coll")
+            if coll:
+                add(f"{num} {code} {coll}/ mnsr")
+            add(f"{num} {code} mnsr")
+        for match in _INVENTORY_V2_MNSR_PREFIX_FIRST.finditer(folded):
+            add(f"{match.group('num')} {match.group('type')} mnsr")
+        for match in _INVENTORY_V2_MNAZ.finditer(folded):
+            add(f"mnaz {match.group('num')} {match.group('type')}")
+        for match in _INVENTORY_V2_MJ.finditer(folded):
+            if match.group("sn"):
+                add(f"mj_sn_{match.group('sn')}")
+                continue
+            base = f"mj_{match.group('kind')}{match.group('num')}"
+            if match.group("sub"):
+                add(f"{base}/{match.group('sub')}")
+            add(base)
+        return found
+
     def _extract_inventory_candidates(self, query: str) -> list[str]:
         folded = self._fold_query_text(query)
         if not folded:
@@ -5005,6 +5067,15 @@ class ChatService:
         prefix_set = set(_INVENTORY_PREFIXES)
         candidates: list[str] = []
         seen: set[str] = set()
+
+        if bool(getattr(self.settings, "CHAT_INVENTORY_GRAMMAR_V2", False)):
+            # Formas canónicas primeiro: são as que batem no term exato; o
+            # resto da função continua a correr e acrescenta as variantes
+            # históricas (superconjunto quando ligado, idêntico quando desligado).
+            for candidate in self._extract_structured_inventory_candidates(folded):
+                if candidate not in seen:
+                    seen.add(candidate)
+                    candidates.append(candidate)
 
         for index, token in enumerate(tokens):
             if token in prefix_set and index + 1 < len(tokens):
