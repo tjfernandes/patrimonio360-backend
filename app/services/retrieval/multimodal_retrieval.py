@@ -39,6 +39,10 @@ logger = logging.getLogger(__name__)
 ARTIFACT_BRANCH = "artifact_search"
 TEXT_TO_IMAGE_BRANCH = "text_to_image"
 IMAGE_TO_IMAGE_BRANCH = "image_to_image"
+# Ramo conjunto: (imagem carregada + texto) num ÚNICO embedding Qwen3-VL,
+# pesquisado contra o MESMO campo visual_embedding das imagens da coleção.
+JOINT_IMAGE_TEXT_BRANCH = "joint_image_text"
+GLOBAL_VL_RERANK_DIAG_KEY = "global_vl_rerank"
 
 
 @dataclass
@@ -163,13 +167,16 @@ class MultimodalTextRetrieval:
         temporal_filter: dict[str, Any] | None,
         router_decision: VisualIntentDecision,
         trace_id: str,
+        query_image_bytes: bytes | None = None,
     ) -> MultimodalFusionOutcome | None:
-        """Etapa 8 — imagem+texto: i2i (principal) + t2i (quando o texto tem
-        componente visual) + artifact_search documental, fundidos por
-        artifact_id. Filtros estruturados conhecidos (temporal) aplicam-se como
-        FILTROS: no ramo de artefactos via `_temporal_interval` e, pós-fusão,
-        como predicado sobre start/end_year (nunca via embedding visual).
-        Falha de um ramo nunca apaga os resultados válidos dos restantes."""
+        """Etapa 8 — imagem+texto: i2i (principal) + joint imagem+texto (quando
+        MULTIMODAL_JOINT_IMAGE_TEXT_ENABLED e há bytes da imagem) + t2i (quando
+        o texto tem componente visual) + artifact_search documental, fundidos
+        por artifact_id. Filtros estruturados conhecidos (temporal) aplicam-se
+        como FILTROS: no ramo de artefactos via `_temporal_interval` e,
+        pós-fusão, como predicado sobre start/end_year (nunca via embedding
+        visual). Falha de um ramo nunca apaga os resultados válidos dos
+        restantes."""
         started = time.monotonic()
         diagnostics: dict[str, Any] = {"trace_id": trace_id, "mode": "image_text"}
 
@@ -184,6 +191,62 @@ class MultimodalTextRetrieval:
             "hits": len(i2i_hits),
             "grouped_artifacts": len(i2i_grouped),
         }
+
+        # --- ramo conjunto imagem+texto (um único embedding VL) ---------------
+        # Corre APENAS com imagem E texto reais (o gate do chamador já exige
+        # texto não vazio). Nunca degrada para embedding só-imagem/só-texto: se
+        # os bytes não estão disponíveis, o ramo é ignorado e fica anotado.
+        joint_enabled = bool(
+            getattr(self.settings, "MULTIMODAL_JOINT_IMAGE_TEXT_ENABLED", False)
+        )
+        if joint_enabled and (message_text or "").strip() and query_image_bytes:
+            joint_started = time.monotonic()
+            joint_diag: dict[str, Any] = {}
+            joint_k = int(
+                getattr(self.settings, "MULTIMODAL_JOINT_IMAGE_TEXT_TOP_K", 30)
+            )
+            try:
+                joint_embedding = await self.embeddings.embed_multimodal_joint_image_bytes(
+                    image_bytes=query_image_bytes,
+                    text=message_text,
+                )
+                joint_diag = {
+                    "model": self.settings.multimodal_embedding_model_resolved,
+                    "dim": len(joint_embedding or []),
+                    "k": joint_k,
+                }
+                joint_page = await self.gateway.search_similar_images_page(
+                    museum_slug=museum_slug,
+                    museum_id=museum_id,
+                    image_embedding=joint_embedding,
+                    from_offset=0,
+                    page_size=joint_k,
+                    retrieval_window_size=joint_k,
+                )
+                joint_hits = list(joint_page.results or [])
+                joint_grouped = group_image_hits_by_artifact(joint_hits)
+                # Sem floor: a query está ancorada na imagem (como o i2i), pelo
+                # que os scores não sofrem a cauda fraca cross-modal do t2i.
+                branches[JOINT_IMAGE_TEXT_BRANCH] = joint_grouped
+                hits_by_image_id.update(
+                    {str(h.get("image_id") or ""): h for h in joint_hits}
+                )
+                joint_diag["hits"] = len(joint_hits)
+                joint_diag["grouped_artifacts"] = len(joint_grouped)
+            except Exception as exc:
+                joint_diag["error"] = str(exc)[:160]
+                self._log(
+                    trace_id,
+                    "multimodal.joint.error",
+                    joint_diag,
+                    level=logging.WARNING,
+                )
+            joint_diag["latency_ms"] = round(
+                (time.monotonic() - joint_started) * 1000, 1
+            )
+            diagnostics[JOINT_IMAGE_TEXT_BRANCH] = joint_diag
+        elif joint_enabled:
+            diagnostics[JOINT_IMAGE_TEXT_BRANCH] = {"skipped": "no_query_image_bytes"}
 
         # --- embeddings dos ramos textuais (t2i opcional; documental sempre) --
         top_k = int(self.settings.MULTIMODAL_IMAGE_TOP_K)
@@ -360,6 +423,9 @@ class MultimodalTextRetrieval:
             branches,
             weights={
                 IMAGE_TO_IMAGE_BRANCH: float(self.settings.MULTIMODAL_I2I_WEIGHT),
+                JOINT_IMAGE_TEXT_BRANCH: float(
+                    getattr(self.settings, "MULTIMODAL_JOINT_IMAGE_TEXT_WEIGHT", 1.0)
+                ),
                 TEXT_TO_IMAGE_BRANCH: float(self.settings.MULTIMODAL_IMAGE_WEIGHT),
                 ARTIFACT_BRANCH: float(
                     self.settings.MULTIMODAL_IMAGE_TEXT_ARTIFACT_WEIGHT
@@ -486,8 +552,16 @@ class MultimodalTextRetrieval:
         diagnostics["fusion"] = {
             "rrf_k": int(self.settings.MULTIMODAL_RRF_K),
             "branch_sizes": branch_sizes,
+            "candidates_before_dedup": sum(branch_sizes.values()),
+            "unique_artifacts": len(fused),
             "fused_size": len(ordered_docs),
             "dropped_temporal": dropped_temporal,
+        }
+        # Restrições duras aplicadas (museu/temporal) — registadas para que o
+        # rerank global as possa REVALIDAR deterministicamente pós-reordenação.
+        diagnostics["constraints"] = {
+            "museum_id": resolved_museum or None,
+            "temporal_window": list(window) if window is not None else None,
         }
         diagnostics["latency_ms"] = {
             "total": round((time.monotonic() - started) * 1000, 1),
@@ -582,3 +656,276 @@ class MultimodalTextRetrieval:
                 if key in {"outcome", "error", "latency_ms", "fusion", "hits"}
             },
         )
+
+
+def build_artifact_candidate_text(
+    doc: dict[str, Any],
+    *,
+    max_description_chars: int = 280,
+) -> str:
+    """Representação textual LIMITADA de um artefacto para o rerank VL global.
+
+    Apenas evidência útil de retrieval (título, tipo, autor, material, data,
+    museu, descrição curta) — nunca o registo completo (search_text/full_text
+    ficam de fora por serem ilimitados)."""
+
+    def clean(value: Any) -> str:
+        return str(value or "").strip()
+
+    bits: list[str] = []
+    title = clean(doc.get("title"))
+    if title:
+        bits.append(title)
+    category = clean(doc.get("category")) or clean(doc.get("super_category"))
+    if category:
+        bits.append(f"category: {category}")
+    creators = doc.get("creators")
+    if not isinstance(creators, list) or not creators:
+        legacy = clean(doc.get("creator"))
+        creators = [legacy] if legacy else []
+    creator_names = ", ".join(clean(c) for c in creators[:2] if clean(c))
+    if creator_names:
+        bits.append(f"author: {creator_names}")
+    material = clean(doc.get("support_or_material")) or clean(doc.get("technique"))
+    if material:
+        bits.append(f"material: {material}")
+    date_or_period = clean(doc.get("date_or_period"))
+    if not date_or_period:
+        start = doc.get("start_year")
+        end = doc.get("end_year")
+        if isinstance(start, int) or isinstance(end, int):
+            date_or_period = f"{start if isinstance(start, int) else '?'}–{end if isinstance(end, int) else '?'}"
+    if date_or_period:
+        bits.append(f"date: {date_or_period}")
+    museum = clean(doc.get("museum")) or clean(doc.get("museum_name"))
+    if museum:
+        bits.append(f"museum: {museum}")
+    description = clean(doc.get("description")) or clean(doc.get("snippet"))
+    if description:
+        if len(description) > max_description_chars:
+            description = description[: max_description_chars - 1].rstrip() + "…"
+        bits.append(description)
+    return "\n".join(bits) or "no-document-text"
+
+
+def build_global_rerank_candidates(
+    outcome: MultimodalFusionOutcome,
+    *,
+    top_n: int,
+) -> list[dict[str, Any]]:
+    """Candidatos (todos os ramos) para o rerank VL global sobre o pool fundido.
+
+    Prioridade da imagem do candidato: (1) matched image retida na fusão
+    (i2i/joint/t2i); (2) imagem representativa do próprio artefacto
+    (image_paths[0]); (3) sem imagem -> o wrapper degrada para documento
+    só-texto. Nunca refaz downloads: usa apenas local_path já conhecido."""
+    hits_by_artifact: dict[str, dict[str, Any]] = {}
+    for hit in outcome.matched_image_hits:
+        artifact_id = str(hit.get("artifact_id") or "").strip()
+        if artifact_id and artifact_id not in hits_by_artifact:
+            hits_by_artifact[artifact_id] = hit
+
+    candidates: list[dict[str, Any]] = []
+    bounded = max(int(top_n), 1)
+    for result, doc in zip(outcome.fused[:bounded], outcome.docs[:bounded]):
+        local_path = (result.matched_image_local_path or "").strip() or None
+        matched_image_id = (result.matched_image_id or "").strip() or None
+        if not local_path:
+            hit = hits_by_artifact.get(result.artifact_id)
+            if hit is not None:
+                local_path = str(hit.get("local_path") or "").strip() or None
+                matched_image_id = matched_image_id or (
+                    str(hit.get("image_id") or "").strip() or None
+                )
+        if not local_path:
+            image_paths = doc.get("image_paths")
+            if isinstance(image_paths, list) and image_paths:
+                local_path = str(image_paths[0] or "").strip() or None
+        candidates.append(
+            {
+                "artifact_id": result.artifact_id,
+                "local_path": local_path,
+                "matched_image_id": matched_image_id,
+                "text": build_artifact_candidate_text(doc),
+            }
+        )
+    return candidates
+
+
+async def apply_global_vl_rerank(
+    outcome: MultimodalFusionOutcome,
+    *,
+    vl_reranker: Any,
+    query_text: str,
+    query_image_bytes: bytes | None,
+    top_n: int,
+    trace_id: str,
+) -> MultimodalFusionOutcome:
+    """Rerank VL global do pool fundido (todas as origens), pós-RRF/dedup.
+
+    Reordena apenas o top-N fundido usando a query multimodal COMPLETA
+    (imagem carregada + texto); a cauda mantém a ordem RRF. Em qualquer falha
+    (ou saída inválida do reranker) a ordem RRF fica intacta — o fallback é
+    sempre um ranking válido. fusion_score e provenance nunca são alterados;
+    a posição global é registada em FusedResult.global_rerank."""
+    diag: dict[str, Any] = {"top_n": int(top_n)}
+    started = time.monotonic()
+    candidates = build_global_rerank_candidates(outcome, top_n=top_n)
+    if not candidates:
+        diag["skipped"] = "no_candidates"
+        outcome.diagnostics[GLOBAL_VL_RERANK_DIAG_KEY] = diag
+        return outcome
+    diag["candidates"] = len(candidates)
+    diag["candidates_with_image"] = sum(
+        1 for c in candidates if c.get("local_path")
+    )
+
+    try:
+        ranked = await vl_reranker.rerank_artifact_candidates(
+            query_text=query_text,
+            query_image_bytes=query_image_bytes,
+            candidates=candidates,
+            top_k=len(candidates),
+        )
+    except Exception as exc:
+        diag["error"] = str(exc)[:200]
+        diag["fallback"] = "rrf_order"
+        diag["latency_ms"] = round((time.monotonic() - started) * 1000, 1)
+        outcome.diagnostics[GLOBAL_VL_RERANK_DIAG_KEY] = diag
+        log_event(
+            logger,
+            logging.WARNING,
+            "multimodal.global_rerank.error",
+            trace_id=trace_id,
+            candidates=len(candidates),
+            error=exc,
+        )
+        return outcome
+
+    candidate_ids = {c["artifact_id"] for c in candidates}
+    ranked_ids: list[str] = []
+    scores_by_id: dict[str, float] = {}
+    image_used_by_id: dict[str, bool] = {}
+    for item in ranked or []:
+        artifact_id = str(item.get("artifact_id") or "").strip()
+        # O reranker nunca pode INTRODUZIR candidatos: ids fora do pool são
+        # descartados (mantém as restrições duras já validadas na fusão).
+        if not artifact_id or artifact_id not in candidate_ids:
+            continue
+        if artifact_id in ranked_ids:
+            continue
+        ranked_ids.append(artifact_id)
+        raw_score = item.get("vl_rerank_score")
+        if isinstance(raw_score, (int, float)):
+            scores_by_id[artifact_id] = float(raw_score)
+        image_used_by_id[artifact_id] = bool(item.get("document_had_image"))
+    if not ranked_ids:
+        diag["fallback"] = "rrf_order"
+        diag["reason"] = "empty_or_invalid_reranker_output"
+        diag["latency_ms"] = round((time.monotonic() - started) * 1000, 1)
+        outcome.diagnostics[GLOBAL_VL_RERANK_DIAG_KEY] = diag
+        return outcome
+
+    bounded = max(int(top_n), 1)
+    head = list(outcome.fused[:bounded])
+    tail = list(outcome.fused[bounded:])
+    previous_positions = {
+        result.artifact_id: index + 1 for index, result in enumerate(outcome.fused)
+    }
+    head_by_id = {result.artifact_id: result for result in head}
+    new_head = [head_by_id[a] for a in ranked_ids if a in head_by_id]
+    ranked_set = set(ranked_ids)
+    new_head.extend(r for r in head if r.artifact_id not in ranked_set)
+    new_fused = new_head + tail
+
+    changed = 0
+    for position, result in enumerate(new_fused, start=1):
+        if position <= bounded and result.artifact_id in ranked_set:
+            previous = previous_positions.get(result.artifact_id, position)
+            moved = position != previous
+            changed += 1 if moved else 0
+            result.global_rerank = {
+                "position": position,
+                "previous_position": previous,
+                "changed": moved,
+                "score": scores_by_id.get(result.artifact_id),
+                "candidate_had_image": image_used_by_id.get(result.artifact_id),
+            }
+
+    docs_by_id = {
+        str(doc.get("artifact_id") or "").strip(): doc for doc in outcome.docs
+    }
+    # Alinhamento 1:1 doc<->fused (um fused sem doc hidratado é descartado de
+    # ambos para as listas permanecerem paralelas).
+    new_fused = [r for r in new_fused if r.artifact_id in docs_by_id]
+    new_docs = [docs_by_id[r.artifact_id] for r in new_fused]
+
+    # Revalidação determinística das restrições duras registadas na fusão —
+    # uma permutação não as pode violar, mas a guarda é barata e explícita.
+    constraints = outcome.diagnostics.get("constraints") or {}
+    museum_id = str(constraints.get("museum_id") or "").strip()
+    window = constraints.get("temporal_window")
+    violations = 0
+    if museum_id or window:
+        validated_docs: list[dict[str, Any]] = []
+        validated_fused: list[FusedResult] = []
+        for doc, result in zip(new_docs, new_fused):
+            if museum_id and str(doc.get("museum_id") or "").strip() != museum_id:
+                violations += 1
+                continue
+            if isinstance(window, (list, tuple)) and len(window) == 2:
+                start = doc.get("start_year")
+                end = doc.get("end_year")
+                if not isinstance(start, int) and not isinstance(end, int):
+                    violations += 1
+                    continue
+                doc_start = start if isinstance(start, int) else end
+                doc_end = end if isinstance(end, int) else start
+                if doc_end < window[0] or doc_start > window[1]:
+                    violations += 1
+                    continue
+            validated_docs.append(doc)
+            validated_fused.append(result)
+        if violations:
+            log_event(
+                logger,
+                logging.WARNING,
+                "multimodal.global_rerank.constraint_violation",
+                trace_id=trace_id,
+                violations=violations,
+            )
+        new_docs = validated_docs
+        new_fused = validated_fused
+    diag["constraint_violations_dropped"] = violations
+
+    hits_by_artifact: dict[str, dict[str, Any]] = {}
+    for hit in outcome.matched_image_hits:
+        artifact_id = str(hit.get("artifact_id") or "").strip()
+        if artifact_id and artifact_id not in hits_by_artifact:
+            hits_by_artifact[artifact_id] = hit
+    new_matched = [
+        hits_by_artifact[r.artifact_id]
+        for r in new_fused
+        if r.artifact_id in hits_by_artifact
+    ]
+
+    outcome.fused = new_fused
+    outcome.docs = new_docs
+    outcome.matched_image_hits = new_matched
+    outcome.total = len(new_docs)
+
+    diag["reranked"] = len(ranked_ids)
+    diag["positions_changed"] = changed
+    diag["latency_ms"] = round((time.monotonic() - started) * 1000, 1)
+    outcome.diagnostics[GLOBAL_VL_RERANK_DIAG_KEY] = diag
+    log_event(
+        logger,
+        logging.INFO,
+        "multimodal.global_rerank.finish",
+        trace_id=trace_id,
+        candidates=len(candidates),
+        reranked=len(ranked_ids),
+        positions_changed=changed,
+        latency_ms=diag["latency_ms"],
+    )
+    return outcome

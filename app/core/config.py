@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     )
 
     APP_ENV: str = "development"
+    # Post-submission deployment candidates are opt-in; the current stack stays intact.
+    RETRIEVAL_PROFILE_PATH: str = ""
+    CHAT_ENABLE_EFFICIENCY_GUARDS: bool = False
+    CHAT_BOUNDED_GPU_EXECUTION: bool = False
+    CHAT_SERIALIZE_CONVERSATIONS: bool = False
+    QUERY_LOG_COMPACT_VECTORS: bool = False
     API_PREFIX: str = "/api/v1"
 
     BACKEND_LOG_ENABLED: bool = True
@@ -156,6 +162,48 @@ class Settings(BaseSettings):
     # máximo uma posição quando a diferença de fusion_score é <= margem.
     # 0.0 desliga a política. Nunca altera scores nem introduz candidatos.
     MULTIMODAL_IN_TOUR_MARGIN: float = 0.0
+    # Ramo conjunto imagem+texto (imagem carregada + texto do utilizador num
+    # ÚNICO embedding Qwen3-VL contra visual_embedding). Só corre quando a
+    # mensagem tem imagem E texto não vazio; nunca substitui os ramos atuais.
+    MULTIMODAL_JOINT_IMAGE_TEXT_ENABLED: bool = False
+    MULTIMODAL_JOINT_IMAGE_TEXT_TOP_K: int = 30
+    MULTIMODAL_JOINT_IMAGE_TEXT_WEIGHT: float = 1.0
+    # Posição do rerank VL na rota de imagem:
+    # local  -> só o pool i2i pré-fusão (comportamento histórico).
+    # global -> pool fundido pós-RRF (todas as origens; recomendado).
+    # both   -> ambos (ablação). off -> nenhum, mesmo com o flag VL ligado.
+    # CHAT_ENABLE_VL_RERANKING=false continua a desligar tudo (master switch).
+    MULTIMODAL_VL_RERANK_STAGE: str = "local"
+    MULTIMODAL_GLOBAL_VL_RERANK_TOP_N: int = 16
+
+    @field_validator("MULTIMODAL_VL_RERANK_STAGE")
+    @classmethod
+    def _validate_multimodal_vl_rerank_stage(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        allowed = {"off", "local", "global", "both"}
+        if normalized not in allowed:
+            raise ValueError(
+                f"MULTIMODAL_VL_RERANK_STAGE must be one of {sorted(allowed)}; got {value!r}"
+            )
+        return normalized
+
+    @field_validator("MULTIMODAL_JOINT_IMAGE_TEXT_TOP_K")
+    @classmethod
+    def _validate_multimodal_joint_top_k(cls, value: int) -> int:
+        if not 1 <= value <= 500:
+            raise ValueError(
+                f"MULTIMODAL_JOINT_IMAGE_TEXT_TOP_K must be within [1, 500]; got {value}"
+            )
+        return value
+
+    @field_validator("MULTIMODAL_GLOBAL_VL_RERANK_TOP_N")
+    @classmethod
+    def _validate_multimodal_global_rerank_top_n(cls, value: int) -> int:
+        if not 1 <= value <= 100:
+            raise ValueError(
+                f"MULTIMODAL_GLOBAL_VL_RERANK_TOP_N must be within [1, 100]; got {value}"
+            )
+        return value
 
     @field_validator("MULTIMODAL_IN_TOUR_MARGIN")
     @classmethod
@@ -189,6 +237,7 @@ class Settings(BaseSettings):
         "MULTIMODAL_IMAGE_WEIGHT",
         "MULTIMODAL_I2I_WEIGHT",
         "MULTIMODAL_IMAGE_TEXT_ARTIFACT_WEIGHT",
+        "MULTIMODAL_JOINT_IMAGE_TEXT_WEIGHT",
     )
     @classmethod
     def _validate_multimodal_weights(cls, value: float) -> float:
@@ -425,4 +474,5 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings()
+    from app.services.retrieval_profile import apply_profile
+    return apply_profile(Settings())

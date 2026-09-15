@@ -723,18 +723,24 @@ class EmbeddingProvider:
             )
         return self._multimodal_embedder
 
+    async def _run_embedding(self, kind: str, method: str, *args: Any, **kwargs: Any) -> Any:
+        from app.services.inference_runtime import run_gpu
+        def work():
+            embedder = self._get_text_embedder() if kind == "text" else self._get_multimodal_embedder()
+            return getattr(embedder, method)(*args, **kwargs)
+        return await run_gpu(self.settings, work)
+
     async def embed_text(self, text: str) -> list[float]:
         started_at = time.perf_counter()
-        embedder = self._get_text_embedder()
         log_event(
             logger,
             logging.INFO,
             "embedding.text.start",
-            model=getattr(embedder, "model_id", self.text_model_id),
+            model=self.text_model_id,
             chars=len((text or "").strip()),
         )
         try:
-            vector = await asyncio.to_thread(embedder.embed_document, text)
+            vector = await self._run_embedding("text", "embed_document", text)
         except Exception as exc:
             duration_ms = (time.perf_counter() - started_at) * 1000
             log_event(
@@ -757,18 +763,17 @@ class EmbeddingProvider:
 
     async def embed_multimodal(self, *, text: str | None = None, image_url: str | None = None) -> list[float]:
         started_at = time.perf_counter()
-        embedder = self._get_multimodal_embedder()
         log_event(
             logger,
             logging.INFO,
             "embedding.multimodal.start",
-            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            model=self.multimodal_model_id,
             has_text=bool((text or "").strip()),
             has_image_url=bool((image_url or "").strip()),
         )
         try:
-            vector = await asyncio.to_thread(
-                embedder.embed,
+            vector = await self._run_embedding(
+                "vl", "embed",
                 text=text,
                 image_source=image_url,
             )
@@ -799,18 +804,17 @@ class EmbeddingProvider:
         text: str | None = None,
     ) -> list[float]:
         started_at = time.perf_counter()
-        embedder = self._get_multimodal_embedder()
         log_event(
             logger,
             logging.INFO,
             "embedding.image_bytes.start",
-            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            model=self.multimodal_model_id,
             bytes=len(image_bytes or b""),
             has_text=bool((text or "").strip()),
         )
         try:
-            vector = await asyncio.to_thread(
-                embedder.embed_image_bytes,
+            vector = await self._run_embedding(
+                "vl", "embed_image_bytes",
                 image_bytes,
                 text=text,
             )
@@ -841,20 +845,19 @@ class EmbeddingProvider:
         text: str | None = None,
     ) -> list[list[float]]:
         started_at = time.perf_counter()
-        embedder = self._get_multimodal_embedder()
         image_count = len(image_bytes_values)
         log_event(
             logger,
             logging.INFO,
             "embedding.image_bytes_batch.start",
-            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            model=self.multimodal_model_id,
             image_count=image_count,
             total_bytes=sum(len(value or b"") for value in image_bytes_values),
             has_text=bool((text or "").strip()),
         )
         try:
-            vectors = await asyncio.to_thread(
-                embedder.embed_many_image_bytes,
+            vectors = await self._run_embedding(
+                "vl", "embed_many_image_bytes",
                 image_bytes_values,
                 text=text,
             )
@@ -882,16 +885,15 @@ class EmbeddingProvider:
 
     async def embed_multimodal_text_query(self, text: str) -> list[float]:
         started_at = time.perf_counter()
-        embedder = self._get_multimodal_embedder()
         log_event(
             logger,
             logging.INFO,
             "embedding.multimodal_text_query.start",
-            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            model=self.multimodal_model_id,
             chars=len((text or "").strip()),
         )
         try:
-            vector = await asyncio.to_thread(embedder.embed_text_query, text)
+            vector = await self._run_embedding("vl", "embed_text_query", text)
         except Exception as exc:
             duration_ms = (time.perf_counter() - started_at) * 1000
             log_event(
@@ -919,18 +921,17 @@ class EmbeddingProvider:
         text: str,
     ) -> list[float]:
         started_at = time.perf_counter()
-        embedder = self._get_multimodal_embedder()
         log_event(
             logger,
             logging.INFO,
             "embedding.multimodal_joint.start",
-            model=getattr(embedder, "model_id", self.multimodal_model_id),
+            model=self.multimodal_model_id,
             bytes=len(image_bytes or b""),
             chars=len((text or "").strip()),
         )
         try:
-            vector = await asyncio.to_thread(
-                embedder.embed_joint_image_bytes,
+            vector = await self._run_embedding(
+                "vl", "embed_joint_image_bytes",
                 image_bytes,
                 text,
             )
@@ -954,6 +955,10 @@ class EmbeddingProvider:
         )
         return vector
 
+    async def _run_embedding_warmup(self, work):
+        from app.services.inference_runtime import run_gpu
+        await run_gpu(self.settings, work)
+
     def preload_models(self) -> None:
         # Eager-load both embedders at server startup to avoid first-request latency.
         self._get_text_embedder()
@@ -973,7 +978,7 @@ class EmbeddingProvider:
             if include_multimodal:
                 self._get_multimodal_embedder()
 
-        await asyncio.to_thread(_warmup_sync)
+        await self._run_embedding_warmup(_warmup_sync)
         duration_ms = (time.perf_counter() - started_at) * 1000
         log_event(
             logger,

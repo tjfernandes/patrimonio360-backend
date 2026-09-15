@@ -53,14 +53,21 @@ class FusedResult:
     matched_image_id: str | None = None
     matched_image_local_path: str | None = None
     sources: dict[str, BranchProvenance] = field(default_factory=dict)
+    # Preenchido apenas quando o rerank VL global corre sobre o pool fundido:
+    # {"position", "score", "previous_position", "changed"}. O fusion_score e a
+    # provenance por ramo permanecem intactos para análise.
+    global_rerank: dict[str, object] | None = None
 
     def provenance(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "artifact_id": self.artifact_id,
             "fusion_score": self.fusion_score,
             "matched_image_id": self.matched_image_id,
             "sources": {name: prov.as_dict() for name, prov in self.sources.items()},
         }
+        if self.global_rerank is not None:
+            payload["global_rerank"] = dict(self.global_rerank)
+        return payload
 
 
 def group_image_hits_by_artifact(

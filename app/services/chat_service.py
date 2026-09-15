@@ -454,6 +454,27 @@ class ChatService:
         )
         return reranked
 
+    def _resolve_vl_rerank_stage(self) -> str:
+        """Posição do rerank VL (local/global/both/off) na rota de imagem.
+
+        CHAT_ENABLE_VL_RERANKING continua a ser o master switch: desligado,
+        o stage é sempre "off" (nenhum modelo VL de rerank é tocado)."""
+        if not self.settings.CHAT_ENABLE_VL_RERANKING:
+            return "off"
+        stage = str(
+            getattr(self.settings, "MULTIMODAL_VL_RERANK_STAGE", "local") or "local"
+        ).strip().lower()
+        return stage if stage in {"off", "local", "global", "both"} else "local"
+
+    @staticmethod
+    def _local_vl_rerank_pass_enabled(stage: str, *, has_query_text: bool) -> bool:
+        """O passe local (pool i2i pré-fusão) corre em local/both. Em global
+        com pedido SÓ-imagem também corre: sem fusão, o pool i2i É o pool
+        global, e este passe único preserva o comportamento imagem-only."""
+        if stage in {"local", "both"}:
+            return True
+        return stage == "global" and not has_query_text
+
     async def _maybe_rerank_image_hits(
         self,
         *,
@@ -461,10 +482,19 @@ class ChatService:
         query_image_bytes: bytes | None,
         image_hits: list[dict[str, Any]],
         top_k: int,
+        enabled: bool | None = None,
     ) -> list[dict[str, Any]]:
-        """Second-stage visual rerank of i2i candidates (graceful fallback)."""
+        """Second-stage visual rerank of i2i candidates (graceful fallback).
+
+        ``enabled`` sobrepõe o gate por flag quando o chamador já resolveu o
+        stage (ex.: stage=global adia o rerank para o pool fundido); None
+        mantém o comportamento histórico guiado por CHAT_ENABLE_VL_RERANKING.
+        Desativado, devolve o pool truncado ao page size (shape inalterado).
+        """
         effective_top_k = max(int(top_k), 1)
-        if not self.settings.CHAT_ENABLE_VL_RERANKING or not image_hits:
+        if enabled is None:
+            enabled = bool(self.settings.CHAT_ENABLE_VL_RERANKING)
+        if not enabled or not image_hits:
             return image_hits[:effective_top_k]
         started_at = time.monotonic()
         try:
@@ -494,6 +524,47 @@ class ChatService:
         )
         return reranked
 
+    async def _maybe_global_vl_rerank_outcome(
+        self,
+        *,
+        outcome: Any,
+        query_text: str,
+        query_image_bytes: bytes | None,
+        conversation_id: str,
+        query_id: str,
+    ) -> Any:
+        """Rerank VL GLOBAL do pool fundido (todas as origens), pós-RRF.
+
+        Avalia a query multimodal completa (imagem carregada + texto) contra o
+        top-N fundido — candidatos vindos de i2i, joint, t2i e artifact_search.
+        Em qualquer falha a ordem RRF fica intacta (fallback já dentro de
+        apply_global_vl_rerank); aqui apenas isolamos exceções de wiring."""
+        from app.services.retrieval.multimodal_retrieval import apply_global_vl_rerank
+
+        top_n = max(
+            int(getattr(self.settings, "MULTIMODAL_GLOBAL_VL_RERANK_TOP_N", 16)), 1
+        )
+        started_at = time.monotonic()
+        try:
+            return await apply_global_vl_rerank(
+                outcome,
+                vl_reranker=self._get_vl_reranker_service(),
+                query_text=query_text,
+                query_image_bytes=query_image_bytes,
+                top_n=top_n,
+                trace_id=query_id,
+            )
+        except Exception as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "chat.image.global_rerank.error",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                duration_ms=round((time.monotonic() - started_at) * 1000, 1),
+                error=exc,
+            )
+            return outcome
 
     def health(self) -> ChatHealthResponse:
         return ChatHealthResponse(
@@ -1004,6 +1075,7 @@ class ChatService:
         i2i_hits: list[dict[str, object]],
         conversation_id: str,
         query_id: str,
+        query_image_bytes: bytes | None = None,
     ):
         """Etapa 8 — imagem+texto atrás de MULTIMODAL_RETRIEVAL_MODE.
 
@@ -1052,6 +1124,7 @@ class ChatService:
                 temporal_filter=temporal_filter or None,
                 router_decision=probe,
                 trace_id=query_id,
+                query_image_bytes=query_image_bytes,
             )
         except Exception as exc:
             log_event(
@@ -2261,6 +2334,7 @@ class ChatService:
         status: str,
         error: str | None,
         opensearch_query: dict[str, Any] | None = None,
+        system_config: dict[str, Any] | None = None,
     ) -> None:
         metadata = getattr(payload, "metadata", None)
         museum_slug = getattr(payload, "museum_slug", None)
@@ -2294,7 +2368,64 @@ class ChatService:
             "error": error,
             "opensearch_query": opensearch_query,
         }
+        if system_config:
+            # Reprodutibilidade por linha (exigido pelo estudo de utilizador):
+            # modelos+revisões, configuração de fusão/rerank e índices usados.
+            event["system_config"] = system_config
         await self.query_logger.log_event(event)
+
+    def _image_system_config(self, *, modality: str,
+                             image_bytes: bytes | None = None,
+                             outcome: Any = None) -> dict[str, Any]:
+        """Configuração efetiva da rota de imagem para o registo estruturado.
+
+        Nunca inclui a imagem nem caminhos locais — apenas um hash não
+        identificativo dos bytes carregados."""
+        import hashlib
+
+        config: dict[str, Any] = {
+            "modality": modality,
+            "visual_embedding_model": self.settings.multimodal_embedding_model_resolved,
+            "visual_embedding_revision": getattr(
+                self.settings, "QWEN_MULTIMODAL_EMBEDDING_MODEL_REVISION", "") or None,
+            "index_image": self.settings.OPENSEARCH_INDEX_IMAGE,
+            "index_artifact": self.settings.OPENSEARCH_INDEX_ARTIFACT,
+            "vl_rerank_stage": self._resolve_vl_rerank_stage(),
+            "vl_reranker_model": self.settings.vl_reranker_model_resolved,
+            "vl_reranker_revision": self.settings.vl_reranker_model_revision_resolved,
+        }
+        if image_bytes:
+            config["source_image_sha256"] = hashlib.sha256(image_bytes).hexdigest()
+        if modality == "image_text":
+            config.update({
+                "joint_branch_enabled": bool(getattr(
+                    self.settings, "MULTIMODAL_JOINT_IMAGE_TEXT_ENABLED", False)),
+                "joint_top_k": int(getattr(
+                    self.settings, "MULTIMODAL_JOINT_IMAGE_TEXT_TOP_K", 0)),
+                "fusion": {
+                    "rrf_k": int(self.settings.MULTIMODAL_RRF_K),
+                    "w_i2i": float(self.settings.MULTIMODAL_I2I_WEIGHT),
+                    "w_joint": float(getattr(
+                        self.settings, "MULTIMODAL_JOINT_IMAGE_TEXT_WEIGHT", 0.0)),
+                    "w_t2i": float(self.settings.MULTIMODAL_IMAGE_WEIGHT),
+                    "w_artifact": float(
+                        self.settings.MULTIMODAL_IMAGE_TEXT_ARTIFACT_WEIGHT),
+                },
+                "global_rerank_top_n": int(getattr(
+                    self.settings, "MULTIMODAL_GLOBAL_VL_RERANK_TOP_N", 0)),
+            })
+            diagnostics = getattr(outcome, "diagnostics", None) or {}
+            fusion_diag = diagnostics.get("fusion") or {}
+            config["branch_sizes"] = fusion_diag.get("branch_sizes")
+            config["structured_filters"] = diagnostics.get("constraints")
+            grr = diagnostics.get("global_vl_rerank") or {}
+            if grr:
+                config["global_rerank"] = {
+                    "candidates": grr.get("candidates"),
+                    "positions_changed": grr.get("positions_changed"),
+                    "fallback": grr.get("fallback"),
+                }
+        return config
 
     def _matched_retrieval_boosts_for_log(
         self,
@@ -2747,6 +2878,11 @@ class ChatService:
                 filters=effective_filters,
                 sort=effective_sort,
                 result_window_size=text_results_window_size,
+                # Lido na mensagem do utilizador, nao na rewritten do router
+                # (que descarta "nesta visita" e afins).
+                tour_scope_expression=self._extract_tour_scope_expression(
+                    search_query_message
+                ),
             )
             retrieval_request["museum_slug"] = search_museum_slug
             retrieval_request["search_scope"] = search_scope.model_dump(mode="json")
@@ -3368,6 +3504,8 @@ class ChatService:
                 embedding_query=None,
                 route="image_search",
                 retrieval_mode="image_similarity",
+                system_config=self._image_system_config(
+                    modality="image", image_bytes=image_bytes),
                 filters_applied={
                     "filters": dict(state.filters),
                     "sort": dict(state.sort),
@@ -3401,8 +3539,9 @@ class ChatService:
         )
         # Visual reranking scores a wider i2i pool and truncates back to
         # image_candidates_k afterwards (downstream shape unchanged).
+        vl_stage = self._resolve_vl_rerank_stage()
         image_rerank_pool_k = image_candidates_k
-        if self.settings.CHAT_ENABLE_VL_RERANKING:
+        if vl_stage != "off":
             image_rerank_pool_k = max(
                 image_candidates_k,
                 int(self.settings.VL_RERANKER_CANDIDATES),
@@ -3437,26 +3576,69 @@ class ChatService:
             )
             image_hits = []
 
+        # Passe local (pool i2i pré-fusão): corre em local/both, e em global
+        # apenas para pedidos SÓ-imagem (aí o pool i2i é o pool inteiro). Em
+        # global com texto o rerank é adiado para o pool fundido pós-RRF.
+        user_query_text = (payload.message or "").strip()
+        has_query_text = bool(user_query_text)
+        run_local_vl_pass = self._local_vl_rerank_pass_enabled(
+            vl_stage, has_query_text=has_query_text
+        )
         image_hits = await self._maybe_rerank_image_hits(
-            query_text=(payload.message or "").strip(),
+            query_text=user_query_text,
             query_image_bytes=image_bytes,
             image_hits=image_hits,
             top_k=image_candidates_k,
+            enabled=run_local_vl_pass,
         )
 
         # E8: imagem+texto — quando o utilizador forneceu texto real e o modo
-        # multimodal está ligado, funde i2i + t2i + pesquisa documental.
+        # multimodal está ligado, funde i2i + joint imagem+texto + t2i +
+        # pesquisa documental.
         image_text_outcome = None
         if image_hits:
             image_text_outcome = await self._maybe_fuse_image_text(
-                message_text=(payload.message or "").strip(),
+                message_text=user_query_text,
                 museum_slug=search_museum_slug,
                 museum_id=search_museum_id,
                 i2i_hits=image_hits,
                 conversation_id=conversation_id,
                 query_id=query_id,
+                query_image_bytes=image_bytes,
+            )
+        if image_text_outcome is not None and vl_stage in {"global", "both"}:
+            # Rerank VL global: a query multimodal completa avalia o top-N
+            # fundido — candidatos de TODAS as origens, não só do pool i2i.
+            image_text_outcome = await self._maybe_global_vl_rerank_outcome(
+                outcome=image_text_outcome,
+                query_text=user_query_text,
+                query_image_bytes=image_bytes,
+                conversation_id=conversation_id,
+                query_id=query_id,
+            )
+        elif (
+            image_text_outcome is None
+            and image_hits
+            and has_query_text
+            and vl_stage == "global"
+        ):
+            # Fusão indisponível (modo off ou falha isolada): o pool i2i é o
+            # pool inteiro — o passe único de rerank corre agora para o stage
+            # global não degradar silenciosamente face ao comportamento local.
+            image_hits = await self._maybe_rerank_image_hits(
+                query_text=user_query_text,
+                query_image_bytes=image_bytes,
+                image_hits=image_hits,
+                top_k=image_candidates_k,
+                enabled=True,
             )
 
+        # Instrumentation: the two image modalities must be distinguishable in
+        # the query log (user-study requirement) — plain upload logs
+        # image_similarity; the fused joint image+text path logs
+        # image_text_joint.
+        retrieval_mode_used = ("image_text_joint" if image_text_outcome is not None
+                               else "image_similarity")
         if image_text_outcome is not None:
             artifact_docs = image_text_outcome.docs
             image_results_total = image_text_outcome.total
@@ -3566,7 +3748,23 @@ class ChatService:
                 "retrieval_window_size": image_retrieval_window_size,
                 "results_total": image_results_total,
                 "opensearch_query": image_opensearch_query,
-                "user_message": (payload.message or "").strip() or None,
+                "user_message": user_query_text or None,
+                "multimodal": (
+                    image_text_outcome.debug_payload()
+                    if self.settings.MULTIMODAL_DEBUG
+                    else {
+                        "vl_rerank_stage": vl_stage,
+                        "branch_sizes": image_text_outcome.diagnostics.get(
+                            "fusion", {}
+                        ).get("branch_sizes"),
+                        "global_vl_rerank": image_text_outcome.diagnostics.get(
+                            "global_vl_rerank"
+                        ),
+                        "fused_size": image_text_outcome.total,
+                    }
+                )
+                if image_text_outcome is not None
+                else None,
             },
         )
         results_request_id = str(
@@ -3671,7 +3869,11 @@ class ChatService:
                 lexical_query=None,
                 embedding_query=None,
                 route="image_search",
-                retrieval_mode="image_similarity",
+                retrieval_mode=retrieval_mode_used,
+                system_config=self._image_system_config(
+                    modality=("image_text" if image_text_outcome is not None
+                              else "image"),
+                    image_bytes=image_bytes, outcome=image_text_outcome),
                 filters_applied={
                     "filters": effective_filters,
                     "sort": effective_sort,
@@ -3751,7 +3953,10 @@ class ChatService:
             lexical_query=None,
             embedding_query=None,
             route="image_search",
-            retrieval_mode="image_similarity",
+            retrieval_mode=retrieval_mode_used,
+            system_config=self._image_system_config(
+                modality=("image_text" if image_text_outcome is not None else "image"),
+                image_bytes=image_bytes, outcome=image_text_outcome),
             filters_applied={
                 "filters": effective_filters,
                 "sort": effective_sort,
@@ -4778,6 +4983,7 @@ class ChatService:
         filters: dict[str, object],
         sort: dict[str, object],
         result_window_size: int | None = None,
+        tour_scope_expression: str | None = None,
     ) -> tuple[str, int, list[dict[str, object]], dict[str, Any]]:
         raw_query = (query or "").strip()
         overview_result = self._retrieve_museum_overview_context(
@@ -4796,7 +5002,15 @@ class ChatService:
             return inventory_result
 
         temporal_query = await self._interpret_temporal_query(raw_query)
-        tour_scope_expression = self._extract_tour_scope_expression(raw_query)
+        # O ambito da visita ("nesta visita", "no tour 360") tem de ser lido na
+        # MENSAGEM ORIGINAL: a rewritten do router remove estas expressoes ao
+        # extrair a expressao nominal pesquisavel, pelo que ler daqui perderia
+        # o filtro in_tour. O chamador passa-a explicitamente; o fallback
+        # mantem o comportamento para chamadas que nao a fornecem.
+        tour_scope_expression = (
+            tour_scope_expression
+            or self._extract_tour_scope_expression(raw_query)
+        )
         retrieval_filters = self._merge_temporal_filter(filters, temporal_query)
         retrieval_filters = self._merge_tour_scope_filter(
             retrieval_filters,

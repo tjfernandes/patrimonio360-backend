@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi import Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
         allow_headers=settings.cors_allow_headers_list,
         allow_credentials=False,
     )
+    app.state.readiness = {"ready": False, "checks": {}}
 
     @app.on_event("startup")
     async def startup_logging_and_prewarm() -> None:
@@ -53,14 +55,37 @@ def create_app() -> FastAPI:
             env=settings.APP_ENV,
             prewarm=settings.CHAT_PREWARM_ON_STARTUP,
         )
-        if not settings.CHAT_PREWARM_ON_STARTUP:
-            return
-        from app.services.warmup import warmup_chat_stack
+        from app.services.chat_service import get_chat_service
+        service = get_chat_service()
+        if settings.RETRIEVAL_PROFILE_PATH:
+            from app.services.retrieval_profile import verify_profile_indices
+            verify_profile_indices(settings, service.opensearch_gateway._ensure_client())
+        if settings.CHAT_PREWARM_ON_STARTUP or settings.RETRIEVAL_PROFILE_PATH:
+            from app.services.warmup import warmup_chat_stack
+            checks = await warmup_chat_stack(
+                service=service,
+                include_multimodal=True if settings.RETRIEVAL_PROFILE_PATH else settings.CHAT_PREWARM_INCLUDE_MULTIMODAL,
+                include_multiview_worker=settings.CHAT_PREWARM_INCLUDE_MULTIVIEW_WORKER,
+            )
+        else:
+            checks = {"opensearch_ready": await service.opensearch_gateway.ensure_ready()}
+        required = ["opensearch_ready"]
+        if settings.CHAT_PREWARM_ON_STARTUP or settings.RETRIEVAL_PROFILE_PATH:
+            required.append("text_embeddings_ready")
+            if settings.RETRIEVAL_PROFILE_PATH or settings.CHAT_PREWARM_INCLUDE_MULTIMODAL:
+                required.append("multimodal_ready")
+            if settings.CHAT_ENABLE_RERANKING:
+                required.append("reranker_ready")
+            if settings.CHAT_ENABLE_VL_RERANKING:
+                required.append("vl_reranker_ready")
+            if settings.CHAT_PREWARM_INCLUDE_MULTIVIEW_WORKER:
+                required.append("multiview_worker_ready")
+        app.state.readiness = {"ready": all(checks.get(key) is True for key in required), "checks": checks}
 
-        await warmup_chat_stack(
-            include_multimodal=settings.CHAT_PREWARM_INCLUDE_MULTIMODAL,
-            include_multiview_worker=settings.CHAT_PREWARM_INCLUDE_MULTIVIEW_WORKER,
-        )
+    @app.get("/ready", include_in_schema=False)
+    async def readiness():
+        payload = app.state.readiness
+        return JSONResponse(payload, status_code=200 if payload.get("ready") else 503)
 
     @app.middleware("http")
     async def operational_request_logging(request: Request, call_next):

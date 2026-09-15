@@ -6,7 +6,9 @@ all failures are caught here and downgraded to a warning log line.
 """
 
 import asyncio
+import hashlib
 import json
+import math
 import logging
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -43,7 +45,8 @@ class QueryLogger:
         if not self.enabled:
             return
         try:
-            line = json.dumps(event, ensure_ascii=False, default=str)
+            payload = self._compact_vectors(event) if self.settings.QUERY_LOG_COMPACT_VECTORS else event
+            line = json.dumps(payload, ensure_ascii=False, default=str)
         except Exception:
             logger.warning(
                 "query_logger: failed to serialize %s event",
@@ -51,6 +54,27 @@ class QueryLogger:
                 exc_info=True,
             )
             return
+
+    @classmethod
+    def _compact_vectors(cls, value: Any) -> Any:
+        """Replace large numeric arrays with reproducible metadata.
+
+        Historical files remain untouched. Short numeric lists such as years,
+        scores, and IDs keep their original wire shape.
+        """
+        if isinstance(value, list):
+            if len(value) >= 128 and all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in value):
+                encoded = json.dumps(value, separators=(",", ":"), allow_nan=False).encode("utf-8")
+                return {
+                    "omitted": True,
+                    "dimension": len(value),
+                    "l2_norm": round(math.sqrt(sum(float(item) ** 2 for item in value)), 6),
+                    "sha256": hashlib.sha256(encoded).hexdigest(),
+                }
+            return [cls._compact_vectors(item) for item in value]
+        if isinstance(value, dict):
+            return {key: cls._compact_vectors(item) for key, item in value.items()}
+        return value
         try:
             async with self._lock:
                 await asyncio.to_thread(self._write_line_sync, path, line)

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import Settings, get_settings
+from app.services.inference_runtime import run_gpu
 
 
 class RerankerError(RuntimeError):
@@ -279,7 +280,7 @@ class PairwiseRerankerService:
         effective_top_k = max(int(top_k), 1)
         if not self.settings.CHAT_ENABLE_RERANKING:
             return [dict(doc) for doc in documents[:effective_top_k]]
-        return await asyncio.to_thread(
+        return await run_gpu(self.settings,
             self._rerank_sync,
             query_text=query_text,
             documents=documents,
@@ -680,6 +681,82 @@ class VLRerankerService:
         scored_hits.sort(key=lambda item: item.get("vl_rerank_score", float("-inf")), reverse=True)
         return scored_hits[:top_k]
 
+    def _build_artifact_document(self, candidate: dict[str, Any]) -> dict[str, Any]:
+        """Documento multimodal para um candidato AO NÍVEL DO ARTEFACTO.
+
+        ``candidate`` traz {"artifact_id", "local_path", "text"}: a melhor
+        imagem retida no retrieval (ou representativa do artefacto) + o texto
+        limitado de evidência. Sem pixels resolvíveis degrada para documento
+        só-texto (nunca é descartado)."""
+        document: dict[str, Any] = {}
+        local_path = str(candidate.get("local_path") or "").strip()
+        if local_path:
+            image = self._resolve_hit_image({"local_path": local_path})
+            if image is not None:
+                document["image"] = image
+        text = str(candidate.get("text") or "").strip()
+        if text:
+            document["text"] = text
+        if not document:
+            document["text"] = "no-document-content"
+        return document
+
+    def _rerank_artifacts_sync(
+        self,
+        *,
+        query_text: str,
+        query_image_bytes: bytes | None,
+        candidates: list[dict[str, Any]],
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        if not candidates:
+            return []
+
+        query: dict[str, Any] = {}
+        query_image = self._load_query_image(query_image_bytes)
+        if query_image is not None:
+            query["image"] = query_image
+        cleaned_query_text = (query_text or "").strip()
+        if cleaned_query_text:
+            query["text"] = cleaned_query_text
+        if not query:
+            return [dict(candidate) for candidate in candidates[:top_k]]
+
+        documents = [self._build_artifact_document(c) for c in candidates]
+        image_load_failures = sum(
+            1
+            for candidate, document in zip(candidates, documents)
+            if str(candidate.get("local_path") or "").strip() and "image" not in document
+        )
+        pairs = [
+            self._build_pair_messages(query=query, document=document)
+            for document in documents
+        ]
+
+        try:
+            values = self._score_pairs(pairs)
+        except RerankerError:
+            raise
+        except Exception as exc:
+            raise RerankerError(f"Failed to score query-artifact pairs: {exc}") from exc
+
+        if len(values) != len(candidates):
+            raise RerankerError(
+                f"Unexpected VL reranker output size. expected={len(candidates)} got={len(values)}"
+            )
+
+        scored: list[dict[str, Any]] = []
+        for index, candidate in enumerate(candidates):
+            item = dict(candidate)
+            item["vl_rerank_score"] = float(values[index])
+            item["retrieval_rank"] = index + 1
+            item["document_had_image"] = "image" in documents[index]
+            item["image_load_failures_in_pool"] = image_load_failures
+            scored.append(item)
+
+        scored.sort(key=lambda item: item.get("vl_rerank_score", float("-inf")), reverse=True)
+        return scored[:top_k]
+
     async def rerank_image_hits(
         self,
         *,
@@ -691,11 +768,33 @@ class VLRerankerService:
         effective_top_k = max(int(top_k), 1)
         if not self.settings.CHAT_ENABLE_VL_RERANKING:
             return [dict(hit) for hit in image_hits[:effective_top_k]]
-        return await asyncio.to_thread(
+        return await run_gpu(self.settings,
             self._rerank_sync,
             query_text=query_text,
             query_image_bytes=query_image_bytes,
             image_hits=image_hits,
+            top_k=effective_top_k,
+        )
+
+    async def rerank_artifact_candidates(
+        self,
+        *,
+        query_text: str,
+        query_image_bytes: bytes | None,
+        candidates: list[dict[str, Any]],
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """Rerank VL global: candidatos fundidos (todas as origens) contra a
+        query multimodal completa. Mesmo contrato de fallback do
+        rerank_image_hits (flag off -> ordem de entrada truncada)."""
+        effective_top_k = max(int(top_k), 1)
+        if not self.settings.CHAT_ENABLE_VL_RERANKING:
+            return [dict(candidate) for candidate in candidates[:effective_top_k]]
+        return await run_gpu(self.settings,
+            self._rerank_artifacts_sync,
+            query_text=query_text,
+            query_image_bytes=query_image_bytes,
+            candidates=candidates,
             top_k=effective_top_k,
         )
 
