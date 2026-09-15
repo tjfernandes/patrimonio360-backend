@@ -54,6 +54,15 @@ class QueryLogger:
                 exc_info=True,
             )
             return
+        try:
+            async with self._lock:
+                await asyncio.to_thread(self._write_line_sync, path, line)
+        except Exception:
+            logger.warning(
+                "query_logger: failed to write %s event",
+                label,
+                exc_info=True,
+            )
 
     @classmethod
     def _compact_vectors(cls, value: Any) -> Any:
@@ -75,15 +84,6 @@ class QueryLogger:
         if isinstance(value, dict):
             return {key: cls._compact_vectors(item) for key, item in value.items()}
         return value
-        try:
-            async with self._lock:
-                await asyncio.to_thread(self._write_line_sync, path, line)
-        except Exception:
-            logger.warning(
-                "query_logger: failed to write %s event",
-                label,
-                exc_info=True,
-            )
 
     async def log_event(self, event: dict[str, Any]) -> None:
         await self._log_jsonl(
