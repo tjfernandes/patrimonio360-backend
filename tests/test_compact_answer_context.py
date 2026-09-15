@@ -66,7 +66,7 @@ class TestCompactCards(unittest.TestCase):
             artifact_results=_results(), image_matches=[], page=1, page_size=8, total=2,
             prefer_artifact_results=True, include_image_matches_section=False,
         )
-        self.assertIn('[doc_1] {"artifact_id": "art-1"', context)
+        self.assertIn('[doc_1] {"inventory_number": "MNT 1234", "title": "Vestido de noiva"', context)
         self.assertNotIn("Título:", context)
 
     def test_sanitizer_alignment_with_compact_cards(self) -> None:

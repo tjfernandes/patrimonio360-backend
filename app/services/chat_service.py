@@ -1320,6 +1320,37 @@ class ChatService:
             )
         )
 
+    def _make_token_emitter(
+        self,
+        status_cb: StatusCallback | None,
+        *,
+        query_id: str,
+    ) -> Callable[[], Callable[[str], Awaitable[None]]]:
+        """Fábrica de callbacks de tokens (quick win LLM-03).
+
+        Cada tentativa de geração recebe um emissor novo com `seq` a começar
+        em 0, para o cliente poder descartar texto parcial de uma tentativa
+        anterior. Falhas do canal nunca interrompem a geração.
+        """
+
+        def factory() -> Callable[[str], Awaitable[None]]:
+            seq = 0
+
+            async def emit(delta: str) -> None:
+                nonlocal seq
+                if status_cb is None:
+                    return
+                event = {"type": "token", "query_id": query_id, "seq": seq, "delta": delta}
+                seq += 1
+                try:
+                    await status_cb(event)
+                except Exception:  # noqa: BLE001 — o canal SSE nunca pode travar a resposta
+                    pass
+
+            return emit
+
+        return factory
+
     async def _generate_final_answer_with_context_retries(
         self,
         *,
@@ -1329,14 +1360,26 @@ class ChatService:
         model_override: str | None,
         visible_result_count: int,
         build_message_for_result_count: Callable[[int], str],
+        stream_cb_factory: Callable[[], Callable[[str], Awaitable[None]]] | None = None,
     ):
-        try:
+        async def _call(message: str):
+            if stream_cb_factory is not None:
+                return await self.llm_service.generate_stream(
+                    message=message,
+                    response_format=response_format,
+                    system_prompt=system_prompt,
+                    model_override=model_override,
+                    on_delta=stream_cb_factory(),
+                )
             return await self.llm_service.generate(
-                message=initial_message,
+                message=message,
                 response_format=response_format,
                 system_prompt=system_prompt,
                 model_override=model_override,
             )
+
+        try:
+            return await _call(initial_message)
         except LLMServiceError as exc:
             if not self._is_llm_token_limit_error(exc) or visible_result_count <= 0:
                 raise
@@ -1347,12 +1390,7 @@ class ChatService:
             if not retry_message.strip():
                 continue
             try:
-                return await self.llm_service.generate(
-                    message=retry_message,
-                    response_format=response_format,
-                    system_prompt=system_prompt,
-                    model_override=model_override,
-                )
+                return await _call(retry_message)
             except LLMServiceError as exc:
                 if not self._is_llm_token_limit_error(exc):
                     raise
@@ -3243,6 +3281,18 @@ class ChatService:
         )
         await self._emit_status(status_cb, "status.generating_final_answer", language=language)
 
+        # Quick win LLM-03: com CHAT_STREAM_FINAL_ANSWER e um canal SSE ativo,
+        # os tokens da resposta final seguem para o cliente à medida que
+        # chegam; o evento `result` (texto sanitizado) continua a ser o payload
+        # autoritativo. Pedidos não-stream e formatos JSON ficam como estavam.
+        stream_cb_factory = None
+        if (
+            self.settings.CHAT_STREAM_FINAL_ANSWER
+            and status_cb is not None
+            and requested_format.type == "text"
+        ):
+            stream_cb_factory = self._make_token_emitter(status_cb, query_id=query_id)
+
         llm_started_at = time.monotonic()
         try:
             llm_response = await self._generate_final_answer_with_context_retries(
@@ -3252,6 +3302,7 @@ class ChatService:
                 model_override=payload.model_override,
                 visible_result_count=retry_context_result_count,
                 build_message_for_result_count=build_text_final_message_for_result_count,
+                stream_cb_factory=stream_cb_factory,
             )
         except LLMServiceError as exc:
             llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
