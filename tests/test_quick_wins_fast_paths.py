@@ -209,3 +209,66 @@ class TestGroundingReport(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGroundingFalsePositives(unittest.TestCase):
+    def _cards(self) -> list[dict]:
+        return [{"title": "Mesa", "inventory_number": "793 Mob MNSR"},
+                {"title": "Capa de baptizado/Criança", "inventory_number": "35468"}]
+
+    def test_bold_sentences_and_echoed_request_are_ignored(self) -> None:
+        # Casos reais medidos em 2026-09-15: negrito de ênfase numa frase inteira e
+        # citação do próprio pedido do utilizador não são títulos inventados.
+        service = _service(_settings(CHAT_GROUNDING_CHECK="log"))
+        report = service._grounding_report(
+            reply=('A mesa 793 Mob MNSR **não se encontra indicada como estando na visita virtual**. '
+                   'Não encontrei mais peças para "capa comprida de cor bege e bordado".'),
+            docs=self._cards(), conversation_id="c", query_id="q",
+            user_message="Encontra uma capa comprida de cor bege e bordado")
+        self.assertEqual(report["violations"], 0)
+        self.assertEqual(report["unmatched_inventories"], [])
+
+
+class TestRouterCompactSchema(unittest.TestCase):
+    class _JsonLLM:
+        def __init__(self, payload: dict) -> None:
+            self.payload = payload
+            self.prompts: list[str] = []
+
+        async def generate(self, *, message, response_format, system_prompt=None, model_override=None):
+            self.prompts.append(message)
+            from app.services.llm_service import LLMResponse
+            import json as _json
+            return LLMResponse(text=_json.dumps(self.payload), model="fake", response_format=response_format,
+                               parsed_json=self.payload)
+
+    def _route(self, compact: bool, payload: dict, message: str = "e de linho?") -> tuple[dict, str]:
+        llm = self._JsonLLM(payload)
+        service = _service(_settings(CHAT_ROUTER_COMPACT_SCHEMA=compact), llm=llm)
+        state = service.session_store.load_or_create(conversation_id="c", museum_slug="mnt")
+        service.session_store.append_turn(state, role="user", text="encontra vestidos de seda")
+        service.session_store.append_turn(state, role="assistant", text="Encontrei 3 vestidos.")
+        service.session_store.append_turn(state, role="user", text=message)
+        policy = service._derive_context_policy(message=message, state=state)
+        decision = asyncio.run(service._route_message(payload=_request(message), state=state, context_policy=policy))
+        return decision, llm.prompts[0]
+
+    def test_compact_schema_fills_missing_fields_from_policy(self) -> None:
+        decision, prompt = self._route(True, {"mode": "rag", "intent": "refine", "is_follow_up": True,
+                                              "rewritten_query": "vestidos de linho", "filters_delta": {}})
+        self.assertNotIn('"needs_retrieval"', prompt)
+        self.assertIn('"required": ["mode", "intent", "is_follow_up", "rewritten_query", "filters_delta"]', prompt)
+        self.assertEqual(decision["mode"], "rag")
+        self.assertTrue(decision["needs_retrieval"])
+        self.assertTrue(decision["use_history_for_query"])   # da política de contexto («e ...?»)
+        self.assertTrue(decision["carry_filters"])
+        self.assertEqual(decision["reason"], "compact_schema")
+
+    def test_full_schema_is_default(self) -> None:
+        _decision, prompt = self._route(False, {"mode": "rag", "intent": "refine", "is_follow_up": True,
+                                                "use_history_for_query": True, "use_history_for_answer": True,
+                                                "carry_filters": True, "carry_sort": True,
+                                                "rewritten_query": "vestidos de linho", "needs_retrieval": True,
+                                                "reason": "x", "filters_delta": {}, "sort_delta": {}})
+        self.assertIn('"needs_retrieval"', prompt)
+        self.assertIn('"reason"', prompt)

@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     CHAT_COMPACT_ANSWER_CONTEXT: bool = False       # cartões compactos + prompt final PT v2
     CHAT_INVENTORY_GRAMMAR_V2: bool = False         # «793 Mob MNSR» reconhecido como inventário
     CHAT_GROUNDING_CHECK: str = "off"               # off | log — verifica títulos/inventários citados
+    CHAT_ROUTER_COMPACT_SCHEMA: bool = False        # router pede 5 campos em vez de 12 (menos tokens de saída)
     API_PREFIX: str = "/api/v1"
 
     BACKEND_LOG_ENABLED: bool = True

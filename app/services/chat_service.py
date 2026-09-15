@@ -2996,6 +2996,7 @@ class ChatService:
                 tour_scope_expression=self._extract_tour_scope_expression(
                     search_query_message
                 ),
+                inventory_query=original_message,
             )
             retrieval_request["museum_slug"] = search_museum_slug
             retrieval_request["search_scope"] = search_scope.model_dump(mode="json")
@@ -3396,6 +3397,7 @@ class ChatService:
             docs=reply_docs,
             conversation_id=conversation_id,
             query_id=query_id,
+            user_message=original_message,
         )
 
         if not carry_filters:
@@ -4868,6 +4870,25 @@ class ChatService:
             ],
         }
 
+        if bool(getattr(self.settings, "CHAT_ROUTER_COMPACT_SCHEMA", False)):
+            # Quick win LLM-02 (parcial): o router só decide o que a política
+            # determinística não consegue — modo, intenção, se é seguimento,
+            # a query autocontida e filtros explícitos. Os restantes campos
+            # (needs_retrieval, use_history_*, carry_*) já eram sobrepostos
+            # pelos guardrails abaixo e passam a vir da política de contexto.
+            router_schema = {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "mode": router_schema["properties"]["mode"],
+                    "intent": router_schema["properties"]["intent"],
+                    "is_follow_up": router_schema["properties"]["is_follow_up"],
+                    "rewritten_query": router_schema["properties"]["rewritten_query"],
+                    "filters_delta": router_schema["properties"]["filters_delta"],
+                },
+                "required": ["mode", "intent", "is_follow_up", "rewritten_query", "filters_delta"],
+            }
+
         use_history_for_query_hint = bool(context_policy.get("use_history_for_query", False))
         use_history_for_answer_hint = bool(context_policy.get("use_history_for_answer", False))
         include_aux_context = use_history_for_query_hint or use_history_for_answer_hint
@@ -4917,6 +4938,8 @@ class ChatService:
         rewritten_query = str(parsed.get("rewritten_query", payload.message))
         needs_retrieval = bool(parsed.get("needs_retrieval", mode == "rag"))
         reason = str(parsed.get("reason", ""))
+        if "reason" not in parsed and bool(getattr(self.settings, "CHAT_ROUTER_COMPACT_SCHEMA", False)):
+            reason = "compact_schema"
         is_follow_up = bool(parsed.get("is_follow_up", context_policy.get("is_follow_up", False)))
         use_history_for_query = bool(
             parsed.get(
@@ -5309,6 +5332,7 @@ class ChatService:
         sort: dict[str, object],
         result_window_size: int | None = None,
         tour_scope_expression: str | None = None,
+        inventory_query: str | None = None,
     ) -> tuple[str, int, list[dict[str, object]], dict[str, Any]]:
         raw_query = (query or "").strip()
         overview_result = self._retrieve_museum_overview_context(
@@ -5318,10 +5342,17 @@ class ChatService:
         )
         if overview_result is not None:
             return overview_result
+        # Com CHAT_INVENTORY_GRAMMAR_V2 o número de inventário é lido na
+        # MENSAGEM ORIGINAL: a query contextual já vem sem o código do museu
+        # («793 Mob MNSR» -> «793 Mob», por _strip_unrequested_museum_terms),
+        # o que impedia o fast-path de inventário (medido em 2026-09-15).
+        inventory_source = raw_query
+        if bool(getattr(self.settings, "CHAT_INVENTORY_GRAMMAR_V2", False)) and (inventory_query or "").strip():
+            inventory_source = str(inventory_query).strip()
         inventory_result = await self._retrieve_inventory_context(
             museum_slug=museum_slug,
             museum_id=museum_id,
-            raw_query=raw_query,
+            raw_query=inventory_source,
         )
         if inventory_result is not None:
             return inventory_result
@@ -7604,6 +7635,7 @@ class ChatService:
         docs: list[dict[str, object]] | None,
         conversation_id: str,
         query_id: str,
+        user_message: str | None = None,
     ) -> dict[str, Any] | None:
         """Verificação de grounding em modo observação (quick win FILT-02).
 
@@ -7630,16 +7662,24 @@ class ChatService:
             if str(doc.get(key) or "").strip()
         }
 
+        folded_user = self._fold_query_text(user_message or "")
         quoted: list[str] = []
         for pattern in self._QUOTED_TITLE_PATTERNS:
             for match in re.finditer(pattern, text):
                 candidate = match.group(1).strip()
+                # Negrito/aspas também servem para ênfase de frases inteiras e
+                # para ecoar o pedido do utilizador; só contam como citação
+                # de peça as expressões curtas que não vêm da pergunta.
+                if len(candidate.split()) > 8:
+                    continue
                 if candidate and candidate not in quoted:
                     quoted.append(candidate)
         unmatched_titles: list[str] = []
         for candidate in quoted:
             folded = self._fold_query_text(candidate)
             if len(folded) < 4:
+                continue
+            if folded_user and folded in folded_user:
                 continue
             if any(folded in title or title in folded for title in known_titles if title):
                 continue
