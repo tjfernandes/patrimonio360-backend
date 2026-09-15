@@ -3180,6 +3180,13 @@ class ChatService:
             if retrieval_kind_for_log in {"selected_artifact", "anchored_similarity"}
             else ("hybrid_text" if router_decision.get("mode") == "rag" else "none")
         )
+        if (
+            retrieval_kind_for_log == "inventory"
+            and bool(getattr(self.settings, "CHAT_INVENTORY_GRAMMAR_V2", False))
+        ):
+            # Só com o flag ligado: o rótulo histórico (hybrid_text) mantém-se
+            # nos logs do estudo; o fast-path passa a ser distinguível.
+            retrieval_mode_for_log = "inventory_lookup"
         retrieved_source_for_log = (
             retrieval_kind_for_log
             if retrieval_kind_for_log in {"selected_artifact", "anchored_similarity"}
@@ -5305,6 +5312,19 @@ class ChatService:
 
         if not docs:
             return None
+
+        if bool(getattr(self.settings, "CHAT_INVENTORY_GRAMMAR_V2", False)):
+            # Com uma referência exata na pergunta, mostrar só as fichas cujo
+            # inventário coincide com um candidato: a lista de 5 «parecidos»
+            # (793 Cer, 406 Mob, ...) levava o LLM a descrever a peça errada
+            # (medido 2026-09-15: «o cartão confirma apenas a arca 770 Mob»).
+            wanted = {re.sub(r"[^a-z0-9]+", "", self._fold_query_text(c)) for c in inventory_candidates}
+            exact = [
+                doc for doc in docs
+                if re.sub(r"[^a-z0-9]+", "", self._fold_query_text(str(doc.get("inventory_number") or ""))) in wanted
+            ]
+            if exact:
+                docs = exact
 
         docs_for_context = docs[:top_k]
         context = self._format_docs_for_prompt(docs=docs_for_context, top_k=top_k)
@@ -7661,6 +7681,22 @@ class ChatService:
             for key in ("inventory_number", "inventory")
             if str(doc.get(key) or "").strip()
         }
+        # Valores categóricos dos cartões (categoria, material, técnica, autor):
+        # citá-los em negrito («**Mobiliário**») não é inventar uma peça.
+        known_values: set[str] = set()
+        for doc in cards:
+            for key in ("category", "super_category", "support_or_material", "technique",
+                        "creators", "creator", "date_or_period", "production_center", "museum"):
+                value = doc.get(key)
+                for item in (value if isinstance(value, list) else [value]):
+                    folded_value = self._fold_query_text(str(item or ""))
+                    if folded_value:
+                        known_values.add(folded_value)
+
+        def tokens_of(value: str) -> set[str]:
+            # plural simples sobre texto folded («calcoes» ~ «calcao» -> «calc»,
+            # «vestidos» ~ «vestido»); só tokens com 3+ letras
+            return {re.sub(r"(oes|aes|ao|s)$", "", t) for t in value.split() if len(t) > 2}
 
         folded_user = self._fold_query_text(user_message or "")
         quoted: list[str] = []
@@ -7669,8 +7705,9 @@ class ChatService:
                 candidate = match.group(1).strip()
                 # Negrito/aspas também servem para ênfase de frases inteiras e
                 # para ecoar o pedido do utilizador; só contam como citação
-                # de peça as expressões curtas que não vêm da pergunta.
-                if len(candidate.split()) > 8:
+                # de peça as expressões curtas, capitalizadas como um título,
+                # que não vêm da pergunta.
+                if len(candidate.split()) > 8 or not candidate[:1].isupper():
                     continue
                 if candidate and candidate not in quoted:
                     quoted.append(candidate)
@@ -7681,7 +7718,15 @@ class ChatService:
                 continue
             if folded_user and folded in folded_user:
                 continue
+            if folded in known_values:
+                continue
             if any(folded in title or title in folded for title in known_titles if title):
+                continue
+            candidate_tokens = tokens_of(folded)
+            if candidate_tokens and any(
+                len(candidate_tokens & tokens_of(title)) / len(candidate_tokens | tokens_of(title)) >= 0.6
+                for title in known_titles if title
+            ):
                 continue
             unmatched_titles.append(candidate)
 

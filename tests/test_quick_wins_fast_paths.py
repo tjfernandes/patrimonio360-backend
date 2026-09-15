@@ -272,3 +272,52 @@ class TestRouterCompactSchema(unittest.TestCase):
                                                 "reason": "x", "filters_delta": {}, "sort_delta": {}})
         self.assertIn('"needs_retrieval"', prompt)
         self.assertIn('"reason"', prompt)
+
+
+class TestGroundingRefinements(unittest.TestCase):
+    def test_categories_plurals_and_lowercase_bold_are_not_violations(self) -> None:
+        # Falsos positivos reais de 2026-09-15: «**Mobiliário**» (categoria do cartão),
+        # «**Calções de traje à marinheiro**» (título no singular no cartão) e
+        # negrito de ênfase iniciado em minúscula.
+        service = _service(_settings(CHAT_GROUNDING_CHECK="log"))
+        cards = [{"title": "Calção de traje à marinheiro", "inventory_number": "15069/2", "category": "Mobiliário"},
+                 {"title": "Mesa", "inventory_number": "793 Mob MNSR", "super_category": "Cerâmica"}]
+        report = service._grounding_report(
+            reply=('Há peças de **Mobiliário** e **Cerâmica**. Destaco os **Calções de traje à marinheiro**; '
+                   'a mesa **não está atualmente destacada na visita virtual**. Já «A Dança do Tempo» não existe.'),
+            docs=cards, conversation_id="c", query_id="q", user_message="traje de marinheiro")
+        self.assertEqual(report["unmatched_titles"], ["A Dança do Tempo"])
+        self.assertEqual(report["violations"], 1)
+
+
+class TestInventoryExactNarrowing(unittest.TestCase):
+    class _Gateway:
+        def __init__(self, docs):
+            self.docs = docs
+
+        async def search_artifacts_by_inventory_candidates(self, **_kwargs):
+            return list(self.docs)
+
+    def _docs(self):
+        return [{"artifact_id": "a1", "inventory_number": "793 Mob MNSR", "title": "Mesa"},
+                {"artifact_id": "a2", "inventory_number": "793 Cer MNSR", "title": "Copo"},
+                {"artifact_id": "a3", "inventory_number": "770 Mob MNSR", "title": "Arca"}]
+
+    def test_v2_keeps_only_exact_matches(self) -> None:
+        service = _service(_settings(CHAT_INVENTORY_GRAMMAR_V2=True))
+        service.opensearch_gateway = self._Gateway(self._docs())
+        result = asyncio.run(service._retrieve_inventory_context(
+            museum_slug="mnsr", museum_id="mnsr", raw_query="esta mesa 793 Mob MNSR, está em que lugar do museu?"))
+        self.assertIsNotNone(result)
+        _context, total, docs, request = result
+        self.assertEqual([d["inventory_number"] for d in docs], ["793 Mob MNSR"])
+        self.assertEqual(total, 1)
+        self.assertEqual(request["inventory_candidates"][0], "793 mob mnsr")
+
+    def test_flag_off_keeps_all_candidates(self) -> None:
+        service = _service(_settings(CHAT_INVENTORY_GRAMMAR_V2=False))
+        service.opensearch_gateway = self._Gateway(self._docs())
+        result = asyncio.run(service._retrieve_inventory_context(
+            museum_slug="mnsr", museum_id="mnsr", raw_query="MNSR 793 Mob"))
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result[2]), 3)
