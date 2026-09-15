@@ -321,3 +321,46 @@ class TestInventoryExactNarrowing(unittest.TestCase):
             museum_slug="mnsr", museum_id="mnsr", raw_query="MNSR 793 Mob"))
         self.assertIsNotNone(result)
         self.assertEqual(len(result[2]), 3)
+
+
+class TestDeterministicRouter(unittest.TestCase):
+    def _route(self, message: str, history: list[tuple[str, str]] | None = None) -> dict:
+        llm = _FailingLLM()
+        service = _service(_settings(CHAT_ROUTER_MODE="deterministic"), llm=llm)
+        state = service.session_store.load_or_create(conversation_id="c", museum_slug="mnt")
+        for role, text in history or []:
+            service.session_store.append_turn(state, role=role, text=text)
+        service.session_store.append_turn(state, role="user", text=message)
+        policy = service._derive_context_policy(message=message, state=state)
+        decision = asyncio.run(service._route_message(payload=_request(message), state=state, context_policy=policy))
+        self.assertEqual(llm.calls, 0, "o router determinístico nunca chama o LLM")
+        return decision
+
+    def test_search_without_llm(self) -> None:
+        decision = self._route("Encontra um traje de marinheiro de criança")
+        self.assertEqual((decision["mode"], decision["intent"]), ("rag", "search"))
+        self.assertTrue(decision["needs_retrieval"])
+        self.assertEqual(decision["rewritten_query"], "Encontra um traje de marinheiro de criança")
+        self.assertEqual(decision["filters_delta"], {})
+        self.assertFalse(decision["use_history_for_query"])
+
+    def test_follow_up_becomes_refine_with_history(self) -> None:
+        decision = self._route("e os acessórios?", history=[("user", "encontra vestidos de 1920"), ("assistant", "Encontrei 3.")])
+        self.assertEqual(decision["intent"], "refine")
+        self.assertTrue(decision["use_history_for_query"])
+        self.assertTrue(decision["carry_filters"])
+
+    def test_answer_only_follow_up(self) -> None:
+        decision = self._route("explica melhor", history=[("user", "encontra vestidos"), ("assistant", "Encontrei 3.")])
+        self.assertEqual(decision["intent"], "search")
+        self.assertTrue(decision["use_history_for_answer"])
+        self.assertFalse(decision["use_history_for_query"])
+
+    def test_greeting_falls_back_to_llm_only(self) -> None:
+        decision = self._route("Olá")
+        self.assertEqual(decision["mode"], "llm_only")
+
+    def test_llm_mode_is_default(self) -> None:
+        self.assertEqual(_settings().CHAT_ROUTER_MODE, "llm")
+        with self.assertRaises(Exception):
+            _settings(CHAT_ROUTER_MODE="magic")

@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     CHAT_COMPACT_ANSWER_CONTEXT: bool = False       # cartões compactos + prompt final PT v2
     CHAT_INVENTORY_GRAMMAR_V2: bool = False         # «793 Mob MNSR» reconhecido como inventário
     CHAT_GROUNDING_CHECK: str = "off"               # off | log — verifica títulos/inventários citados
+    # Router: "llm" = chamada JSON ao 9B em todos os turnos (2,7–2,9 s, estudo);
+    # "deterministic" = política de contexto decide (rag salvo small talk;
+    # refine se follow-up; filtros só por extração determinística). Nos 146
+    # turnos de texto do estudo o router LLM nunca produziu filters_delta e as
+    # 3 vezes em que escolheu llm_only fora de saudações estava errado.
+    CHAT_ROUTER_MODE: str = "llm"
     # EXPERIMENTAL, manter desligado: medido em 2026-09-15 sem ganho de tempo
     # (o 9B enche filters_delta com filtros inventados). Ver PLANO_MELHORIAS §3.
     CHAT_ROUTER_COMPACT_SCHEMA: bool = False        # router pede 5 campos em vez de 12
@@ -186,6 +192,16 @@ class Settings(BaseSettings):
     # CHAT_ENABLE_VL_RERANKING=false continua a desligar tudo (master switch).
     MULTIMODAL_VL_RERANK_STAGE: str = "local"
     MULTIMODAL_GLOBAL_VL_RERANK_TOP_N: int = 16
+
+    @field_validator("CHAT_ROUTER_MODE")
+    @classmethod
+    def _validate_router_mode(cls, value: str) -> str:
+        normalized = (value or "").strip().lower() or "llm"
+        if normalized not in {"llm", "deterministic"}:
+            raise ValueError(
+                f"CHAT_ROUTER_MODE must be one of ['deterministic', 'llm']; got {value!r}"
+            )
+        return normalized
 
     @field_validator("CHAT_GROUNDING_CHECK")
     @classmethod

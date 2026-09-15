@@ -4824,6 +4824,41 @@ class ChatService:
             "sort_delta": {},
         }
 
+    def _deterministic_router_decision(
+        self,
+        *,
+        payload: ChatMessageRequest,
+        context_policy: dict[str, object],
+    ) -> dict[str, object]:
+        """Router sem LLM (CHAT_ROUTER_MODE=deterministic).
+
+        Tudo o que não é small talk (já tratado antes, ou pelo fallback) vai a
+        retrieval; a política de contexto decide seguimento e uso de histórico;
+        a query de retrieval é a mensagem do utilizador (as elipses passam pelo
+        resolver dedicado, como já acontecia quando a rewritten do router não
+        sobrevivia aos guardrails); filtros temporais e de âmbito continuam a
+        vir da extração determinística em _retrieve_context.
+        """
+        if self._is_obvious_greeting_or_smalltalk(payload.message):
+            return self._fallback_router_decision(payload.message, context_policy=context_policy)
+        is_follow_up = bool(context_policy.get("is_follow_up", False))
+        use_history_for_query = bool(context_policy.get("use_history_for_query", False))
+        use_history_for_answer = bool(context_policy.get("use_history_for_answer", False))
+        return {
+            "mode": "rag",
+            "intent": "refine" if use_history_for_query else "search",
+            "rewritten_query": (payload.message or "").strip(),
+            "needs_retrieval": True,
+            "reason": f"deterministic_router:{context_policy.get('reason', '')}",
+            "is_follow_up": is_follow_up,
+            "use_history_for_query": use_history_for_query,
+            "use_history_for_answer": use_history_for_answer,
+            "carry_filters": use_history_for_query,
+            "carry_sort": use_history_for_query,
+            "filters_delta": {},
+            "sort_delta": {},
+        }
+
     async def _route_message(
         self,
         *,
@@ -4831,6 +4866,8 @@ class ChatService:
         state: ChatSessionState,
         context_policy: dict[str, object],
     ) -> dict[str, object]:
+        if str(getattr(self.settings, "CHAT_ROUTER_MODE", "llm") or "llm").lower() == "deterministic":
+            return self._deterministic_router_decision(payload=payload, context_policy=context_policy)
         router_schema = {
             "type": "object",
             "additionalProperties": False,
