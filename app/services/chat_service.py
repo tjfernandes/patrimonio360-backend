@@ -2614,6 +2614,31 @@ class ChatService:
             return []
         return boosts if isinstance(boosts, list) else []
 
+    def _matched_lay_vocabulary_for_log(
+        self,
+        *,
+        museum_slug: str | None,
+        museum_id: str | None,
+        query_text: str | None,
+        lexical_query: str | None,
+    ) -> list[dict[str, Any]]:
+        """Regras de vocabulário leigo aplicadas (mesma decisão do query body)."""
+        if self.settings.CHAT_RETRIEVAL_EMBEDDING_ONLY:
+            return []
+        resolver = getattr(self.opensearch_gateway, "matched_lay_vocabulary", None)
+        if not callable(resolver):
+            return []
+        try:
+            matches = resolver(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                query_text=str(query_text or ""),
+                lexical_query=(lexical_query or query_text or "").strip(),
+            )
+        except Exception:
+            return []
+        return matches if isinstance(matches, list) else []
+
     def _text_boosts_applied_for_log(
         self,
         *,
@@ -5621,6 +5646,12 @@ class ChatService:
             minimum=rerank_pool_size,
         )
         retrieval_boosts = self._matched_retrieval_boosts_for_log(
+            query_text=embedding_query,
+            lexical_query=lexical_query,
+        )
+        retrieval_boosts = retrieval_boosts + self._matched_lay_vocabulary_for_log(
+            museum_slug=museum_slug,
+            museum_id=museum_id,
             query_text=embedding_query,
             lexical_query=lexical_query,
         )

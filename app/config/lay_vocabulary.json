@@ -1,0 +1,27 @@
+{
+  "_descricao": "Expansão lexical direcional leigo -> catálogo (CHAT_LAY_VOCABULARY_EXPANSION). Uma regra dispara só nos museus indicados e quando cada grupo de all_of tem pelo menos um termo no pedido (texto sem acentos, por palavras). Acrescenta ao ramo lexical uma cláusula phrase por termo de expand; o ramo denso e a query original não mudam. Só entram termos confirmados no corpus congelado e com ganho medido em queries reais: docs/auditoria/plano/medicoes/vocabulario_leigo. Não são sinónimos: prato, bule, bacia e gomil continuam distintos.",
+  "rules": [
+    {
+      "id": "mnsr-sarcofago",
+      "museums": ["mnsr"],
+      "all_of": [
+        ["tumulo", "tumulos", "caixao", "caixoes", "arca", "arcas", "sepultura", "sepulturas"],
+        ["pedra", "pedras", "marmore", "granito", "calcario"]
+      ],
+      "expand": ["sarcófago", "arca tumular"],
+      "boost": 3.0,
+      "evidencia": "88 Esc CMP/ MNSR «Sarcófago das Quatro Estações» (descrição: «arca tumular»). Estudo, tarefa C2-A: linhas 40, 47, 161 e 197 do log de avaliação. Rank do alvo sem/com: 6→2, 6→2, 17→4, 7→7."
+    },
+    {
+      "id": "mnsr-gomil-e-bacia",
+      "museums": ["mnsr"],
+      "all_of": [
+        ["jarro", "jarros", "jarra", "jarras"],
+        ["bacia", "bacias"]
+      ],
+      "expand": ["gomil e bacia", "bacia de água às mãos"],
+      "boost": 3.0,
+      "evidencia": "28.1 e 28.2 Our MNSR «Conjunto de Gomil e Bacia de água às mãos». Estudo, tarefa C2-B: linha 175 (pedido imagem+texto; medido só o texto). Rank do alvo sem/com: fora do top 24→7."
+    }
+  ]
+}

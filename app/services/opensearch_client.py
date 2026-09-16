@@ -54,6 +54,42 @@ def _load_retrieval_boost_aliases() -> dict[str, list[dict[str, Any]]]:
     return loaded
 
 
+_LAY_VOCABULARY_PATH = Path(__file__).resolve().parents[1] / "config" / "lay_vocabulary.json"
+
+
+@lru_cache(maxsize=1)
+def _load_lay_vocabulary_rules() -> tuple[dict[str, Any], ...]:
+    """Regras leigo -> catálogo (CHAT_LAY_VOCABULARY_EXPANSION); ver o JSON."""
+    try:
+        payload = json.loads(_LAY_VOCABULARY_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return ()
+    raw_rules = payload.get("rules") if isinstance(payload, dict) else None
+    rules: list[dict[str, Any]] = []
+    for raw in raw_rules if isinstance(raw_rules, list) else []:
+        if not isinstance(raw, dict):
+            continue
+        groups = [
+            tuple(tokens for tokens in (_boost_tokens(str(term)) for term in group) if tokens)
+            for group in (raw.get("all_of") or [])
+            if isinstance(group, list)
+        ]
+        groups = [group for group in groups if group]
+        expand = [str(term).strip() for term in (raw.get("expand") or []) if str(term).strip()]
+        if not groups or not expand:
+            continue
+        rules.append(
+            {
+                "id": str(raw.get("id") or "").strip() or f"rule_{len(rules) + 1}",
+                "museums": frozenset(str(m).strip().lower() for m in (raw.get("museums") or []) if str(m).strip()),
+                "all_of": tuple(groups),
+                "expand": tuple(expand),
+                "boost": _coerce_boost(raw.get("boost"), 3.0),
+            }
+        )
+    return tuple(rules)
+
+
 def _fold_boost_text(text: str) -> str:
     normalized = unicodedata.normalize("NFKD", (text or "").casefold())
     folded = "".join(char for char in normalized if not unicodedata.combining(char))
@@ -872,6 +908,42 @@ class OpenSearchGateway:
 
         return clauses
 
+    def matched_lay_vocabulary(
+        self,
+        *,
+        museum_slug: str | None,
+        museum_id: str | None,
+        query_text: str,
+        lexical_query: str | None,
+    ) -> list[dict[str, Any]]:
+        """Regras leigo -> catálogo que disparam para este pedido e museu.
+
+        Desligado (CHAT_LAY_VOCABULARY_EXPANSION=false) devolve sempre [].
+        """
+        if not getattr(self.settings, "CHAT_LAY_VOCABULARY_EXPANSION", False):
+            return []
+        tokens = _boost_tokens(f"{query_text or ''} {lexical_query or ''}")
+        if not tokens:
+            return []
+        museums = {str(value).strip().lower() for value in (museum_slug, museum_id) if str(value or "").strip()}
+        matches: list[dict[str, Any]] = []
+        for rule in _load_lay_vocabulary_rules():
+            if rule["museums"] and not (rule["museums"] & museums):
+                continue
+            if all(
+                any(_contains_token_sequence(tokens, list(term_tokens)) for term_tokens in group)
+                for group in rule["all_of"]
+            ):
+                matches.append(
+                    {
+                        "group": "lay_vocabulary",
+                        "rule": rule["id"],
+                        "expand": list(rule["expand"]),
+                        "boost": rule["boost"],
+                    }
+                )
+        return matches
+
     def matched_retrieval_boosts(
         self,
         *,
@@ -1069,6 +1141,25 @@ class OpenSearchGateway:
                     "minimum_should_match": 1,
                 }
             }
+            # Vocabulário leigo -> catálogo: frases do catálogo como alternativa
+            # lexical com peso abaixo das cláusulas da query original.
+            for match in self.matched_lay_vocabulary(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                query_text=query_text,
+                lexical_query=lexical_query_value,
+            ):
+                for term in match["expand"]:
+                    lexical_bool_query["bool"]["should"].append(
+                        {
+                            "multi_match": {
+                                "query": term,
+                                "fields": NO_STEM_PHRASE_FIELDS,
+                                "type": "phrase",
+                                "boost": match["boost"],
+                            }
+                        }
+                    )
             if filter_clauses or in_tour_boost_clause or retrieval_boost_clauses:
                 bool_query = {"must": [lexical_bool_query]}
                 if filter_clauses:

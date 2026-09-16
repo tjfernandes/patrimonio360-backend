@@ -307,6 +307,9 @@ class Settings(BaseSettings):
             )
         return value
 
+    # Vocabulário leigo -> catálogo (app/config/lay_vocabulary.json): frases do
+    # catálogo como alternativa no ramo lexical. Desligado = query histórica.
+    CHAT_LAY_VOCABULARY_EXPANSION: bool = False
     IMAGE_ASSET_ROOT: str | None = None
     # Miniaturas `?w=` em /chat/images (ver app/services/image_thumbnails.py).
     # Desligado: ignora `w` e serve sempre o original, sem Cache-Control.
