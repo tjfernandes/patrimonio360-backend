@@ -155,6 +155,12 @@ class TestDetection(_Base):
 
 
 class TestDescribeLocation(_Base):
+    def test_panorama_title_does_not_override_room_name(self) -> None:
+        # O tour manda o título do panorama («Sala da Música 12»); a zona é a do ficheiro.
+        described = self.nav.describe_location(museum_slug="mnt", museum_id="mnt", panorama_key="pan_musica", room="Sala da Música 12")
+        self.assertEqual(described["room"], "Sala da Música")
+        self.assertEqual(described["scope"], "panorama")
+
     def test_panorama_with_pieces(self) -> None:
         described = self.nav.describe_location(museum_slug="mnt", museum_id="mnt", panorama_key="pan_musica", room=None)
         self.assertTrue(described["known"])

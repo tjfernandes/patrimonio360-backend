@@ -283,9 +283,11 @@ class TourNavigationService:
         self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
         museum_key = (museum_slug or "").strip().lower()
         panorama_entries = self._panorama_index.get(museum_key, {}).get((panorama_key or "").strip(), [])
-        resolved_room = (room or "").strip() or None
+        # O tour reporta o título do panorama («Salão Nobre 123»); com o
+        # panorama conhecido, o nome da zona vem dos ficheiros da visita.
+        resolved_room = next((e.location for e in panorama_entries if e.location), None)
         if not resolved_room:
-            resolved_room = next((e.location for e in panorama_entries if e.location), None)
+            resolved_room = (room or "").strip() or None
         room_entries = self._room_index.get(museum_key, {}).get(self._fold_room(resolved_room), []) if resolved_room else []
 
         def unique_inventories(entries: list[_TourNavigationEntry]) -> list[str]:
