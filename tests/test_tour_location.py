@@ -88,14 +88,24 @@ class _Logger:
 
 
 class _Base(unittest.TestCase):
+    POI_BY_MUSEUM: dict = {"mnt": POI}
+    TOUR_LOCATIONS: dict = {}  # sem lugares da visita 3DVista: só os poi_tours
+
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         poi_dir = Path(self._tmp.name)
-        (poi_dir / "panorama-overlays-inventory-mnt.json").write_text(json.dumps(POI), encoding="utf-8")
-        self.settings = Settings(_env_file=None, QUERY_LOG_ENABLED=False, BACKEND_LOG_ENABLED=False,
-                                 CHAT_TOUR_LOCATION_ANSWERS=True, CHAT_DETERMINISTIC_SMALLTALK=True,
-                                 POI_TOURS_DIR=str(poi_dir))
+        for museum, poi in self.POI_BY_MUSEUM.items():
+            (poi_dir / f"panorama-overlays-inventory-{museum}.json").write_text(json.dumps(poi), encoding="utf-8")
+        self.tour_locations_path = str(poi_dir / "tour_locations.json")
+        Path(self.tour_locations_path).write_text(json.dumps(self.TOUR_LOCATIONS, ensure_ascii=False), encoding="utf-8")
+        self.settings = self._settings(CHAT_TOUR_LOCATION_ANSWERS=True, CHAT_DETERMINISTIC_SMALLTALK=True)
         self.nav = TourNavigationService(self.settings)
+
+    def _settings(self, **overrides) -> Settings:
+        base = dict(_env_file=None, QUERY_LOG_ENABLED=False, BACKEND_LOG_ENABLED=False,
+                    POI_TOURS_DIR=str(Path(self._tmp.name)), TOUR_LOCATIONS_PATH=self.tour_locations_path)
+        base.update(overrides)
+        return Settings(**base)
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
@@ -189,7 +199,8 @@ class TestDescribeLocation(_Base):
         self.assertEqual(described["scope"], "room")
         self.assertEqual(described["inventories"], ["19663", "5262", "38090"])
         empty = self.nav.describe_location(museum_slug="mnt", museum_id="mnt", panorama_key="pan_patio", room="Pátio")
-        self.assertFalse(empty["known"])
+        self.assertTrue(empty["known"])  # o Pátio é um lugar da visita, só não tem peças
+        self.assertEqual(empty["scope"], "none")
         self.assertEqual(empty["inventories"], [])
         self.assertEqual(empty["room"], "Pátio")
 
@@ -200,8 +211,7 @@ class TestDescribeLocation(_Base):
 
 class TestFastPath(_Base):
     def test_flag_off_goes_to_router(self) -> None:
-        settings = Settings(_env_file=None, QUERY_LOG_ENABLED=False, BACKEND_LOG_ENABLED=False,
-                            CHAT_TOUR_LOCATION_ANSWERS=False, POI_TOURS_DIR=self.settings.POI_TOURS_DIR)
+        settings = self._settings(CHAT_TOUR_LOCATION_ANSWERS=False)
         service = self._service(settings)
         with self.assertRaises(_RouterCalled):
             asyncio.run(service.handle_message(self._request("Onde estou?", {"panorama_key": "pan_musica"})))
@@ -308,9 +318,8 @@ class TestRoomQueries(_Base):
         self.assertEqual(cantonal.tour_rooms, [])
 
     def test_llm_wording_uses_facts_and_falls_back_to_template(self) -> None:
-        settings = Settings(_env_file=None, QUERY_LOG_ENABLED=False, BACKEND_LOG_ENABLED=False,
-                            CHAT_TOUR_LOCATION_ANSWERS=True, CHAT_TOUR_CONTEXT_LLM_WORDING=True,
-                            CHAT_GROUNDING_CHECK="log", POI_TOURS_DIR=self.settings.POI_TOURS_DIR)
+        settings = self._settings(CHAT_TOUR_LOCATION_ANSWERS=True, CHAT_TOUR_CONTEXT_LLM_WORDING=True,
+                                  CHAT_GROUNDING_CHECK="log")
         llm = _WordingLLM("Está na Sala da Música, onde a visita destaca o Barrete de fumador/Masculino (19663). O cartão está abaixo.")
         service = self._service(settings, llm=llm)
         response = asyncio.run(service.handle_message(
@@ -334,6 +343,102 @@ class TestRoomQueries(_Base):
         fallback = asyncio.run(down.handle_message(self._request("E a sala cantonal?")))
         self.assertEqual(fallback.model_hint, "deterministic:tour_room")
         self.assertIn("«Sala Cantonal» faz parte da visita virtual.", fallback.reply)
+
+
+class TestTourPlaces(_Base):
+    """Lugares da visita 3DVista fundidos com os poi_tours e pedidos «encontra …»."""
+
+    POI_BY_MUSEUM = {
+        "mnt": POI + [
+            # nome com gralha nos poi_tours, mesmo panorama que «Sala Chinoiserie» na visita
+            {"overlayId": "ov8", "panoramaKey": "pan_chino", "inventoryIds": ["5262"], "location": "Sala Chinioiserie"},
+            # nome mais longo nos poi_tours para a «Escadaria» da visita
+            {"overlayId": "ov9", "panoramaKey": "pan_escadaria_m", "inventoryIds": ["19663"], "location": "Escadaria Monumental"},
+        ],
+        "mj": [
+            {"overlayId": "mj1", "panoramaKey": "pan_manuel", "inventoryIds": ["MJ_1"], "location": "Capela dos filhos de D. Manuel I"},
+        ],
+    }
+    TOUR_LOCATIONS = {
+        "mnt": [
+            {"room": "Pátio", "panorama_keys": ["pan_patio_t", "pan_patio"]},
+            {"room": "Hall", "panorama_keys": ["pan_hall"]},
+            {"room": "Sala Cantonal", "panorama_keys": ["pan_cantonal_t", "pan_cantonal"]},
+            {"room": "Sala Chinoiserie", "panorama_keys": ["pan_chino"]},
+            {"room": "Jardim", "panorama_keys": ["pan_jardim"]},
+            {"room": "Sala do Arco", "panorama_keys": ["pan_arco"]},
+            {"room": "Sala do Arco 1930-1970", "panorama_keys": ["pan_arco_2"]},
+            {"room": "Escadaria", "panorama_keys": ["pan_escadaria"]},
+        ],
+        "mj": [
+            {"room": "Claustro Superior", "panorama_keys": ["pan_cs"]},
+            {"room": "Claustro Térreo", "panorama_keys": ["pan_ct"]},
+            {"room": "Túmulo de V. da Gama", "panorama_keys": ["pan_gama"]},
+            {"room": "Túmulo de L. de Camões", "panorama_keys": ["pan_camoes"]},
+        ],
+    }
+
+    def test_merge_order_aliases_and_pieces(self) -> None:
+        rooms = {r["room"]: r for r in self.nav.list_rooms(museum_slug="mnt", museum_id="mnt")}
+        self.assertEqual(list(rooms), ["Pátio", "Hall", "Sala Cantonal", "Sala Chinoiserie", "Jardim", "Sala do Arco",
+                                       "Sala do Arco 1930-1970", "Escadaria", "Sala da Música"])
+        self.assertIn("sala chinioiserie", rooms["Sala Chinoiserie"]["aliases"])
+        self.assertEqual(rooms["Sala Chinoiserie"]["inventories"], ["5262"])
+        # descrição curada guardada com o nome dos poi_tours chega ao lugar fundido
+        self.assertTrue(rooms["Sala Chinoiserie"]["description"])
+        self.assertIn("escadaria monumental", rooms["Escadaria"]["aliases"])
+        self.assertEqual(rooms["Escadaria"]["inventories"], ["19663"])
+        self.assertEqual(rooms["Sala Cantonal"]["panorama_keys"][:2], ["pan_cantonal_t", "pan_cantonal"])
+        self.assertEqual(rooms["Jardim"]["inventories"], [])
+
+    def test_encontra_phrasings(self) -> None:
+        service = self._service()
+        match = lambda text, museum="mnt": service._match_tour_room_query(text, museum_slug=museum, museum_id=museum)
+        self.assertEqual(match("Encontra as salas deste museu"), {"kind": "list"})
+        self.assertEqual(match("que outras salas existem?"), {"kind": "list"})
+        self.assertEqual(match("encontra a sala cantonal")["room"], "Sala Cantonal")
+        self.assertEqual(match("Encontra o pátio")["room"], "Pátio")
+        self.assertEqual(match("leva-me ao jardim")["room"], "Jardim")
+        self.assertEqual(match("procura a sala chinioiserie")["room"], "Sala Chinoiserie")
+        self.assertEqual(match("encontra a escadaria monumental")["room"], "Escadaria")
+        self.assertEqual(match("encontra a sala do arco 1930-1970")["room"], "Sala do Arco 1930-1970")
+        arco = match("encontra o arco")
+        self.assertEqual(arco["kind"], "choices")
+        self.assertEqual([c["room"] for c in arco["candidates"]], ["Sala do Arco", "Sala do Arco 1930-1970"])
+        self.assertEqual(match("encontra a sala das armas"), {"kind": "unknown", "name": "armas"})
+        self.assertIsNone(match("vestidos de noiva na sala cantonal"))
+        self.assertIsNone(match("encontra vestidos da sala"))
+        self.assertIsNone(match("Encontra chapéus de mulher"))
+        claustro = match("Encontra o claustro", "mj")
+        self.assertEqual([c["room"] for c in claustro["candidates"]], ["Claustro Superior", "Claustro Térreo"])
+        self.assertEqual(match("leva-me ao túmulo de vasco da gama", "mj")["room"], "Túmulo de V. da Gama")
+        self.assertIsNone(match("encontra peças de D. Manuel", "mj"))
+        self.assertEqual(match("encontra a capela dos filhos de D. Manuel I", "mj")["room"], "Capela dos filhos de D. Manuel I")
+
+    def test_choices_answer_lists_candidates_with_buttons(self) -> None:
+        service = self._service()
+        response = asyncio.run(service.handle_message(
+            self._request("Encontra o claustro", museum_slug="mj", museum_id="mj", museum_name="Mosteiro dos Jerónimos")))
+        self.assertIn("Há 2 zonas da visita com esse nome", response.reply)
+        self.assertEqual([r.room for r in response.tour_rooms], ["Claustro Superior", "Claustro Térreo"])
+        self.assertEqual([r.panorama_key for r in response.tour_rooms], ["pan_cs", "pan_ct"])
+        self.assertIsNone(response.tour_room)
+
+    def test_place_without_pieces_gets_go_button(self) -> None:
+        service = self._service()
+        response = asyncio.run(service.handle_message(self._request("Encontra o pátio")))
+        self.assertIn("«Pátio» faz parte da visita virtual.", response.reply)
+        self.assertIn("não tem peças assinaladas", response.reply)
+        self.assertEqual(response.tour_room.panorama_key, "pan_patio_t")
+
+    def test_where_am_i_uses_tour_place_names(self) -> None:
+        by_panorama = self.nav.describe_location(museum_slug="mnt", museum_id="mnt", panorama_key="pan_patio_t", room="Pátio 5")
+        self.assertEqual((by_panorama["room"], by_panorama["known"]), ("Pátio", True))
+        raw = self.nav.describe_location(museum_slug="mj", museum_id="mj", panorama_key="pan_raw",
+                                         room="07_Claustro_Terreo_002_09112024_092340")
+        self.assertEqual(raw["room"], "Claustro Térreo")
+        unnamed = self.nav.describe_location(museum_slug="mj", museum_id="mj", panorama_key="pan_raw", room="E06_P1_A_AlaEste_043")
+        self.assertIsNone(unnamed["room"])
 
 
 if __name__ == "__main__":

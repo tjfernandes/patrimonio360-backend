@@ -335,6 +335,8 @@ class Settings(BaseSettings):
     IMAGE_THUMBNAIL_CACHE_DIR: str | None = None
     CHAT_IMAGE_CACHE_MAX_AGE_SECONDS: int = 86400
     POI_TOURS_DIR: str | None = None
+    # Lugares das visitas 3DVista (scripts/build_tour_locations.py); vazio = app/data/tour_locations.json
+    TOUR_LOCATIONS_PATH: str | None = None
     MULTIVIEW_WORKER_HOST: str = "127.0.0.1"
     MULTIVIEW_WORKER_PORT: int = 3101
     MULTIVIEW_WORKER_START_TIMEOUT_SECONDS: float = 30.0
@@ -519,6 +521,13 @@ class Settings(BaseSettings):
         if raw:
             return Path(raw).expanduser().resolve()
         return (Path(__file__).resolve().parents[2] / "tmp" / "image_thumbs").resolve()
+
+    @property
+    def tour_locations_path_resolved(self) -> Path:
+        raw = (self.TOUR_LOCATIONS_PATH or "").strip()
+        if raw:
+            return Path(raw).expanduser().resolve()
+        return (Path(__file__).resolve().parents[1] / "data" / "tour_locations.json").resolve()
 
     @property
     def poi_tours_dir_resolved(self) -> Path:

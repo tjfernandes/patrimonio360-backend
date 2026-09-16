@@ -63,6 +63,11 @@ class TourNavigationService:
         self._room_index: dict[str, dict[str, list[_TourNavigationEntry]]] = {}
         # sala (dobrada) -> nome de apresentação e panoramas, pela ordem do ficheiro
         self._rooms: dict[str, dict[str, dict[str, Any]]] = {}
+        # Lugares da visita: os da própria visita 3DVista (app/data/tour_locations.json,
+        # pela ordem da visita) fundidos com as salas dos ficheiros poi_tours.
+        self._places: dict[str, list[dict[str, Any]]] = {}
+        self._panorama_place: dict[str, dict[str, int]] = {}
+        self._tour_locations: dict[str, Any] | None = None
         self._loaded_museums: set[str] = set()
 
     @staticmethod
@@ -193,22 +198,94 @@ class TourNavigationService:
             self._panorama_index[museum_key] = {}
             self._room_index[museum_key] = {}
             self._rooms[museum_key] = {}
+        self._build_places(museum_key=museum_key, museum_id=museum_id, poi_rooms=rooms)
         self._loaded_museums.add(museum_key)
 
-    _ROOM_TYPE_WORDS = frozenset({"sala", "salas", "capela", "claustro", "piso", "zona", "galeria", "room", "chapel"})
-    _ROOM_LINK_WORDS = frozenset({"da", "de", "do", "das", "dos", "d", "of", "the"})
+    def _tour_places_for(self, museum_key: str, museum_id: str | None) -> list[dict[str, Any]]:
+        if self._tour_locations is None:
+            path = getattr(self.settings, "tour_locations_path_resolved", None)
+            try:
+                payload = json.loads(Path(path).read_text(encoding="utf-8")) if path else {}
+            except Exception:
+                payload = {}
+            self._tour_locations = payload if isinstance(payload, dict) else {}
+        for key in (museum_key, (museum_id or "").strip().lower()):
+            places = self._tour_locations.get(key)
+            if isinstance(places, list):
+                return [p for p in places if isinstance(p, dict) and p.get("room") and p.get("panorama_keys")]
+        return []
+
+    def _build_places(self, *, museum_key: str, museum_id: str | None, poi_rooms: dict[str, dict[str, Any]]) -> None:
+        """Funde os lugares da visita 3DVista com as salas dos poi_tours.
+
+        A visita dá todos os lugares navegáveis (Pátio, Jardim, túmulos…) pela
+        ordem da visita; os poi_tours dão as peças. Uma sala dos poi_tours junta-se
+        ao lugar com o mesmo nome dobrado ou com panoramas em comum («Sala
+        Chinioiserie» nos poi_tours = «Sala Chinoiserie» na visita), ou a um
+        lugar de uma só palavra que é o início do seu nome («Escadaria» /
+        «Escadaria Monumental»); sem correspondência, entra no fim da lista.
+        """
+        places: list[dict[str, Any]] = [
+            {
+                "room": str(tour_place["room"]).strip(),
+                "aliases": [self._fold_room(tour_place["room"])],
+                "panorama_keys": [str(k) for k in tour_place["panorama_keys"]],
+            }
+            for tour_place in self._tour_places_for(museum_key, museum_id)
+        ]
+        for folded, poi_room in poi_rooms.items():
+            poi_panoramas = set(poi_room["panorama_keys"])
+            head = folded.split()[0] if folded else ""
+            target = (
+                next((p for p in places if folded in p["aliases"]), None)
+                or next((p for p in places if poi_panoramas & set(p["panorama_keys"])), None)
+            )
+            if target is None and head and len(folded.split()) > 1:
+                singles = [p for p in places if p["aliases"][0] == head]
+                target = singles[0] if len(singles) == 1 else None
+            if target is None:
+                places.append(
+                    {"room": poi_room["room"], "aliases": [folded], "panorama_keys": list(poi_room["panorama_keys"])}
+                )
+                continue
+            if folded not in target["aliases"]:
+                target["aliases"].append(folded)
+            for key in poi_room["panorama_keys"]:
+                if key not in target["panorama_keys"]:
+                    target["panorama_keys"].append(key)
+        panorama_place: dict[str, int] = {}
+        for index, place in enumerate(places):
+            for key in place["panorama_keys"]:
+                panorama_place.setdefault(key, index)
+        self._places[museum_key] = places
+        self._panorama_place[museum_key] = panorama_place
+
+    # Palavras que dizem o tipo de zona e ligações: não identificam um lugar sozinhas.
+    _ROOM_TYPE_WORDS = frozenset({"sala", "salas", "piso", "zona", "zonas", "galeria", "room", "area", "espaco"})
+    _ROOM_LINK_WORDS = frozenset({"da", "de", "do", "das", "dos", "e", "a", "o", "of", "the", "and"})
+
+    def _place_entries(self, museum_key: str, place: dict[str, Any]) -> list[_TourNavigationEntry]:
+        seen: set[tuple[str, str]] = set()
+        entries: list[_TourNavigationEntry] = []
+        for alias in place["aliases"]:
+            for entry in self._room_index.get(museum_key, {}).get(alias, []):
+                key = (entry.overlay_id, entry.inventory_id)
+                if key not in seen:
+                    seen.add(key)
+                    entries.append(entry)
+        return entries
 
     def list_rooms(self, *, museum_slug: str, museum_id: str | None) -> list[dict[str, Any]]:
-        """Zonas da visita pela ordem do ficheiro: nome, panoramas e n.º de peças."""
+        """Lugares da visita pela ordem da visita: nome, panoramas, peças e descrição curada."""
         self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
         museum_key = (museum_slug or "").strip().lower()
         result: list[dict[str, Any]] = []
         descriptions = _load_room_descriptions().get(museum_key) or _load_room_descriptions().get(
             (museum_id or "").strip().lower(), {}
         )
-        for folded, room in self._rooms.get(museum_key, {}).items():
-            entries = self._room_index.get(museum_key, {}).get(folded, [])
-            curated = descriptions.get(folded, {})
+        for place in self._places.get(museum_key, []):
+            entries = self._place_entries(museum_key, place)
+            curated = next((descriptions[a] for a in place["aliases"] if a in descriptions), {})
             inventories: list[str] = []
             seen: set[str] = set()
             for entry in entries:
@@ -218,9 +295,10 @@ class TourNavigationService:
                     inventories.append(entry.inventory_id)
             result.append(
                 {
-                    "room": room["room"],
-                    "folded": folded,
-                    "panorama_keys": list(room["panorama_keys"]),
+                    "room": place["room"],
+                    "folded": place["aliases"][0],
+                    "aliases": list(place["aliases"]),
+                    "panorama_keys": list(place["panorama_keys"]),
                     "inventories": inventories,
                     "description": curated.get("description") or None,
                     "source": curated.get("source") or None,
@@ -238,33 +316,59 @@ class TourNavigationService:
             )
         return result
 
-    def find_room(self, *, museum_slug: str, museum_id: str | None, text: str) -> dict[str, Any] | None:
-        """A zona da visita referida no texto («e a sala cantonal?»).
+    def _significant_tokens(self, folded_name: str) -> list[str]:
+        return [
+            t for t in folded_name.split()
+            if t not in self._ROOM_LINK_WORDS and (len(t) >= 2 or t.isdigit())
+        ]
 
-        Casa pelo nome completo dobrado («sala cantonal») ou pelo núcleo sem
-        a palavra de tipo e as ligações («cantonal», «musica»), desde que o
-        núcleo tenha 4+ letras e não seja só numérico («Sala 1.01» exige o
-        nome completo). Devolve a sala com a correspondência mais longa e os
-        tokens do texto que a cobriram.
+    def match_rooms(self, *, museum_slug: str, museum_id: str | None, text: str) -> dict[str, Any] | None:
+        """Lugares da visita referidos no texto, com empate = ambiguidade.
+
+        Pontuação por nome (e aliases): todas as palavras significativas do
+        nome presentes no texto = correspondência completa (vale sempre mais);
+        só algumas, desde que uma delas seja distintiva (4+ letras, não é tipo
+        de zona nem número) = parcial. «Sala 1.01» exige o número; «claustro»
+        casa «Claustro Térreo» e «Claustro Superior» (dois candidatos).
+        Devolve {"candidates": [...], "matched_tokens": {...}} ou None.
         """
-        tokens = self._fold_room(text).split()
+        tokens = set(self._fold_room(text).split())
         if not tokens:
             return None
-        best: dict[str, Any] | None = None
+        scored: list[tuple[float, dict[str, Any], set[str]]] = []
         for room in self.list_rooms(museum_slug=museum_slug, museum_id=museum_id):
-            name_tokens = room["folded"].split()
-            candidates = [name_tokens]
-            core = [t for t in name_tokens if t not in self._ROOM_TYPE_WORDS and t not in self._ROOM_LINK_WORDS]
-            if core and core != name_tokens and any(len(t) >= 4 and not t.isdigit() for t in core):
-                candidates.append(core)
-            for candidate in candidates:
-                size = len(candidate)
-                for start in range(len(tokens) - size + 1):
-                    if tokens[start:start + size] == candidate:
-                        if best is None or size > best["matched_size"]:
-                            best = {**room, "matched_size": size, "matched_tokens": set(candidate)}
-                        break
-        return best
+            best_score, best_tokens = 0.0, set()
+            for name in [room["folded"], *room["aliases"]]:
+                significant = self._significant_tokens(name)
+                if not significant:
+                    continue
+                matched = [t for t in significant if t in tokens]
+                if matched and len(matched) == len(significant):
+                    score = 10.0 + len(significant)
+                elif any(t not in self._ROOM_TYPE_WORDS and not t.isdigit() and len(t) >= 4 for t in matched):
+                    score = float(len(matched))
+                else:
+                    continue
+                if score > best_score:
+                    best_score, best_tokens = score, set(matched)
+            if best_score > 0:
+                scored.append((best_score, room, best_tokens))
+        if not scored:
+            return None
+        top = max(score for score, _room, _tokens in scored)
+        winners = [(room, matched) for score, room, matched in scored if score == top]
+        return {
+            "candidates": [room for room, _matched in winners],
+            "matched_tokens": set().union(*(matched for _room, matched in winners)),
+            "full": top >= 10.0,
+        }
+
+    def find_room(self, *, museum_slug: str, museum_id: str | None, text: str) -> dict[str, Any] | None:
+        """O lugar da visita referido no texto, quando é só um."""
+        match = self.match_rooms(museum_slug=museum_slug, museum_id=museum_id, text=text)
+        if not match or len(match["candidates"]) != 1:
+            return None
+        return {**match["candidates"][0], "matched_tokens": match["matched_tokens"]}
 
     def describe_location(
         self,
@@ -282,13 +386,29 @@ class TourNavigationService:
         """
         self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
         museum_key = (museum_slug or "").strip().lower()
-        panorama_entries = self._panorama_index.get(museum_key, {}).get((panorama_key or "").strip(), [])
-        # O tour reporta o título do panorama («Salão Nobre 123»); com o
-        # panorama conhecido, o nome da zona vem dos ficheiros da visita.
-        resolved_room = next((e.location for e in panorama_entries if e.location), None)
-        if not resolved_room:
-            resolved_room = (room or "").strip() or None
-        room_entries = self._room_index.get(museum_key, {}).get(self._fold_room(resolved_room), []) if resolved_room else []
+        panorama = (panorama_key or "").strip()
+        panorama_entries = self._panorama_index.get(museum_key, {}).get(panorama, [])
+        places = self._places.get(museum_key, [])
+        place_index = self._panorama_place.get(museum_key, {}).get(panorama)
+        place = places[place_index] if place_index is not None else None
+        # O tour reporta o título do panorama («Salão Nobre 123», «02_Igreja_003_…»);
+        # o nome da zona vem do lugar da visita, depois dos poi_tours, e só por
+        # fim do que o tour mandou (se não for um nome de ficheiro).
+        resolved_room = place["room"] if place else next((e.location for e in panorama_entries if e.location), None)
+        reported = (room or "").strip() or None
+        if not resolved_room and reported:
+            if "_" in reported:
+                guessed = self.find_room(museum_slug=museum_slug, museum_id=museum_id, text=reported)
+                resolved_room = guessed["room"] if guessed else None
+                place = next((p for p in places if guessed and p["room"] == guessed["room"]), None)
+            else:
+                resolved_room = reported
+                folded_reported = self._fold_room(reported)
+                place = next((p for p in places if folded_reported in p["aliases"]), None)
+        if place is not None:
+            room_entries = self._place_entries(museum_key, place)
+        else:
+            room_entries = self._room_index.get(museum_key, {}).get(self._fold_room(resolved_room), []) if resolved_room else []
 
         def unique_inventories(entries: list[_TourNavigationEntry]) -> list[str]:
             seen: set[str] = set()
@@ -303,7 +423,7 @@ class TourNavigationService:
         scope = "panorama" if panorama_entries else ("room" if room_entries else "none")
         chosen = panorama_entries or room_entries
         return {
-            "known": bool(panorama_entries or room_entries),
+            "known": bool(panorama_entries or room_entries or place is not None),
             "scope": scope,
             "room": resolved_room,
             "panorama_key": (panorama_key or "").strip() or None,

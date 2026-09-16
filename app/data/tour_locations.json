@@ -1,0 +1,1136 @@
+{
+ "_descricao": "Lugares das visitas 3DVista (nome humano do panorama sem os números, agrupado, pela ordem da mainPlayList). Gerado por scripts/build_tour_locations.py; não editar à mão.",
+ "_gerado": {
+  "em": "2026-09-16",
+  "base": "https://patrimonio360.webredirect.org:5500"
+ },
+ "mnt": [
+  {
+   "room": "Pátio",
+   "panorama_keys": [
+    "panorama_F0A2B480_E356_59A3_41E9_F6E8FF84B548",
+    "panorama_F65B8B65_E356_2F6D_41D1_FCB0DF1AAEC5",
+    "panorama_F78B6FAD_E356_E7FC_41B1_2C1BA32D2AB8"
+   ],
+   "labels": [
+    "Pátio",
+    "00 Pátio 5",
+    "00 Pátio 2"
+   ]
+  },
+  {
+   "room": "Entrada",
+   "panorama_keys": [
+    "panorama_7A2B5AD8_89FD_C11F_41D0_3EB6AEEF1861",
+    "panorama_F7AC0EB3_E355_E9E4_41D6_DFCD061F0A70"
+   ],
+   "labels": [
+    "00 Entrada 21",
+    "00 Entrada 23"
+   ]
+  },
+  {
+   "room": "Hall",
+   "panorama_keys": [
+    "panorama_FC5E34FE_E356_5953_41E8_A2474ADDF655",
+    "panorama_C382E3A7_E356_FFF0_41D6_AB0BE7C1A2E8",
+    "panorama_C1F0EB38_E356_68D1_41E2_C0DC89DE9B65",
+    "panorama_C7C1A9AA_E356_2BF0_41E2_CAFD0F832012"
+   ],
+   "labels": [
+    "01 Hall 28",
+    "Hall",
+    "01 Hall 30",
+    "01 Hall 31"
+   ]
+  },
+  {
+   "room": "Salão Nobre",
+   "panorama_keys": [
+    "panorama_C5DE905D_E34E_594F_41D1_1AD354545A52",
+    "panorama_CB2F8990_E34E_EBD5_41DB_6DD4D679D479",
+    "panorama_C9377DB0_E34D_EBD6_41B8_391F6A843AF2",
+    "panorama_CF0DD1B5_E34A_7BD8_41E8_9A7434D3E561",
+    "panorama_CD2D0C99_E356_2907_41E3_CDD26DFE1030",
+    "panorama_D326F3A1_E355_DF09_41C9_9826B73E53B4",
+    "panorama_D134C7B7_E35A_2708_41D0_F9BDABDB2875",
+    "panorama_D74B4E16_E35E_2931_41E0_2117C8CB0DD5",
+    "panorama_DB444F38_E35E_6772_41E4_4B3D34D5671B",
+    "panorama_D94D8FFC_E35E_E6F2_41CF_90710A5D7D8D"
+   ],
+   "labels": [
+    "Salão Nobre",
+    "02 Salão Nobre 123",
+    "02 Salão Nobre 035",
+    "02 Salão Nobre 122",
+    "02 Salão Nobre 041",
+    "02 Salão Nobre 038",
+    "02 Salão Nobre 125",
+    "02 Salão Nobre 042",
+    "02 Salão Nobre 124",
+    "02 Salão Nobre 044"
+   ]
+  },
+  {
+   "room": "Sala Cantonal",
+   "panorama_keys": [
+    "panorama_CF950255_E3BA_DE6C_41E0_F15CD4CB4DF7",
+    "panorama_CF057C31_E3BA_6A24_41E7_48B84632EEC6",
+    "panorama_CFE4DFB3_E3BA_262B_41C1_409CD3D8253C",
+    "panorama_CFE554C4_E3BB_DA6D_41CE_01D737528E24"
+   ],
+   "labels": [
+    "03 Sala Cantonal 45",
+    "Sala Cantonal",
+    "03 Sala Cantonal 47",
+    "03 Sala Cantonal 48"
+   ]
+  },
+  {
+   "room": "Sala das Bandeiras",
+   "panorama_keys": [
+    "panorama_CF3DEE7E_E3BA_2619_41D3_6F6D313D4314",
+    "panorama_CFFFF3ED_E3BB_DE3B_41EB_6DA84A0C1EEB",
+    "panorama_CFFB3B0A_E3BA_6FF9_41D7_FA02782EFA22",
+    "panorama_CFEC4CF2_E3BA_2A2E_41EB_E931E9C5BBD6",
+    "panorama_CFEA419B_E3BA_FA1E_41D6_E9880645B03D",
+    "panorama_CF0D3769_E3BA_263A_41E7_415B5CF1FFFD",
+    "panorama_CFF7E08B_E3B5_FAFE_41C6_96B4BA20C2A8",
+    "panorama_CFFF047D_E3B6_3A15_41DE_6AC9D19EA67A"
+   ],
+   "labels": [
+    "Sala das Bandeiras",
+    "04 Sala das Bandeiras 052",
+    "04 Sala das Bandeiras 060",
+    "04 Sala das Bandeiras 053",
+    "04 Sala das Bandeiras 054",
+    "04 Sala das Bandeiras 055",
+    "04 Sala das Bandeiras 056",
+    "04 Sala das Bandeiras 057"
+   ]
+  },
+  {
+   "room": "Sala da Música",
+   "panorama_keys": [
+    "panorama_407F15ED_FD46_870F_41DD_9043C20C12D9",
+    "panorama_CFF180EE_E34A_5A35_41E4_729A3B00C0D8",
+    "panorama_CFFAE285_E34B_DEF7_41E8_4C5010E4AE33",
+    "panorama_CFFC5373_E34B_DE12_41D8_613DD6D179B6",
+    "panorama_CF94401F_E34A_7A13_41D0_622885740E6A",
+    "panorama_CF4719C5_E34A_EA76_41CD_E7E37BAC6C7B",
+    "panorama_CF8A8C4A_E34A_2A72_41B3_C63BC4DEC419",
+    "panorama_EF736EF4_FCC7_84C4_41E3_40FD35A141DC",
+    "panorama_CFF16212_E34A_3E13_41E2_DA986FF80028"
+   ],
+   "labels": [
+    "Sala da Música",
+    "05 Sala da Música 062",
+    "05 Sala da Música 063",
+    "05 Sala da Música 064",
+    "05 Sala da Música 065",
+    "05 Sala da Música 067",
+    "05 Sala da Música 068",
+    "05 Sala da Música 138",
+    "05 Sala da Música 070"
+   ]
+  },
+  {
+   "room": "Sala Vitrine",
+   "panorama_keys": [
+    "panorama_CD7B92B9_E34E_5E11_41E1_66FF3B43359D"
+   ],
+   "labels": [
+    "Sala Vitrine"
+   ]
+  },
+  {
+   "room": "Sala Chinoiserie",
+   "panorama_keys": [
+    "panorama_CD8A49C0_E35A_2A7E_41D7_BEBB2A080117",
+    "panorama_CEFF3C42_E35A_6A02_41C7_CC2B8050A889",
+    "panorama_CECF7EF1_E35A_2600_41C8_6A64D5FE5B6C",
+    "panorama_35E6A0A9_03C6_E585_4145_43F45438133B"
+   ],
+   "labels": [
+    "08 Sala Chinoiserie 075",
+    "Sala Chinoiserie",
+    "08 Sala Chinoiserie 077",
+    "08 Sala Chinoiserie 078"
+   ]
+  },
+  {
+   "room": "Capela",
+   "panorama_keys": [
+    "panorama_CEFD223E_E35E_3E75_41DD_FE5509E25861",
+    "panorama_CEC716D2_E35D_E632_41CD_564A75DD726E",
+    "panorama_CED7B641_E35A_2611_41D8_C1F448B06AC1",
+    "panorama_CEC078E5_E35A_6A11_41E8_DA55CE863A3B",
+    "panorama_CEFB7BB1_E35A_2E70_41D0_149B8A374464"
+   ],
+   "labels": [
+    "Capela 81",
+    "Capela 82",
+    "Capela 83",
+    "Capela 86",
+    "Capela"
+   ]
+  },
+  {
+   "room": "Sala 1910-1918",
+   "panorama_keys": [
+    "panorama_CED148C8_E356_EA2B_41DD_87FDAE40042E",
+    "panorama_CEE48DE3_E356_2A1C_41E0_AED8FC577D4F",
+    "panorama_CEE722B7_E356_5E63_4191_082254950417",
+    "panorama_CEE5C75F_E357_E622_41CC_091F092C4402",
+    "panorama_CE7CB9E8_E356_6DEF_41E8_45AE4674C843",
+    "panorama_CEE91A45_E356_2E20_41DC_3D30FF7685DE",
+    "panorama_CEEBEE63_E356_E6E7_41E3_5BD2E9A5FA35"
+   ],
+   "labels": [
+    "09 Sala 1910-1918 089",
+    "Sala 1910-1918",
+    "09 Sala 1910-1918 091",
+    "09 Sala 1910-1918 093",
+    "09 Sala 1910-1918 094",
+    "09 Sala 1910-1918 096",
+    "09 Sala 1910-1918 097"
+   ]
+  },
+  {
+   "room": "Sala 1920-1930",
+   "panorama_keys": [
+    "panorama_CF27364D_E34A_2634_41D7_448557C9A5A5",
+    "panorama_CE97DF9E_E34A_6655_41E9_028C2B5AD1F8",
+    "panorama_CE959235_E34A_3E56_41E0_0233DED973FB",
+    "panorama_CE5BA6FF_E34E_27D2_41E8_8E99B7E0DAFC",
+    "panorama_CE88CDE9_E34E_65F0_41E2_CBAD042A96EE"
+   ],
+   "labels": [
+    "10 Sala 1920-1930 098",
+    "10 Sala 1920-1930 099",
+    "Sala 1920-1930",
+    "10 Sala 1920-1930 102",
+    "10 Sala 1920-1930 103"
+   ]
+  },
+  {
+   "room": "Sala do Arco 1930-1970",
+   "panorama_keys": [
+    "panorama_D1AAFF84_E37E_265B_41B6_91301489921E"
+   ],
+   "labels": [
+    "Sala do Arco 1930-1970"
+   ]
+  },
+  {
+   "room": "Sala do Arco",
+   "panorama_keys": [
+    "panorama_CE41B4DE_E37E_3BE5_41E9_7B0289316552",
+    "panorama_CE67E72E_E37A_66BD_41D2_C43DD735FB27",
+    "panorama_CEA847AE_E37A_25BA_41DB_7B867420B82F",
+    "panorama_CE5422C2_E34A_5FC0_41D7_B3C760927E20",
+    "panorama_D6DDB635_E376_2698_41EB_FB4CF5A2C3BD",
+    "panorama_CE8A96DB_E375_E788_41E0_1E0EF13036A8",
+    "panorama_CE727FCD_E376_25F1_41B1_5D96A5629C0A",
+    "panorama_CE9F2C50_E34E_6A84_41E4_2B4FCD87765F",
+    "panorama_CEB3BAEC_E34E_2F9E_41D8_EDD4D7969A51",
+    "panorama_CE379A44_E34A_2E91_41A0_D17D4505E73C",
+    "panorama_CE838904_E34A_6A91_41C5_D5F5C7B66401",
+    "panorama_CE63103B_E34A_3AF5_41E2_F46562944142"
+   ],
+   "labels": [
+    "11 Sala do Arco 108",
+    "11 Sala do Arco 109",
+    "11 Sala do Arco 110",
+    "11 Sala do Arco 111",
+    "11 Sala do Arco 112",
+    "11 Sala do Arco 114",
+    "11 Sala do Arco 106",
+    "13 Sala do Arco 116",
+    "13 Sala do Arco 117",
+    "13 Sala do Arco 119",
+    "13 Sala do Arco 120",
+    "13 Sala do Arco 121"
+   ]
+  },
+  {
+   "room": "Sala do Arco 1980-2020",
+   "panorama_keys": [
+    "panorama_D2E04B67_E34E_2E8C_41E6_3EEE617470D3"
+   ],
+   "labels": [
+    "Sala do Arco 1980-2020"
+   ]
+  },
+  {
+   "room": "Loja",
+   "panorama_keys": [
+    "panorama_A976799F_BA19_2C5D_41DA_B06C842D0942"
+   ],
+   "labels": [
+    "Loja"
+   ]
+  },
+  {
+   "room": "Parque - Entrada",
+   "panorama_keys": [
+    "panorama_2BB4AE04_3266_6A4D_41B3_1B4D3F3143DD"
+   ],
+   "labels": [
+    "Parque - Entrada"
+   ]
+  },
+  {
+   "room": "Jardim",
+   "panorama_keys": [
+    "panorama_14D2F96A_3226_E9E7_41C8_9B2D73278F24",
+    "panorama_2FB38962_326D_B6DB_41A8_02056DA08F3E",
+    "panorama_2C459218_3262_7A65_41C7_3D77C0CBE9BE",
+    "panorama_1FDB7BDE_2793_F05D_41B2_857375484AAE",
+    "panorama_1FEC0BD9_278D_30A4_41B0_33FBE430682E",
+    "panorama_100CB8E7_2793_306C_41AF_CC1A766F17E6",
+    "panorama_1FF667AF_2795_50FC_41C1_B4CA11C0A449",
+    "panorama_1FDA1590_2795_30A4_41C0_65C1AF1145CD",
+    "panorama_1FF5CD9A_2797_F0A5_41BA_E270F2E3FB52",
+    "panorama_1FE11BD4_2796_D0AC_41BF_88FEDC8F7A11",
+    "panorama_1ED439D8_2793_50A4_41A8_6EC7E61DA2C9",
+    "panorama_1FD7EA0F_279D_73BB_41BE_6BAA1740F0AB",
+    "panorama_1FD2936B_279E_F064_41BA_D85F57F8D7A9",
+    "panorama_10B43055_2873_CFAF_41B8_DD31E8D4B6BE",
+    "panorama_2DCB907B_3262_D681_41C6_903FC20EC824",
+    "panorama_10073785_287D_30AC_41C1_3CC6E28883CC",
+    "panorama_1FFEABD1_287E_D0A4_41A8_38C56DABE33A",
+    "panorama_256F190E_3222_B7EB_41B0_5C023DEB97FF",
+    "panorama_1FFD081B_2875_5FDB_417A_CD66523E44B5",
+    "panorama_10073255_2875_53AC_41B0_A71C37D9A8C9",
+    "panorama_1FFF963C_2876_D3DC_419D_450FBEA90362",
+    "panorama_1FF4DB62_2877_5064_41A0_A01BCC23D8E3",
+    "panorama_10225ECF_2877_30BC_41A4_7EDBE7420447",
+    "panorama_1FE72590_2876_D0A5_4150_9DC4E6455CA0",
+    "panorama_1FE615F6_2875_D06D_4182_539ADBDB31EC",
+    "panorama_1FE75053_2872_CFA4_41B7_AE5AA541DE3A",
+    "panorama_1FF21DC2_2873_D0A4_41B9_2DD6CB340DDF",
+    "panorama_12DACE5E_3262_AAB3_4198_BDD45249A798",
+    "panorama_2A1C503D_3222_5621_4198_FDC8BC2F6DF1",
+    "panorama_12F221A4_3266_D9E3_41BA_2925BF99A23A",
+    "panorama_1FFC457C_288F_505C_41C1_4EAB0671542E",
+    "panorama_13E75C73_3262_EF47_41BC_6C734CE0A9DA",
+    "panorama_11397D16_3265_EEF8_41B5_DC35444F4E90",
+    "panorama_1310B077_3262_7724_41B5_9D1E91B13784",
+    "panorama_13088975_321E_E92E_41C0_401824D6E78C",
+    "panorama_1FFD83FA_2895_D065_41B2_900296F3FC38",
+    "panorama_1FFB879E_2895_50DC_418F_277C7D33382E",
+    "panorama_1FFF64BE_2897_D0DC_4199_164DCDE35B34",
+    "panorama_1FF95497_2895_F0AB_41C0_980645FBE159",
+    "panorama_1FF5D4FA_2895_7064_41AA_D35020382296",
+    "panorama_1FF2455E_2892_F05C_41B0_1CBB3A507844",
+    "panorama_1FF2BC22_2893_77E5_4193_B05F6587F3F5",
+    "panorama_2F3F3B62_3267_EAB1_41AE_1E1C5779ABB2"
+   ],
+   "labels": [
+    "Jardim 011",
+    "Jardim 012",
+    "Jardim 017",
+    "Jardim 023",
+    "Jardim 020",
+    "Jardim 027",
+    "Jardim 029",
+    "Jardim 031",
+    "Jardim 034",
+    "Jardim 036",
+    "Jardim 040",
+    "Jardim 044",
+    "Jardim 047",
+    "Jardim 050",
+    "Jardim 053",
+    "Jardim 056",
+    "Jardim 060",
+    "Jardim 064",
+    "Jardim 066",
+    "Jardim 074",
+    "Jardim 079",
+    "Jardim 081",
+    "Jardim 083",
+    "Jardim 088",
+    "Jardim 097",
+    "Jardim 113",
+    "Jardim 115",
+    "Jardim 119",
+    "Jardim 123",
+    "Jardim 129",
+    "Jardim 133",
+    "Jardim 138",
+    "Jardim 141",
+    "Jardim 143",
+    "Jardim 145",
+    "Jardim 151",
+    "Jardim 152",
+    "Jardim 154",
+    "Jardim 164",
+    "Jardim 165",
+    "Jardim 167",
+    "Jardim 171",
+    "Jardim 022"
+   ]
+  },
+  {
+   "room": "Árvore-de-til",
+   "panorama_keys": [
+    "panorama_10134C78_278F_5064_41B7_01795CCE43F2"
+   ],
+   "labels": [
+    "Árvore-de-til"
+   ]
+  },
+  {
+   "room": "Restaurante",
+   "panorama_keys": [
+    "panorama_1FF3367F_2797_505C_41B7_9F5939786ECE"
+   ],
+   "labels": [
+    "Restaurante"
+   ]
+  },
+  {
+   "room": "Fonte",
+   "panorama_keys": [
+    "panorama_2D658352_3266_FA97_41C0_691A654560B9"
+   ],
+   "labels": [
+    "Fonte"
+   ]
+  },
+  {
+   "room": "Cameleira",
+   "panorama_keys": [
+    "panorama_1013A2D9_287D_30A4_41A6_5B3ACE88E593"
+   ],
+   "labels": [
+    "Cameleira"
+   ]
+  },
+  {
+   "room": "Tanque",
+   "panorama_keys": [
+    "panorama_125E3A26_327E_6A8D_41C8_A645480607B8"
+   ],
+   "labels": [
+    "Tanque"
+   ]
+  },
+  {
+   "room": "Taxódio",
+   "panorama_keys": [
+    "panorama_1FE0C05E_2875_505C_41C1_8D5628795957"
+   ],
+   "labels": [
+    "Taxódio"
+   ]
+  },
+  {
+   "room": "Eucalipto",
+   "panorama_keys": [
+    "panorama_7E99C501_6F2C_9C11_41DA_60CFC49049B3"
+   ],
+   "labels": [
+    "Eucalipto"
+   ]
+  },
+  {
+   "room": "Lago",
+   "panorama_keys": [
+    "panorama_1019C10A_288D_31A4_4199_2C4D04634432"
+   ],
+   "labels": [
+    "Lago"
+   ]
+  },
+  {
+   "room": "Faia",
+   "panorama_keys": [
+    "panorama_137F9EDD_326D_AB52_41C5_C79FA36AC19A"
+   ],
+   "labels": [
+    "Faia"
+   ]
+  },
+  {
+   "room": "Araucária",
+   "panorama_keys": [
+    "panorama_132EE9D9_3262_A978_41B8_AA43CEECC1C2"
+   ],
+   "labels": [
+    "Araucária"
+   ]
+  },
+  {
+   "room": "Aviário",
+   "panorama_keys": [
+    "panorama_100D8E16_2895_53AC_41C1_BF3FBD82BD41"
+   ],
+   "labels": [
+    "Aviário"
+   ]
+  }
+ ],
+ "mnsr": [
+  {
+   "room": "Entrada",
+   "panorama_keys": [
+    "panorama_21D800A7_3240_C64F_4175_EEFA71F96DAC"
+   ],
+   "labels": [
+    "Entrada"
+   ]
+  },
+  {
+   "room": "Receção",
+   "panorama_keys": [
+    "panorama_8C39A879_9B60_2E2A_41DF_E5A79A171B13"
+   ],
+   "labels": [
+    "Receção"
+   ]
+  },
+  {
+   "room": "Picadeiro",
+   "panorama_keys": [
+    "panorama_8C189E1D_9B61_E5EA_41DB_4DDE7CC80ABB"
+   ],
+   "labels": [
+    "Picadeiro"
+   ]
+  },
+  {
+   "room": "Jardim das Camélias",
+   "panorama_keys": [
+    "panorama_79D63B15_3B80_1390_41AB_C17E3FFD7EFD"
+   ],
+   "labels": [
+    "Jardim das Camélias"
+   ]
+  },
+  {
+   "room": "Escadaria (Piso 1)",
+   "panorama_keys": [
+    "panorama_8FD9840E_9F77_FA98_41D1_43A490116352"
+   ],
+   "labels": [
+    "Escadaria (Piso 1)"
+   ]
+  },
+  {
+   "room": "Sala 1.01",
+   "panorama_keys": [
+    "panorama_8EDC07C7_9FF7_85EE_4194_B489067802CA"
+   ],
+   "labels": [
+    "Sala 1.01"
+   ]
+  },
+  {
+   "room": "Sala 1.02",
+   "panorama_keys": [
+    "panorama_8E421B51_9FF7_8EE2_41DD_057024EC7B31"
+   ],
+   "labels": [
+    "Sala 1.02"
+   ]
+  },
+  {
+   "room": "Sala 1.03",
+   "panorama_keys": [
+    "panorama_8E429659_9FF6_86E2_41BD_370472A6ED78"
+   ],
+   "labels": [
+    "Sala 1.03"
+   ]
+  },
+  {
+   "room": "Sala 1.04",
+   "panorama_keys": [
+    "panorama_8CA2C4EE_9F6A_9BE9_41D7_5655DFD03CE6"
+   ],
+   "labels": [
+    "Sala 1.04"
+   ]
+  },
+  {
+   "room": "Sala 1.05",
+   "panorama_keys": [
+    "panorama_8E4BCD8B_9F69_8A28_41CB_36D3A6645DBE"
+   ],
+   "labels": [
+    "Sala 1.05"
+   ]
+  },
+  {
+   "room": "Sala 1.06",
+   "panorama_keys": [
+    "panorama_8C140559_9F16_FA11_41E0_60ABFAFEC3C6"
+   ],
+   "labels": [
+    "Sala 1.06"
+   ]
+  },
+  {
+   "room": "Sala 1.07",
+   "panorama_keys": [
+    "panorama_782C3A39_32C0_C566_41C5_841ED6193CCF"
+   ],
+   "labels": [
+    "Sala 1.07"
+   ]
+  },
+  {
+   "room": "Sala 1.08",
+   "panorama_keys": [
+    "panorama_8DA15A0B_9F3A_89E7_41E0_DA6635E4CDDC"
+   ],
+   "labels": [
+    "Sala 1.08"
+   ]
+  },
+  {
+   "room": "Sala 1.09",
+   "panorama_keys": [
+    "panorama_8AE979AC_9F19_8AD6_41B3_577D2CE042B9"
+   ],
+   "labels": [
+    "Sala 1.09"
+   ]
+  },
+  {
+   "room": "Sala 1.10",
+   "panorama_keys": [
+    "panorama_61F14FE1_32C1_5AE3_41C4_37BC6DFF5821"
+   ],
+   "labels": [
+    "Sala 1.10"
+   ]
+  },
+  {
+   "room": "Sala 1.11",
+   "panorama_keys": [
+    "panorama_B49DB595_A116_BAA2_41AC_0DAA69E0FC8E"
+   ],
+   "labels": [
+    "Sala 1.11"
+   ]
+  },
+  {
+   "room": "Sala 1.12",
+   "panorama_keys": [
+    "panorama_5B63AAE7_32C0_C51C_41C0_0951E534F6EB"
+   ],
+   "labels": [
+    "Sala 1.12"
+   ]
+  },
+  {
+   "room": "Sala 1.13",
+   "panorama_keys": [
+    "panorama_B4BE7E8B_A176_89BB_41B3_7E74596E1797"
+   ],
+   "labels": [
+    "Sala 1.13"
+   ]
+  },
+  {
+   "room": "Sala 1.14",
+   "panorama_keys": [
+    "panorama_B4A33910_A13A_8871_41B6_F9D4CA2B9885"
+   ],
+   "labels": [
+    "Sala 1.14"
+   ]
+  },
+  {
+   "room": "Sala 1.15",
+   "panorama_keys": [
+    "panorama_458E893F_32C3_477A_41A5_87065449A1FE"
+   ],
+   "labels": [
+    "Sala 1.15"
+   ]
+  },
+  {
+   "room": "Sala 1.16",
+   "panorama_keys": [
+    "panorama_B46403EF_A2EA_9FF8_41E1_E9BA1ECF355E"
+   ],
+   "labels": [
+    "Sala 1.16"
+   ]
+  },
+  {
+   "room": "Escadaria (Piso 2)",
+   "panorama_keys": [
+    "panorama_AAE30617_A45D_74A9_41C8_40AA9F31E35A"
+   ],
+   "labels": [
+    "Escadaria (Piso 2)"
+   ]
+  },
+  {
+   "room": "Sala 2.01",
+   "panorama_keys": [
+    "panorama_763A7C0A_3612_4D11_41C5_1BEB715A2C56"
+   ],
+   "labels": [
+    "Sala 2.01"
+   ]
+  },
+  {
+   "room": "Sala 2.02",
+   "panorama_keys": [
+    "panorama_B657537B_A455_CC74_41C6_95E11E757793"
+   ],
+   "labels": [
+    "Sala 2.02"
+   ]
+  },
+  {
+   "room": "Sala 2.03",
+   "panorama_keys": [
+    "panorama_6C7B44F1_3631_BD0E_41A7_BE1ECB244688",
+    "panorama_A252E6FA_32C3_4D1A_41B7_63AB16219578"
+   ],
+   "labels": [
+    "Sala 2.03",
+    "Sala 2.03"
+   ]
+  },
+  {
+   "room": "Sala 2.04",
+   "panorama_keys": [
+    "panorama_BA2A371F_32C1_4B06_41C1_3CF45F444C6E"
+   ],
+   "labels": [
+    "Sala 2.04"
+   ]
+  },
+  {
+   "room": "Sala 2.05",
+   "panorama_keys": [
+    "panorama_21A542E3_3633_D56A_41A0_B28FEB1F188A"
+   ],
+   "labels": [
+    "Sala 2.05"
+   ]
+  },
+  {
+   "room": "Sala 2.08",
+   "panorama_keys": [
+    "panorama_B7177D59_A45A_FACF_41D0_E4E19A539EEA"
+   ],
+   "labels": [
+    "Sala 2.08"
+   ]
+  },
+  {
+   "room": "Sala 2.07",
+   "panorama_keys": [
+    "panorama_B7F9816E_A45A_CAC5_41D1_85ED38ADFBB0"
+   ],
+   "labels": [
+    "Sala 2.07"
+   ]
+  },
+  {
+   "room": "Sala 2.09",
+   "panorama_keys": [
+    "panorama_B76F75DC_A46E_CA3B_41DB_8F0A3C54F4A0"
+   ],
+   "labels": [
+    "Sala 2.09"
+   ]
+  },
+  {
+   "room": "Sala 2.10",
+   "panorama_keys": [
+    "panorama_B10D9C50_A5BF_7A7B_41DA_BFE66120ED43"
+   ],
+   "labels": [
+    "Sala 2.10"
+   ]
+  },
+  {
+   "room": "Velódromo",
+   "panorama_keys": [
+    "panorama_3DE3D40E_2DA0_DE8A_4127_CBC0F670F540"
+   ],
+   "labels": [
+    "Velódromo"
+   ]
+  },
+  {
+   "room": "Loja",
+   "panorama_keys": [
+    "panorama_1AA59509_32C1_4F5E_41B8_846763792CEB"
+   ],
+   "labels": [
+    "Loja"
+   ]
+  }
+ ],
+ "mnaz": [
+  {
+   "room": "Entrada",
+   "panorama_keys": [
+    "panorama_9B9FA52F_BCD1_1D9B_41D3_15CA690CBD46"
+   ],
+   "labels": [
+    "Entrada"
+   ]
+  },
+  {
+   "room": "Receção",
+   "panorama_keys": [
+    "panorama_460134E1_49BE_135D_41B8_6C50A79CF43E"
+   ],
+   "labels": [
+    "Receção"
+   ]
+  },
+  {
+   "room": "Restaurante",
+   "panorama_keys": [
+    "panorama_462999A2_49AA_1434_41CE_D469B7B399A5"
+   ],
+   "labels": [
+    "Restaurante"
+   ]
+  },
+  {
+   "room": "Jardim de Inverno",
+   "panorama_keys": [
+    "panorama_462CA1BE_49AA_340C_41C7_6A54E8272EEC"
+   ],
+   "labels": [
+    "Jardim de Inverno"
+   ]
+  },
+  {
+   "room": "Exposição Temporária - Piso 1",
+   "panorama_keys": [
+    "panorama_42467CB2_49FE_DDA1_41C0_DA1A348628CC"
+   ],
+   "labels": [
+    "Exposição Temporária - Piso 1"
+   ]
+  },
+  {
+   "room": "Claustro",
+   "panorama_keys": [
+    "panorama_5A3C2EFD_4A77_5D0A_41B8_D374EDB8C376"
+   ],
+   "labels": [
+    "Claustro"
+   ]
+  },
+  {
+   "room": "Atelier",
+   "panorama_keys": [
+    "panorama_52293458_4AF3_CD91_41D0_6A1A6DDD066A"
+   ],
+   "labels": [
+    "Atelier"
+   ]
+  },
+  {
+   "room": "Exposição - Século XVI",
+   "panorama_keys": [
+    "panorama_5517F9A1_4AF1_7451_41C5_6FECADA0A339"
+   ],
+   "labels": [
+    "Exposição - Século XVI"
+   ]
+  },
+  {
+   "room": "Claustro - Fonte",
+   "panorama_keys": [
+    "panorama_4269BBEC_55E1_6839_41C1_75D296B7DF3A"
+   ],
+   "labels": [
+    "Claustro - Fonte"
+   ]
+  },
+  {
+   "room": "Capela de D. Leonor",
+   "panorama_keys": [
+    "panorama_AF61F338_BCD7_7541_41E7_8B6CD1BB1E18"
+   ],
+   "labels": [
+    "Capela de D. Leonor"
+   ]
+  },
+  {
+   "room": "Sala do Capítulo",
+   "panorama_keys": [
+    "panorama_05D90840_4A32_E89E_41D3_9316D2FF4EC3"
+   ],
+   "labels": [
+    "Sala do Capítulo"
+   ]
+  },
+  {
+   "room": "Igreja",
+   "panorama_keys": [
+    "panorama_0B782270_4A76_F9DE_41CC_A64D70E6B902"
+   ],
+   "labels": [
+    "Igreja"
+   ]
+  },
+  {
+   "room": "Sacristia",
+   "panorama_keys": [
+    "panorama_417E5053_5367_33FF_41CA_D2FBFFCE81DA"
+   ],
+   "labels": [
+    "Sacristia"
+   ]
+  },
+  {
+   "room": "Sala D. Manuel",
+   "panorama_keys": [
+    "panorama_428D4D2D_5361_2DA0_41B0_C7BD24E1983B"
+   ],
+   "labels": [
+    "Sala D. Manuel"
+   ]
+  },
+  {
+   "room": "Claustrim",
+   "panorama_keys": [
+    "panorama_40BA762E_5561_3A9A_4199_B5ADF64D1005"
+   ],
+   "labels": [
+    "Claustrim"
+   ]
+  },
+  {
+   "room": "Exposição - Século XVII",
+   "panorama_keys": [
+    "panorama_721B670A_636B_6FF9_41B6_6FFD82543EC9"
+   ],
+   "labels": [
+    "Exposição - Século XVII"
+   ]
+  },
+  {
+   "room": "Claustrim - Piso 2",
+   "panorama_keys": [
+    "panorama_44301A3F_54EA_6574_41BF_996F5E25442A"
+   ],
+   "labels": [
+    "Claustrim - Piso 2"
+   ]
+  },
+  {
+   "room": "Exposição - Séc XVIII",
+   "panorama_keys": [
+    "panorama_76423475_6369_A3A3_41D7_FAC6E149FAD3"
+   ],
+   "labels": [
+    "Exposição - Séc XVIII"
+   ]
+  },
+  {
+   "room": "Capela de S. António",
+   "panorama_keys": [
+    "panorama_772D2341_633F_6459_41B6_7DE498231398"
+   ],
+   "labels": [
+    "Capela de S. António"
+   ]
+  },
+  {
+   "room": "Coro",
+   "panorama_keys": [
+    "panorama_76E21FF0_6339_BC39_41AD_E9BE8588AD2C"
+   ],
+   "labels": [
+    "Coro"
+   ]
+  },
+  {
+   "room": "Claustro - Piso 2",
+   "panorama_keys": [
+    "panorama_7DB16D71_6EB5_DFB3_41B7_42DB7C3E526F"
+   ],
+   "labels": [
+    "Claustro - Piso 2"
+   ]
+  },
+  {
+   "room": "Exposição - Século XVIII",
+   "panorama_keys": [
+    "panorama_6A85F544_726D_3C1E_41D0_913C7DCF14E9",
+    "panorama_68A43497_72F5_3DCC_41D7_147C65A76778"
+   ],
+   "labels": [
+    "Exposição - Século XVIII",
+    "Exposição - Século XVIII"
+   ]
+  },
+  {
+   "room": "Exposição - Século XIX",
+   "panorama_keys": [
+    "panorama_615F850F_72B5_1366_41D0_33983614DF9A"
+   ],
+   "labels": [
+    "Exposição - Século XIX"
+   ]
+  },
+  {
+   "room": "Exposição - Século XX",
+   "panorama_keys": [
+    "panorama_615F3746_72B5_1FE7_41A5_CA819D1A9738"
+   ],
+   "labels": [
+    "Exposição - Século XX"
+   ]
+  },
+  {
+   "room": "Exposição Temporária - Piso 2",
+   "panorama_keys": [
+    "panorama_64E35FB1_77C3_6938_41B7_7FCB24A32AB8"
+   ],
+   "labels": [
+    "Exposição Temporária - Piso 2"
+   ]
+  },
+  {
+   "room": "Grande Panorama de Lisboa",
+   "panorama_keys": [
+    "panorama_6FD740AB_78FD_399C_41C0_1239E0A143F1"
+   ],
+   "labels": [
+    "Grande Panorama de Lisboa"
+   ]
+  }
+ ],
+ "mj": [
+  {
+   "room": "Entrada",
+   "panorama_keys": [
+    "panorama_AF82E554_84E3_D0DE_41B5_B3C322068E2E"
+   ],
+   "labels": [
+    "Entrada"
+   ]
+  },
+  {
+   "room": "Igreja",
+   "panorama_keys": [
+    "panorama_916ED8FF_F9B0_B8C7_41E6_BD5030FFBF21"
+   ],
+   "labels": [
+    "Igreja"
+   ]
+  },
+  {
+   "room": "Túmulo de L. de Camões",
+   "panorama_keys": [
+    "panorama_95F4A186_FA51_A939_41B6_9F00FF414E68"
+   ],
+   "labels": [
+    "Túmulo de L. de Camões"
+   ]
+  },
+  {
+   "room": "Túmulo de V. da Gama",
+   "panorama_keys": [
+    "panorama_691393E2_495E_23E7_41A8_AB191F6A357C"
+   ],
+   "labels": [
+    "Túmulo de V. da Gama"
+   ]
+  },
+  {
+   "room": "Escadaria",
+   "panorama_keys": [
+    "panorama_31D87BC4_032E_8E84_4184_6538E86A9AE5"
+   ],
+   "labels": [
+    "Escadaria"
+   ]
+  },
+  {
+   "room": "Claustro Superior",
+   "panorama_keys": [
+    "panorama_A86EB2DA_84E2_D1D3_41DA_CF40CFCFAD3B"
+   ],
+   "labels": [
+    "Claustro Superior"
+   ]
+  },
+  {
+   "room": "Antiga Biblioteca",
+   "panorama_keys": [
+    "panorama_6533C0BA_4962_7C67_41D1_68548819A3AD"
+   ],
+   "labels": [
+    "Antiga Biblioteca"
+   ]
+  },
+  {
+   "room": "Túmulo de F. Pessoa",
+   "panorama_keys": [
+    "panorama_5A30849A_891D_C0A1_41C4_F351A391FEE1"
+   ],
+   "labels": [
+    "Túmulo de F. Pessoa"
+   ]
+  },
+  {
+   "room": "Claustro Térreo",
+   "panorama_keys": [
+    "panorama_741CC2D5_6D91_BD7A_41D9_6561A6621A78"
+   ],
+   "labels": [
+    "Claustro Térreo"
+   ]
+  },
+  {
+   "room": "Sala do Capítulo",
+   "panorama_keys": [
+    "panorama_4334AFA2_575A_7748_419D_4B237BDACC16"
+   ],
+   "labels": [
+    "Sala do Capítulo"
+   ]
+  },
+  {
+   "room": "Túmulo de A. Herculano",
+   "panorama_keys": [
+    "panorama_F6B8E3D9_EC85_A085_41B4_7CE9D1B143FD"
+   ],
+   "labels": [
+    "Túmulo de A. Herculano"
+   ]
+  },
+  {
+   "room": "Refeitório",
+   "panorama_keys": [
+    "panorama_F7F3428B_EC82_A085_41A4_2EBE69DC5CD2",
+    "panorama_4AA78C30_576E_3948_41B2_2F2E8173322B"
+   ],
+   "labels": [
+    "Refeitório",
+    "Refeitório"
+   ]
+  },
+  {
+   "room": "Exterior",
+   "panorama_keys": [
+    "panorama_9CA61952_F9B1_59D9_41AF_C1C1A60FEE25"
+   ],
+   "labels": [
+    "Exterior"
+   ]
+  }
+ ]
+}

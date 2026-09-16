@@ -155,6 +155,10 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "Não encontro nenhuma zona da visita com esse nome. Estas são as zonas da visita; escolha uma e levo-o até lá.",
         "en": "I can't find a tour area with that name. These are the tour areas; pick one and I will take you there.",
     },
+    "message.tour_room_choices": {
+        "pt": "Há {count} zonas da visita com esse nome. Escolha uma e levo-o até lá.",
+        "en": "There are {count} tour areas with that name. Pick one and I will take you there.",
+    },
     "message.tour_rooms_list": {
         "pt": {
             "one": "A visita virtual tem 1 zona. Pode ir até lá com o botão abaixo.",
