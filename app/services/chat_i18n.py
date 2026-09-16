@@ -143,6 +143,28 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
             "other": "In this room the tour highlights {count} objects: {pieces}. Open a card to see the record or ask me for details about one of them.",
         },
     },
+    "message.tour_room_intro": {
+        "pt": "«{room}» faz parte da visita virtual.",
+        "en": "\"{room}\" is part of the virtual tour.",
+    },
+    "message.tour_room_go": {
+        "pt": "Pode ir até lá com o botão abaixo.",
+        "en": "You can go there with the button below.",
+    },
+    "message.tour_room_unknown": {
+        "pt": "Não encontro nenhuma zona da visita com esse nome. As zonas da visita são: {rooms}.",
+        "en": "I can't find a tour area with that name. The tour areas are: {rooms}.",
+    },
+    "message.tour_rooms_list": {
+        "pt": {
+            "one": "A visita virtual tem 1 zona: {rooms}.",
+            "other": "A visita virtual tem {count} zonas: {rooms}. Diga-me qual quer ver e levo-o até lá.",
+        },
+        "en": {
+            "one": "The virtual tour has 1 area: {rooms}.",
+            "other": "The virtual tour has {count} areas: {rooms}. Tell me which one you want and I will take you there.",
+        },
+    },
     "message.tour_location_no_pieces": {
         "pt": "Esta zona da visita não tem peças assinaladas. Diga-me o que procura e pesquiso no acervo do museu.",
         "en": "This area of the tour has no highlighted objects. Tell me what you are looking for and I will search the museum's collection.",

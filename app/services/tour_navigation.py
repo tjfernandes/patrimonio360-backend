@@ -33,6 +33,8 @@ class TourNavigationService:
         # -> overlays desse panorama; sala (texto dobrado) -> overlays da sala.
         self._panorama_index: dict[str, dict[str, list[_TourNavigationEntry]]] = {}
         self._room_index: dict[str, dict[str, list[_TourNavigationEntry]]] = {}
+        # sala (dobrada) -> nome de apresentação e panoramas, pela ordem do ficheiro
+        self._rooms: dict[str, dict[str, dict[str, Any]]] = {}
         self._loaded_museums: set[str] = set()
 
     @staticmethod
@@ -94,6 +96,7 @@ class TourNavigationService:
         index: dict[str, list[_TourNavigationEntry]] = {}
         panorama_index: dict[str, list[_TourNavigationEntry]] = {}
         room_index: dict[str, list[_TourNavigationEntry]] = {}
+        rooms: dict[str, dict[str, Any]] = {}
         loaded_any = False
 
         for file_path in self._mapping_file_candidates(museum_slug=museum_slug, museum_id=museum_id):
@@ -122,11 +125,18 @@ class TourNavigationService:
                     inventory_list = [str(value).strip() for value in inventory_ids if str(value).strip()]
                 else:
                     inventory_list = []
-                if not inventory_list:
-                    continue
 
                 location = str(item.get("location") or "").strip() or None
                 title = str(item.get("title") or "").strip() or None
+                # Uma zona sem peças (Pátio) continua a ser uma zona da visita.
+                if location:
+                    room = rooms.setdefault(
+                        self._fold_room(location), {"room": location, "panorama_keys": []}
+                    )
+                    if panorama_key not in room["panorama_keys"]:
+                        room["panorama_keys"].append(panorama_key)
+                if not inventory_list:
+                    continue
 
                 for inventory_id in inventory_list:
                     entry = _TourNavigationEntry(
@@ -149,11 +159,78 @@ class TourNavigationService:
             self._inventory_index[museum_key] = index
             self._panorama_index[museum_key] = panorama_index
             self._room_index[museum_key] = room_index
+            self._rooms[museum_key] = rooms
         else:
             self._inventory_index[museum_key] = {}
             self._panorama_index[museum_key] = {}
             self._room_index[museum_key] = {}
+            self._rooms[museum_key] = {}
         self._loaded_museums.add(museum_key)
+
+    _ROOM_TYPE_WORDS = frozenset({"sala", "salas", "capela", "claustro", "piso", "zona", "galeria", "room", "chapel"})
+    _ROOM_LINK_WORDS = frozenset({"da", "de", "do", "das", "dos", "d", "of", "the"})
+
+    def list_rooms(self, *, museum_slug: str, museum_id: str | None) -> list[dict[str, Any]]:
+        """Zonas da visita pela ordem do ficheiro: nome, panoramas e n.º de peças."""
+        self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
+        museum_key = (museum_slug or "").strip().lower()
+        result: list[dict[str, Any]] = []
+        for folded, room in self._rooms.get(museum_key, {}).items():
+            entries = self._room_index.get(museum_key, {}).get(folded, [])
+            inventories: list[str] = []
+            seen: set[str] = set()
+            for entry in entries:
+                normalized = self._normalize_inventory(entry.inventory_id)
+                if normalized and normalized not in seen:
+                    seen.add(normalized)
+                    inventories.append(entry.inventory_id)
+            result.append(
+                {
+                    "room": room["room"],
+                    "folded": folded,
+                    "panorama_keys": list(room["panorama_keys"]),
+                    "inventories": inventories,
+                    "targets": [
+                        {
+                            "overlay_id": e.overlay_id,
+                            "panorama_key": e.panorama_key,
+                            "inventory_id": e.inventory_id,
+                            "location": e.location,
+                            "title": e.title,
+                        }
+                        for e in entries
+                    ],
+                }
+            )
+        return result
+
+    def find_room(self, *, museum_slug: str, museum_id: str | None, text: str) -> dict[str, Any] | None:
+        """A zona da visita referida no texto («e a sala cantonal?»).
+
+        Casa pelo nome completo dobrado («sala cantonal») ou pelo núcleo sem
+        a palavra de tipo e as ligações («cantonal», «musica»), desde que o
+        núcleo tenha 4+ letras e não seja só numérico («Sala 1.01» exige o
+        nome completo). Devolve a sala com a correspondência mais longa e os
+        tokens do texto que a cobriram.
+        """
+        tokens = self._fold_room(text).split()
+        if not tokens:
+            return None
+        best: dict[str, Any] | None = None
+        for room in self.list_rooms(museum_slug=museum_slug, museum_id=museum_id):
+            name_tokens = room["folded"].split()
+            candidates = [name_tokens]
+            core = [t for t in name_tokens if t not in self._ROOM_TYPE_WORDS and t not in self._ROOM_LINK_WORDS]
+            if core and core != name_tokens and any(len(t) >= 4 and not t.isdigit() for t in core):
+                candidates.append(core)
+            for candidate in candidates:
+                size = len(candidate)
+                for start in range(len(tokens) - size + 1):
+                    if tokens[start:start + size] == candidate:
+                        if best is None or size > best["matched_size"]:
+                            best = {**room, "matched_size": size, "matched_tokens": set(candidate)}
+                        break
+        return best
 
     def describe_location(
         self,

@@ -268,6 +268,51 @@ _FINAL_ANSWER_V2_EN = (
 )
 
 
+def build_tour_context_prompt(
+    *,
+    museum_name: str | None,
+    user_message: str,
+    facts: list[str],
+    cards_context: str,
+    language: str | None = None,
+) -> str:
+    """Redação de uma resposta sobre a posição/zona da visita (CHAT_TOUR_CONTEXT_LLM_WORDING).
+
+    Os factos vêm dos ficheiros da visita e são a única fonte; o LLM só
+    escreve a frase. Curto de propósito: 2–4 frases, peças com título e
+    inventário tal como nos cartões, sem inventar salas nem contagens.
+    """
+    en = _normalize_language(language) == "en"
+    name = (museum_name or "").strip() or ("the museum" if en else "o museu")
+    if en:
+        parts = [
+            f"You are Amália, the virtual tour assistant of {name}. Answer in English.",
+            "The FACTS below come from the virtual tour itself and are the only source. Write 2 to 4 natural sentences "
+            "that answer the visitor's question with them. Name the tour area exactly as given. If there are pieces, "
+            "mention up to 3 by title with the inventory number in parentheses, exactly as written, and say that the "
+            "cards are below; if there are none, say so and offer to search the collection. Never add rooms, counts, "
+            "dates or details that are not in the FACTS or the CARDS. No greetings or pleasantries: start with the "
+            "answer. No headings, no numbered lists.",
+        ]
+        parts.append("QUESTION: " + (user_message or "").strip())
+        parts.append("FACTS:\n" + "\n".join(f"- {line}" for line in facts))
+        parts.append("CARDS:\n" + (cards_context.strip() or "(none)"))
+    else:
+        parts = [
+            f"És a Amália, assistente da visita virtual de {name}. Responde em português europeu.",
+            "Os FACTOS abaixo vêm da própria visita virtual e são a única fonte. Escreve 2 a 4 frases naturais que "
+            "respondam à pergunta do visitante com eles. Chama à zona da visita exatamente o nome dado. Se houver peças, "
+            "refere até 3 pelo título com o número de inventário entre parênteses, tal como está escrito, e diz que os "
+            "cartões estão abaixo; se não houver, diz isso e oferece-te para pesquisar o acervo. Nunca acrescentes salas, "
+            "contagens, datas ou pormenores que não estejam nos FACTOS ou nos CARTÕES. Sem cumprimentos nem frases de "
+            "cortesia: começa pela resposta. Sem títulos nem listas numeradas.",
+        ]
+        parts.append("PERGUNTA: " + (user_message or "").strip())
+        parts.append("FACTOS:\n" + "\n".join(f"- {line}" for line in facts))
+        parts.append("CARTÕES:\n" + (cards_context.strip() or "(nenhum)"))
+    return "\n\n".join(parts)
+
+
 def build_final_answer_prompt_v2(
     *,
     museum_name: str | None,

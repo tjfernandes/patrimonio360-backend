@@ -400,6 +400,15 @@ class ChatSearchScope(BaseModel):
     is_cross_museum: bool = False
 
 
+class TourRoomTarget(BaseModel):
+    """Zona da visita referida na resposta; o widget mostra «Ir para …»."""
+
+    room: str
+    panorama_key: str
+    overlay_id: str | None = None
+    piece_count: int = 0
+
+
 class ChatMessageResponse(BaseModel):
     status: Literal["ok"] = "ok"
     conversation_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -413,6 +422,7 @@ class ChatMessageResponse(BaseModel):
     image_matches: list[ImageMatchResult] = Field(default_factory=list)
     artifact_results: list[ArtifactResult] = Field(default_factory=list)
     navigation_targets: list[TourNavigationTarget] = Field(default_factory=list)
+    tour_room: TourRoomTarget | None = None
     results_page: int = 1
     results_page_size: int = 0
     results_total: int = 0

@@ -18,7 +18,7 @@ from app.prompts import (
     build_router_user_prompt,
     get_router_system_prompt,
 )
-from app.prompts.chat_prompts import build_final_answer_prompt_v2
+from app.prompts.chat_prompts import build_final_answer_prompt_v2, build_tour_context_prompt
 from app.prompts.query_planner_prompts import (
     FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
     RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
@@ -40,6 +40,7 @@ from app.schemas.chat import (
     ImageMatchResult,
     ResponseFormatObject,
     TourNavigationTarget,
+    TourRoomTarget,
     ArtifactDetailContextResponse,
     AuthorEntity,
     SetEntityWithArtifacts,
@@ -87,6 +88,24 @@ _TOUR_LOCATION_PATTERNS: tuple[str, ...] = (
     r"^what(?:\s+is|\s*'?s)\s+(?:in\s+)?(?:here|in\s+this\s+room|in\s+this\s+area|around\s+me|around\s+here)" + _TOUR_LOCATION_TAIL + r"$",
     r"^what\s+can\s+i\s+see\s+(?:here|in\s+this\s+room|in\s+this\s+area|around\s+me)" + _TOUR_LOCATION_TAIL + r"$",
     r"^(?:which|what)\s+(?:objects|pieces|works|artifacts)\s+are\s+(?:here|in\s+this\s+room|in\s+this\s+area)" + _TOUR_LOCATION_TAIL + r"$",
+)
+
+# «que salas há?» / «quais são as zonas da visita?»
+_TOUR_ROOMS_LIST_PATTERNS: tuple[str, ...] = (
+    r"^(?:e\s+)?(?:que|quais)\s+(?:sao\s+as\s+|as\s+)?(?:salas|zonas|espacos|areas|partes)(?:\s+(?:e\s+que\s+)?(?:ha|existem|tem|posso\s+ver|posso\s+visitar|se\s+podem\s+visitar))?(?:\s+(?:na|da|nesta|desta)\s+visita|\s+(?:no|do|neste|deste)\s+(?:museu|mosteiro))?" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:que|quais)\s+(?:salas|zonas|espacos)\s+(?:e\s+que\s+)?(?:a\s+visita|o\s+museu|o\s+mosteiro)\s+tem" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:which|what)\s+(?:rooms|areas|spaces)\s+(?:are\s+there|can\s+i\s+(?:see|visit)|does\s+the\s+(?:tour|museum)\s+have)(?:\s+in\s+the\s+(?:tour|museum))?" + _TOUR_LOCATION_TAIL + r"$",
+)
+# Palavras que podem sobrar numa pergunta sobre uma zona da visita depois de
+# retirar o nome da zona; qualquer outra («vestidos») faz dela uma pesquisa.
+_TOUR_ROOM_QUESTION_WORDS = frozenset(
+    "e a o as os ao aos à na no nas nos da do de das dos em que qual quais onde fica ficam é sao existe ha tem "
+    "esta este essa esse isso isto aqui la leva leve me vai vamos ir irmos quero queria posso podemos ver visitar "
+    "conhecer mostra mostrar mostre sobre fala fale conta conte diz diga um uma pouco mais pecas objetos obras "
+    "artefactos encontro encontrar chegar chego como para ate museu mosteiro visita virtual agora entao então "
+    "por favor gostava gostaria de ir ver o que sala salas zona zonas capela claustro piso "
+    "what is in the there room area take go to show tell about where can i see are which objects pieces works "
+    "lets let s and visit please me us how do get".split()
 )
 
 _MUSEUM_OVERVIEW_PATTERNS: tuple[str, ...] = (
@@ -2751,12 +2770,8 @@ class ChatService:
         # de LLM (custava 2 chamadas remotas e inventava peças). A deteção é a
         # mesma do fallback do router: igualdade exata após fold, pelo que
         # «Olá, encontra vestidos» continua a ir ao router.
-        if (
-            self.settings.CHAT_TOUR_LOCATION_ANSWERS
-            and requested_format.type == "text"
-            and self._is_tour_location_query(payload.message)
-        ):
-            return await self._answer_tour_location_fast_path(
+        if self.settings.CHAT_TOUR_LOCATION_ANSWERS and requested_format.type == "text":
+            tour_kwargs = dict(
                 payload=payload,
                 state=state,
                 conversation_id=conversation_id,
@@ -2766,6 +2781,15 @@ class ChatService:
                 request_started_at=request_started_at,
                 status_cb=status_cb,
             )
+            if self._is_tour_location_query(payload.message):
+                return await self._answer_tour_location_fast_path(**tour_kwargs)
+            room_query = self._match_tour_room_query(
+                payload.message,
+                museum_slug=payload.museum_slug,
+                museum_id=self._resolve_museum_id(payload),
+            )
+            if room_query is not None:
+                return await self._answer_tour_room_fast_path(room_query=room_query, **tour_kwargs)
 
         if (
             self.settings.CHAT_DETERMINISTIC_SMALLTALK
@@ -4832,6 +4856,203 @@ class ChatService:
             except Exception as exc:
                 log_event(logger, logging.WARNING, "chat.tour_location.describe.error", error=exc)
         room_name = described.get("room") or (location or {}).get("room") or (location or {}).get("title")
+        if location is None:
+            intro = translate("message.tour_location_unknown", language)
+            pieces_key = None
+            facts: list[str] | None = None
+        else:
+            intro = (
+                translate("message.tour_location_here", language, room=room_name)
+                if room_name
+                else translate("message.tour_location_here_unnamed", language)
+            )
+            pieces_key = (
+                "message.tour_location_pieces"
+                if described.get("scope") == "panorama"
+                else "message.tour_location_room_pieces"
+            )
+            facts = [
+                (f"O visitante está agora em: {room_name}" if room_name else "O visitante está num ponto da visita sem nome")
+                if normalize_language(language) != "en"
+                else (f"The visitor is now in: {room_name}" if room_name else "The visitor is at an unnamed point of the tour")
+            ]
+        return await self._finish_tour_context_answer(
+            payload=payload,
+            state=state,
+            conversation_id=conversation_id,
+            query_id=query_id,
+            language=language,
+            requested_format=requested_format,
+            request_started_at=request_started_at,
+            status_cb=status_cb,
+            described=described,
+            room_name=room_name,
+            intro=intro,
+            pieces_key=pieces_key,
+            facts=facts,
+            fast_path="tour_location",
+            tour_room=None,
+            log_extra={
+                "tour_location": {
+                    "sent": location,
+                    "known": bool(described.get("known")),
+                    "scope": described.get("scope"),
+                    "room": room_name,
+                    "inventories": list(described.get("inventories") or []),
+                }
+            },
+        )
+
+    def _match_tour_room_query(
+        self,
+        message: str,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+    ) -> dict[str, Any] | None:
+        """Pergunta sobre uma zona da visita («e a sala cantonal?», «leva-me à
+        sala da música», «que salas há?»).
+
+        Devolve {"kind": "list"} para a lista de zonas, {"kind": "room", ...}
+        para uma zona conhecida, {"kind": "unknown", "name": …} para uma
+        zona que não existe na visita, ou None (segue para o router).
+        """
+        folded = self._fold_query_text(message)
+        if not folded:
+            return None
+        if any(re.match(pattern, folded) for pattern in _TOUR_ROOMS_LIST_PATTERNS):
+            return {"kind": "list"}
+        tokens = folded.split()
+        try:
+            room = self.tour_navigation_service.find_room(museum_slug=museum_slug, museum_id=museum_id, text=message)
+        except Exception as exc:
+            log_event(logger, logging.WARNING, "chat.tour_room.find.error", error=exc)
+            return None
+        if room is not None:
+            remainder = [t for t in tokens if t not in room["matched_tokens"] and t not in _TOUR_ROOM_QUESTION_WORDS]
+            if remainder:
+                return None  # «vestidos na sala cantonal» é uma pesquisa
+            return {"kind": "room", **room}
+        # Zona pedida que não existe: «e a sala das armas?» -> sobra o nome.
+        type_words = {"sala", "salas", "capela", "claustro", "piso", "zona", "galeria", "room", "chapel", "area"}
+        if not any(t in type_words for t in tokens):
+            return None
+        leftover = [t for t in tokens if t not in _TOUR_ROOM_QUESTION_WORDS]
+        if not leftover or len(leftover) > 4:
+            return None
+        return {"kind": "unknown", "name": " ".join(leftover)}
+
+    async def _answer_tour_room_fast_path(
+        self,
+        *,
+        room_query: dict[str, Any],
+        payload: ChatMessageRequest,
+        state: ChatSessionState,
+        conversation_id: str,
+        query_id: str,
+        language: str,
+        requested_format: ResponseFormatObject,
+        request_started_at: float,
+        status_cb: StatusCallback | None,
+    ) -> ChatMessageResponse:
+        museum_slug = payload.museum_slug
+        museum_id = self._resolve_museum_id(payload)
+        await self._emit_status(status_cb, "status.analyzing_request", language=language)
+        rooms = self.tour_navigation_service.list_rooms(museum_slug=museum_slug, museum_id=museum_id)
+        room_names = [r["room"] for r in rooms]
+        described: dict[str, Any] = {"known": False, "scope": "none", "room": None, "inventories": [], "targets": []}
+        tour_room: TourRoomTarget | None = None
+        facts: list[str] | None = None
+        pieces_key: str | None = None
+        kind = room_query.get("kind")
+        if kind == "list":
+            intro = translate("message.tour_rooms_list", language, count=len(room_names), rooms=", ".join(room_names))
+            room_name = None
+        elif kind == "unknown":
+            intro = translate("message.tour_room_unknown", language, rooms=", ".join(room_names))
+            room_name = None
+        else:
+            room_name = str(room_query.get("room") or "")
+            described = {
+                "known": True,
+                "scope": "room",
+                "room": room_name,
+                "inventories": list(room_query.get("inventories") or []),
+                "targets": list(room_query.get("targets") or []),
+            }
+            panorama_keys = list(room_query.get("panorama_keys") or [])
+            if panorama_keys:
+                tour_room = TourRoomTarget(
+                    room=room_name,
+                    panorama_key=panorama_keys[0],
+                    overlay_id=None,
+                    piece_count=len(described["inventories"]),
+                )
+            intro = translate("message.tour_room_intro", language, room=room_name)
+            pieces_key = "message.tour_location_room_pieces"
+            en = normalize_language(language) == "en"
+            facts = [
+                (f"The tour area asked about exists in the virtual tour: {room_name}" if en
+                 else f"A zona da visita perguntada existe na visita virtual: {room_name}"),
+                ("The visitor can go there with the button under the answer" if en
+                 else "O visitante pode ir até lá com o botão que aparece por baixo da resposta"),
+            ]
+        return await self._finish_tour_context_answer(
+            payload=payload,
+            state=state,
+            conversation_id=conversation_id,
+            query_id=query_id,
+            language=language,
+            requested_format=requested_format,
+            request_started_at=request_started_at,
+            status_cb=status_cb,
+            described=described,
+            room_name=room_name,
+            intro=intro,
+            pieces_key=pieces_key,
+            facts=facts,
+            fast_path="tour_room",
+            tour_room=tour_room,
+            log_extra={
+                "tour_room": {
+                    "kind": kind,
+                    "room": room_name,
+                    "asked": room_query.get("name"),
+                    "inventories": list(described.get("inventories") or []),
+                    "panorama_key": tour_room.panorama_key if tour_room else None,
+                }
+            },
+        )
+
+    async def _finish_tour_context_answer(
+        self,
+        *,
+        payload: ChatMessageRequest,
+        state: ChatSessionState,
+        conversation_id: str,
+        query_id: str,
+        language: str,
+        requested_format: ResponseFormatObject,
+        request_started_at: float,
+        status_cb: StatusCallback | None,
+        described: dict[str, Any],
+        room_name: str | None,
+        intro: str,
+        pieces_key: str | None,
+        facts: list[str] | None,
+        fast_path: str,
+        tour_room: TourRoomTarget | None,
+        log_extra: dict[str, Any],
+    ) -> ChatMessageResponse:
+        """Parte comum das respostas de contexto da visita (posição, zona).
+
+        Busca as fichas das peças assinaladas (ordem da visita), compõe a
+        resposta — template, ou redação do LLM com os factos e os cartões
+        trancados quando CHAT_TOUR_CONTEXT_LLM_WORDING — e fecha estado, log
+        e resposta como as outras rotas.
+        """
+        museum_slug = payload.museum_slug
+        museum_id = self._resolve_museum_id(payload)
         inventories: list[str] = list(described.get("inventories") or [])
 
         retrieval_started_at = time.monotonic()
@@ -4845,7 +5066,7 @@ class ChatService:
                     top_k=max(len(inventories), 1),
                 )
             except Exception as exc:
-                log_event(logger, logging.WARNING, "chat.tour_location.fetch.error", error=exc)
+                log_event(logger, logging.WARNING, "chat.tour_context.fetch.error", error=exc)
                 fetched = []
             # Ordem da visita, não a do OpenSearch.
             order = {self._normalize_inventory_key(inv): index for index, inv in enumerate(inventories)}
@@ -4855,21 +5076,70 @@ class ChatService:
             )
         retrieval_latency_ms = (time.monotonic() - retrieval_started_at) * 1000
 
-        if location is None:
-            reply = translate("message.tour_location_unknown", language)
-        else:
-            parts = [
-                translate("message.tour_location_here", language, room=room_name)
-                if room_name
-                else translate("message.tour_location_here_unnamed", language)
-            ]
+        parts = [intro]
+        if pieces_key is not None:
             if docs:
                 pieces = "; ".join(self._tour_location_piece_label(doc) for doc in docs)
-                key = "message.tour_location_pieces" if described.get("scope") == "panorama" else "message.tour_location_room_pieces"
-                parts.append(translate(key, language, count=len(docs), pieces=pieces))
+                parts.append(translate(pieces_key, language, count=len(docs), pieces=pieces))
             else:
                 parts.append(translate("message.tour_location_no_pieces", language))
-            reply = " ".join(parts)
+        if tour_room is not None:
+            parts.append(translate("message.tour_room_go", language))
+        template_reply = " ".join(parts)
+
+        reply = template_reply
+        llm_latency_ms = 0.0
+        llm_response = None
+        wording = "template"
+        if facts is not None and self.settings.CHAT_TOUR_CONTEXT_LLM_WORDING:
+            en = normalize_language(language) == "en"
+            llm_facts = list(facts)
+            if docs:
+                listing = "; ".join(self._tour_location_piece_label(doc) for doc in docs)
+                llm_facts.append(
+                    (f"Highlighted pieces in this area ({len(docs)}), in tour order: {listing}" if en
+                     else f"Peças assinaladas nesta zona ({len(docs)}), pela ordem da visita: {listing}")
+                )
+            else:
+                llm_facts.append("There are no highlighted pieces in this area" if en
+                                 else "Não há peças assinaladas nesta zona")
+            prompt = build_tour_context_prompt(
+                museum_name=payload.museum_name,
+                user_message=payload.message,
+                facts=llm_facts,
+                cards_context=self._format_docs_compact(docs=docs) if docs else "",
+                language=language,
+            )
+            await self._emit_status(status_cb, "status.generating_final_answer", language=language)
+            llm_started_at = time.monotonic()
+            try:
+                llm_response = await self._generate_final_answer_with_context_retries(
+                    initial_message=prompt,
+                    response_format=requested_format,
+                    system_prompt=self._final_system_prompt(payload.system_prompt, language),
+                    model_override=payload.model_override,
+                    visible_result_count=0,
+                    build_message_for_result_count=lambda _n: prompt,
+                    stream_cb_factory=self._final_answer_stream_factory(
+                        status_cb, requested_format, query_id=query_id
+                    ),
+                )
+                text = self._sanitize_assistant_reply(llm_response.text, docs=docs, language=language)
+                if text.strip():
+                    reply = text
+                    wording = "llm"
+            except LLMServiceError as exc:
+                log_event(
+                    logger, logging.WARNING, "chat.tour_context.llm.error",
+                    conversation_id=conversation_id, query_id=query_id, error=exc,
+                )
+            llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
+        # O nome da zona vem da visita, não dos cartões: citá-lo em negrito
+        # («**Sala da Música**») não é inventar um título.
+        grounding_report = self._grounding_report(
+            reply=reply, docs=docs, conversation_id=conversation_id, query_id=query_id,
+            user_message=" ".join(part for part in (payload.message, room_name) if part),
+        ) if wording == "llm" else None
 
         artifact_results = await self._build_artifact_results(
             museum_slug=museum_slug,
@@ -4894,7 +5164,7 @@ class ChatService:
             "intent": "search",
             "rewritten_query": payload.message,
             "needs_retrieval": False,
-            "reason": "deterministic_tour_location_fast_path",
+            "reason": f"deterministic_{fast_path}_fast_path",
             "is_follow_up": False,
             "use_history_for_query": False,
             "use_history_for_answer": False,
@@ -4911,13 +5181,14 @@ class ChatService:
             query_id=query_id,
             mode="rag",
             intent="search",
-            fast_path="tour_location",
+            fast_path=fast_path,
             location_known=bool(described.get("known")),
             scope=described.get("scope"),
             pieces=len(docs),
+            wording=wording,
         )
         retrieval_request = {
-            "kind": "tour_location",
+            "kind": fast_path,
             "museum_id": museum_id,
             "museum_slug": museum_slug,
             "original_query": payload.message,
@@ -4969,30 +5240,29 @@ class ChatService:
             lexical_query=None,
             embedding_query=None,
             route="rag",
-            retrieval_mode="tour_location",
+            retrieval_mode=fast_path,
             filters_applied={"filters": {}, "sort": {}},
             boosts_applied={},
-            retrieved_artifacts=self._log_retrieved_artifact_entries(docs, source="tour_location"),
+            retrieved_artifacts=self._log_retrieved_artifact_entries(docs, source=fast_path),
             shown_artifacts=self._log_shown_artifact_entries(paged_artifacts),
             navigation_targets=self._log_navigation_target_entries(
                 navigation_targets=paged_targets,
                 artifact_results=paged_artifacts,
             ),
             latency_retrieval_ms=retrieval_latency_ms if inventories else None,
-            latency_llm_ms=0.0,
+            latency_llm_ms=llm_latency_ms,
             latency_total_ms=total_ms,
             status="ok",
             error=None,
             opensearch_query=None,
             extra={
-                "fast_path": "tour_location",
-                "tour_location": {
-                    "sent": location,
-                    "known": bool(described.get("known")),
-                    "scope": described.get("scope"),
-                    "room": room_name,
-                    "inventories": inventories,
-                },
+                "fast_path": fast_path,
+                "wording": wording,
+                "llm_finish_reason": getattr(llm_response, "finish_reason", None),
+                "llm_usage": getattr(llm_response, "usage", None),
+                "llm_endpoint": getattr(llm_response, "endpoint", None),
+                "grounding": grounding_report,
+                **log_extra,
             },
         )
         log_event(
@@ -5002,7 +5272,7 @@ class ChatService:
             conversation_id=conversation_id,
             query_id=query_id,
             status="ok",
-            fast_path="tour_location",
+            fast_path=fast_path,
             duration_ms=round(total_ms, 1),
         )
         return ChatMessageResponse(
@@ -5010,9 +5280,10 @@ class ChatService:
             query_id=query_id,
             response_format=requested_format,
             reply=reply,
-            model_hint="deterministic:tour_location",
+            model_hint=f"{'llm' if wording == 'llm' else 'deterministic'}:{fast_path}",
             artifact_results=paged_artifacts,
             navigation_targets=paged_targets,
+            tour_room=tour_room,
             results_page=results_page,
             results_page_size=results_page_size,
             results_total=results_total,

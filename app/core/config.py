@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # da posição na visita (metadata.tour_location enviado pelo widget) e dos
     # ficheiros poi_tours, sem pesquisa nem LLM. Desligado = vai ao router.
     CHAT_TOUR_LOCATION_ANSWERS: bool = False
+    # Com o anterior: a frase é redigida pelo LLM a partir dos factos da
+    # visita (sala e peças fixas; cartões trancados); template se falhar.
+    CHAT_TOUR_CONTEXT_LLM_WORDING: bool = False
     # EXPERIMENTAL, manter desligado: medido em 2026-09-15 sem ganho de tempo
     # (o 9B enche filters_delta com filtros inventados). Ver PLANO_MELHORIAS §3.
     CHAT_ROUTER_COMPACT_SCHEMA: bool = False        # router pede 5 campos em vez de 12
