@@ -364,3 +364,33 @@ class TestDeterministicRouter(unittest.TestCase):
         self.assertEqual(_settings().CHAT_ROUTER_MODE, "llm")
         with self.assertRaises(Exception):
             _settings(CHAT_ROUTER_MODE="magic")
+
+
+class TestGroundingCardText(unittest.TestCase):
+    def test_quoted_inscription_from_description_is_grounded(self) -> None:
+        # Falso positivo real (produção, 2026-09-16): o LLM citou a inscrição da
+        # descrição, com uma palavra mal escrita.
+        service = _service(_settings(CHAT_GROUNDING_CHECK="log"))
+        cards = [{"title": "Sapatos (par)/Feminino", "inventory_number": "3105",
+                  "description": 'Sapatos de cetim preto com inscrição "Caprai, Rua da Misericórdia, 51-53, Lisboa".'}]
+        report = service._grounding_report(
+            reply='Destaco os **Sapatos (par)/Feminino** com a inscrição "Caprai, Rua da Mesericórdia, 51-53, Lisboa" e «Caprai, Lisboa».',
+            docs=cards, conversation_id="c", query_id="q", user_message="Encontra sapatos pretos")
+        self.assertEqual(report["violations"], 0, report)
+
+    def test_invented_title_still_flagged_with_rich_cards(self) -> None:
+        service = _service(_settings(CHAT_GROUNDING_CHECK="log"))
+        cards = [{"title": "Sapatos (par)/Feminino", "description": "Sapatos de cetim preto do tempo da monarquia."}]
+        report = service._grounding_report(
+            reply='Veja também «A Dança do Tempo».', docs=cards, conversation_id="c", query_id="q", user_message="sapatos")
+        self.assertEqual(report["unmatched_titles"], ["A Dança do Tempo"])
+
+    def test_bold_formatting_labels_are_not_titles(self) -> None:
+        # Falso positivo real (produção, 2026-09-16): «**Nota:**» contado como título.
+        service = _service(_settings(CHAT_GROUNDING_CHECK="log"))
+        cards = [{"title": "Chapéu/Feminino", "inventory_number": "38090"}]
+        report = service._grounding_report(
+            reply="Destaco o **Chapéu/Feminino** (Inventário: 38090).\n\n**Nota:** a ficha não indica a sala.",
+            docs=cards, conversation_id="c", query_id="q", user_message="Encontra chapéus de mulher")
+        self.assertEqual(report["violations"], 0, report)
+        self.assertEqual(report["quoted_titles"], 1)

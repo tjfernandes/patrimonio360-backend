@@ -280,8 +280,9 @@ def build_final_answer_prompt_v2(
     retrieval_context: str,
     use_history_for_answer: bool = False,
     language: str | None = None,
+    input_modality: str = "text",
 ) -> str:
-    """Prompt final compacto (quick win PR-01, rota de texto).
+    """Prompt final compacto (quick win PR-01; texto, imagem e modelo 3D).
 
     ~300 tokens de instruções em PT acentuado, cartões compactos como única
     fonte de factos, sem metadados internos (mode/intent/filters_state em
@@ -292,14 +293,39 @@ def build_final_answer_prompt_v2(
     en = resolved_language == "en"
     template = _FINAL_ANSWER_V2_EN if en else _FINAL_ANSWER_V2_PT
     name = (museum_name or "").strip() or ("unknown" if en else "desconhecido")
+    modality = (input_modality or "text").strip().lower()
     if mode == "llm_only":
         kind = "conversation" if en else "conversa"
     elif intent == "selected_artifact_question":
         kind = "selected object" if en else "peça selecionada"
+    elif modality == "image":
+        kind = "image search" if en else "pesquisa por imagem"
+    elif modality == "model":
+        kind = "3D model search" if en else "pesquisa por modelo 3D"
     else:
         kind = "search" if en else "pesquisa"
 
     parts = [template.format(museum_name=name)]
+    if modality in {"image", "model"}:
+        source = (
+            ("the uploaded image" if modality == "image" else "views of the uploaded 3D model") if en
+            else ("a imagem enviada" if modality == "image" else "vistas do modelo 3D enviado")
+        )
+        parts.append(
+            (
+                f"This is a visual search: the cards are the collection objects whose photographs look most like {source}. "
+                "You did not see the upload: never describe details that are not in the cards. Similarity does not prove "
+                "identity — say \"the closest match is…\" unless the request itself confirms it. If the request adds a "
+                "condition (colour, material, period), favour the cards that meet it and say which ones do."
+            )
+            if en
+            else (
+                f"É uma pesquisa visual: os cartões são as peças do acervo cujas fotografias mais se parecem com {source}. "
+                "Não viste o ficheiro enviado: nunca descrevas pormenores que não estejam nos cartões. Semelhança não "
+                "prova identidade — diz «a peça mais parecida é…», salvo se o pedido o confirmar. Se o pedido tiver uma "
+                "condição (cor, material, época), privilegia os cartões que a cumprem e diz quais."
+            )
+        )
     if use_history_for_answer and (rolling_summary or "").strip():
         parts.append(
             ("Earlier conversation (auxiliary only, never a source of facts): " if en

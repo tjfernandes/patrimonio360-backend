@@ -1283,7 +1283,13 @@ class ChatService:
             sections.append("current_visible_results:")
             sections.append(docs_context)
 
-        if image_matches and include_image_matches_section:
+        if (
+            image_matches
+            and include_image_matches_section
+            # Com cartões compactos, o dump JSON das correspondências repetia a
+            # mesma informação (prompt de imagem de ~9,8 mil caracteres).
+            and not (self.settings.CHAT_COMPACT_ANSWER_CONTEXT and docs_context)
+        ):
             image_match_payload = [
                 match.model_dump(
                     exclude_none=True,
@@ -1301,6 +1307,11 @@ class ChatService:
 
     def _is_llm_token_limit_error(self, exc: Exception) -> bool:
         message = f"{exc} {getattr(exc, '__cause__', '')}".casefold()
+        # Limite de SAÍDA (max_tokens atingido) não é contexto a mais: repetir
+        # com menos cartões não resolve e custava uma geração completa por
+        # tentativa.
+        if "length limit was reached" in message or "lengthfinishreason" in message:
+            return False
         return any(
             marker in message
             for marker in (
@@ -1318,6 +1329,69 @@ class ChatService:
                 "exceeded the model",
                 "request too large",
             )
+        )
+
+    def _final_answer_stream_factory(
+        self,
+        status_cb: StatusCallback | None,
+        requested_format: ResponseFormatObject,
+        *,
+        query_id: str,
+    ) -> Callable[[], Callable[[str], Awaitable[None]]] | None:
+        if (
+            self.settings.CHAT_STREAM_FINAL_ANSWER
+            and status_cb is not None
+            and requested_format.type == "text"
+        ):
+            return self._make_token_emitter(status_cb, query_id=query_id)
+        return None
+
+    def _media_final_prompt(
+        self,
+        *,
+        modality: str,
+        museum_slug: str,
+        museum_name: str | None,
+        filters_state: dict[str, Any],
+        sort_state: dict[str, Any],
+        user_message: str,
+        retrieval_context: str,
+        language: str | None,
+    ) -> str:
+        """Prompt final das rotas de imagem e de modelo 3D.
+
+        Com CHAT_COMPACT_ANSWER_CONTEXT usa o prompt v2 (curto, PT acentuado,
+        com a nota de que semelhança não prova identidade); desligado, é
+        exatamente a chamada histórica.
+        """
+        if self.settings.CHAT_COMPACT_ANSWER_CONTEXT:
+            return build_final_answer_prompt_v2(
+                museum_name=museum_name,
+                intent=f"{modality}_search",
+                mode="rag",
+                rolling_summary="",
+                filters_state=filters_state,
+                user_message=user_message,
+                rewritten_query=user_message,
+                retrieval_context=retrieval_context,
+                use_history_for_answer=False,
+                language=language,
+                input_modality=modality,
+            )
+        return build_final_answer_prompt(
+            museum_slug=museum_slug,
+            museum_name=museum_name,
+            input_modality=modality,
+            mode="rag",
+            intent=f"{modality}_search",
+            rolling_summary="",
+            filters_state=filters_state,
+            sort_state=sort_state,
+            user_message=user_message,
+            rewritten_query=user_message,
+            retrieval_context=retrieval_context,
+            use_history_for_answer=False,
+            language=language,
         )
 
     def _make_token_emitter(
@@ -3467,6 +3541,7 @@ class ChatService:
             extra={
                 "llm_finish_reason": getattr(llm_response, "finish_reason", None),
                 "llm_usage": getattr(llm_response, "usage", None),
+                "llm_endpoint": getattr(llm_response, "endpoint", None),
                 "grounding": grounding_report,
             },
         )
@@ -3940,19 +4015,14 @@ class ChatService:
                 total=results_total,
                 match_section_label="visible_image_retrieval_matches",
             )
-            return build_final_answer_prompt(
+            return self._media_final_prompt(
+                modality="image",
                 museum_slug=search_museum_slug,
                 museum_name=search_museum_name,
-                input_modality="image",
-                mode="rag",
-                intent="image_search",
-                rolling_summary="",
                 filters_state=effective_filters,
                 sort_state=effective_sort,
                 user_message=user_message,
-                rewritten_query=user_message,
                 retrieval_context=limited_retrieval_context,
-                use_history_for_answer=False,
                 language=language,
             )
 
@@ -3968,19 +4038,14 @@ class ChatService:
         effective_filters = dict(state.filters)
         effective_sort = dict(state.sort)
 
-        final_message = build_final_answer_prompt(
+        final_message = self._media_final_prompt(
+            modality="image",
             museum_slug=search_museum_slug,
             museum_name=search_museum_name,
-            input_modality="image",
-            mode="rag",
-            intent="image_search",
-            rolling_summary="",
             filters_state=effective_filters,
             sort_state=effective_sort,
             user_message=user_message,
-            rewritten_query=user_message,
             retrieval_context=retrieval_context,
-            use_history_for_answer=False,
             language=language,
         )
         await self._emit_status(status_cb, "status.generating_final_answer", language=language)
@@ -3994,6 +4059,9 @@ class ChatService:
                 model_override=payload.model_override,
                 visible_result_count=retry_context_result_count,
                 build_message_for_result_count=build_image_final_message_for_result_count,
+                stream_cb_factory=self._final_answer_stream_factory(
+                    status_cb, requested_format, query_id=query_id
+                ),
             )
         except LLMServiceError as exc:
             llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
@@ -4075,6 +4143,13 @@ class ChatService:
             docs=reply_docs,
             language=language,
         )
+        grounding_report = self._grounding_report(
+            reply=final_reply_text,
+            docs=reply_docs,
+            conversation_id=conversation_id,
+            query_id=query_id,
+            user_message=user_message,
+        )
 
         self._apply_router_decision_to_state(state=state, router_decision=router_decision)
         self._update_last_result_ids(
@@ -4123,6 +4198,12 @@ class ChatService:
             status="ok",
             error=None,
             opensearch_query=image_opensearch_query,
+            extra={
+                "llm_finish_reason": getattr(llm_response, "finish_reason", None),
+                "llm_usage": getattr(llm_response, "usage", None),
+                "llm_endpoint": getattr(llm_response, "endpoint", None),
+                "grounding": grounding_report,
+            },
         )
 
         log_event(
@@ -4405,19 +4486,14 @@ class ChatService:
                 total=results_total,
                 match_section_label="visible_model_view_matches",
             )
-            return build_final_answer_prompt(
+            return self._media_final_prompt(
+                modality="model",
                 museum_slug=search_museum_slug,
                 museum_name=search_museum_name,
-                input_modality="model",
-                mode="rag",
-                intent="model_search",
-                rolling_summary="",
                 filters_state=effective_filters,
                 sort_state=effective_sort,
                 user_message=user_message,
-                rewritten_query=user_message,
                 retrieval_context=limited_retrieval_context,
-                use_history_for_answer=False,
                 language=language,
             )
 
@@ -4433,19 +4509,14 @@ class ChatService:
         effective_filters = dict(state.filters)
         effective_sort = dict(state.sort)
 
-        final_message = build_final_answer_prompt(
+        final_message = self._media_final_prompt(
+            modality="model",
             museum_slug=search_museum_slug,
             museum_name=search_museum_name,
-            input_modality="model",
-            mode="rag",
-            intent="model_search",
-            rolling_summary="",
             filters_state=effective_filters,
             sort_state=effective_sort,
             user_message=user_message,
-            rewritten_query=user_message,
             retrieval_context=retrieval_context,
-            use_history_for_answer=False,
             language=language,
         )
         await self._emit_status(status_cb, "status.generating_final_answer", language=language)
@@ -4459,6 +4530,9 @@ class ChatService:
                 model_override=payload.model_override,
                 visible_result_count=retry_context_result_count,
                 build_message_for_result_count=build_model_final_message_for_result_count,
+                stream_cb_factory=self._final_answer_stream_factory(
+                    status_cb, requested_format, query_id=query_id
+                ),
             )
         except LLMServiceError as exc:
             llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
@@ -4536,6 +4610,13 @@ class ChatService:
             docs=reply_docs,
             language=language,
         )
+        grounding_report = self._grounding_report(
+            reply=final_reply_text,
+            docs=reply_docs,
+            conversation_id=conversation_id,
+            query_id=query_id,
+            user_message=user_message,
+        )
 
         self._apply_router_decision_to_state(state=state, router_decision=router_decision)
         self._update_last_result_ids(
@@ -4581,6 +4662,12 @@ class ChatService:
             status="ok",
             error=None,
             opensearch_query=model_opensearch_query,
+            extra={
+                "llm_finish_reason": getattr(llm_response, "finish_reason", None),
+                "llm_usage": getattr(llm_response, "usage", None),
+                "llm_endpoint": getattr(llm_response, "endpoint", None),
+                "grounding": grounding_report,
+            },
         )
 
         log_event(
@@ -7735,6 +7822,18 @@ class ChatService:
             # «vestidos» ~ «vestido»); só tokens com 3+ letras
             return {re.sub(r"(oes|aes|ao|s)$", "", t) for t in value.split() if len(t) > 2}
 
+        # Todo o texto dos cartões: uma citação de uma inscrição ou de um
+        # trecho da descrição («Caprai, Rua da Misericórdia, 51-53, Lisboa»,
+        # falso positivo real de 2026-09-16) está ancorada mesmo não sendo um
+        # título. Tolera uma palavra mal escrita pelo LLM («Mesericórdia»).
+        card_text_tokens: set[str] = set()
+        for doc in cards:
+            for value in doc.values():
+                items = value if isinstance(value, list) else [value]
+                for item in items:
+                    if isinstance(item, str) and item.strip():
+                        card_text_tokens |= tokens_of(self._fold_query_text(item))
+
         folded_user = self._fold_query_text(user_message or "")
         quoted: list[str] = []
         for pattern in self._QUOTED_TITLE_PATTERNS:
@@ -7745,6 +7844,10 @@ class ChatService:
                 # de peça as expressões curtas, capitalizadas como um título,
                 # que não vêm da pergunta.
                 if len(candidate.split()) > 8 or not candidate[:1].isupper():
+                    continue
+                # Rótulos de formatação («**Nota:**», «**Localização:**»,
+                # falso positivo real de 2026-09-16) não citam nenhuma peça.
+                if candidate.rstrip().endswith(":"):
                     continue
                 if candidate and candidate not in quoted:
                     quoted.append(candidate)
@@ -7764,6 +7867,8 @@ class ChatService:
                 len(candidate_tokens & tokens_of(title)) / len(candidate_tokens | tokens_of(title)) >= 0.6
                 for title in known_titles if title
             ):
+                continue
+            if candidate_tokens and len(candidate_tokens & card_text_tokens) / len(candidate_tokens) >= 0.75:
                 continue
             unmatched_titles.append(candidate)
 

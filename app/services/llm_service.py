@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Awaitable, Callable
 
-from openai import APIError, APITimeoutError, AsyncOpenAI
+import httpx
+from openai import APIConnectionError, APIError, APITimeoutError, AsyncOpenAI
 
 from app.core.config import Settings, get_settings
 from app.core.logging import log_event
@@ -28,6 +29,8 @@ class LLMResponse:
     # servidor os devolve ("stop" | "length" | ...). None = não reportado.
     finish_reason: str | None = None
     usage: dict[str, int] | None = None
+    # "primary" (LLM_BASE_URL) ou "fallback" (LLM_FALLBACK_BASE_URL).
+    endpoint: str = "primary"
 
 
 class LLMService:
@@ -35,12 +38,46 @@ class LLMService:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        timeout = httpx.Timeout(
+            float(self.settings.LLM_TIMEOUT_SECONDS),
+            connect=float(getattr(self.settings, "LLM_CONNECT_TIMEOUT_SECONDS", 5.0) or 5.0),
+        )
         self.client = AsyncOpenAI(
             api_key=self.settings.LLM_API_KEY or "no-key",
             base_url=self.settings.llm_openai_base_url_resolved,
-            timeout=self.settings.LLM_TIMEOUT_SECONDS,
+            timeout=timeout,
             default_headers=self.settings.llm_auth_header or None,
         )
+        # Reserva (ex.: API remota quando o primário é o vLLM local). Só é
+        # usada quando o primário não aceita a ligação — nunca por erros de
+        # conteúdo (JSON inválido, 4xx), que se repetiriam no fallback.
+        self.fallback_client: AsyncOpenAI | None = None
+        self.fallback_model: str | None = (getattr(self.settings, "LLM_FALLBACK_MODEL", "") or "").strip() or None
+        fallback_base = getattr(self.settings, "llm_fallback_openai_base_url_resolved", None)
+        if fallback_base:
+            fallback_key = getattr(self.settings, "LLM_FALLBACK_API_KEY", None) or self.settings.LLM_API_KEY
+            self.fallback_client = AsyncOpenAI(
+                api_key=fallback_key or "no-key",
+                base_url=fallback_base,
+                timeout=float(self.settings.LLM_TIMEOUT_SECONDS),
+                default_headers={"Authorization": f"Bearer {fallback_key}"} if fallback_key else None,
+            )
+
+    def _fallback_payload(self, payload: dict[str, Any], *, model_override: str | None) -> dict[str, Any]:
+        fallback_payload = dict(payload)
+        if self.fallback_model and not model_override:
+            fallback_payload["model"] = self.fallback_model
+        return fallback_payload
+
+    @staticmethod
+    async def _complete(client: Any, payload: dict[str, Any]) -> Any:
+        # `create`, não `parse`: o `parse` do SDK lança LengthFinishReasonError
+        # quando a resposta atinge max_tokens, e essa mensagem («length limit
+        # was reached … CompletionUsage … prompt_tokens») era confundida com
+        # contexto excessivo, disparando até N regenerações completas (medido
+        # em 16-09: 27 s numa pesquisa imagem+texto). O JSON é validado por
+        # _parse_json_output, pelo que o `parse` não acrescentava nada.
+        return await client.chat.completions.create(**payload)
 
     def _resolve_max_tokens(self, format_type: str) -> int | None:
         """Orçamento de saída por tipo de chamada (quick win LLM-04).
@@ -131,13 +168,27 @@ class LLMService:
             max_tokens=payload.get("max_tokens"),
             timeout_seconds=self.settings.LLM_TIMEOUT_SECONDS,
         )
+        endpoint = "primary"
         try:
-            # Prefer parse-style call when available on the configured SDK/client.
-            completions_api = self.client.chat.completions
-            if hasattr(completions_api, "parse"):
-                completion = await completions_api.parse(**payload)
-            else:
-                completion = await completions_api.create(**payload)
+            try:
+                completion = await self._complete(self.client, payload)
+            except APIConnectionError as exc:
+                if self.fallback_client is None:
+                    raise
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "llm.generate.fallback",
+                    model=model,
+                    fallback_model=self._fallback_payload(payload, model_override=model_override)["model"],
+                    duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
+                    error=exc,
+                )
+                endpoint = "fallback"
+                completion = await self._complete(
+                    self.fallback_client,
+                    self._fallback_payload(payload, model_override=model_override),
+                )
         except (APIError, APITimeoutError) as exc:
             duration_ms = (time.perf_counter() - started_at) * 1000
             log_event(
@@ -200,6 +251,7 @@ class LLMService:
             finish_reason=finish_reason,
             prompt_tokens=(usage or {}).get("prompt_tokens"),
             completion_tokens=(usage or {}).get("completion_tokens"),
+            endpoint=endpoint,
             duration_ms=round(duration_ms, 1),
         )
 
@@ -210,6 +262,7 @@ class LLMService:
             parsed_json=parsed_json,
             finish_reason=finish_reason,
             usage=usage,
+            endpoint=endpoint,
         )
 
     async def generate_stream(
@@ -256,8 +309,28 @@ class LLMService:
         finish_reason: str | None = None
         usage: dict[str, int] | None = None
         first_delta_ms: float | None = None
+        endpoint = "primary"
         try:
-            stream = await self.client.chat.completions.create(**payload)
+            try:
+                # Um erro de ligação acontece aqui, antes de qualquer delta —
+                # o fallback nunca mistura texto de dois servidores.
+                stream = await self.client.chat.completions.create(**payload)
+            except APIConnectionError as exc:
+                if self.fallback_client is None:
+                    raise
+                log_event(
+                    logger,
+                    logging.WARNING,
+                    "llm.generate.fallback",
+                    model=model,
+                    stream=True,
+                    duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
+                    error=exc,
+                )
+                endpoint = "fallback"
+                stream = await self.fallback_client.chat.completions.create(
+                    **self._fallback_payload(payload, model_override=model_override)
+                )
             async for chunk in stream:
                 chunk_usage = _extract_usage(chunk)
                 if chunk_usage:
@@ -328,6 +401,7 @@ class LLMService:
             completion_tokens=(usage or {}).get("completion_tokens"),
             first_delta_ms=None if first_delta_ms is None else round(first_delta_ms, 1),
             stream=True,
+            endpoint=endpoint,
             duration_ms=round(duration_ms, 1),
         )
         return LLMResponse(
@@ -337,6 +411,7 @@ class LLMService:
             parsed_json=parsed_json,
             finish_reason=finish_reason,
             usage=usage,
+            endpoint=endpoint,
         )
 
 

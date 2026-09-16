@@ -118,6 +118,13 @@ class Settings(BaseSettings):
     LLM_MAX_TOKENS_TEXT: int | None = None
     LLM_MAX_TOKENS_JSON: int | None = None
     LLM_TIMEOUT_SECONDS: float = 45.0
+    # LLM local (vLLM, deploy/llm/amalia_llm.sh) com a API remota como reserva:
+    # se o servidor primário recusar a ligação (em baixo, a arrancar) o mesmo
+    # pedido segue para o fallback. Vazio = sem fallback (comportamento antigo).
+    LLM_CONNECT_TIMEOUT_SECONDS: float = 5.0
+    LLM_FALLBACK_BASE_URL: str = ""
+    LLM_FALLBACK_MODEL: str = ""
+    LLM_FALLBACK_API_KEY: str | None = None
 
     CHAT_HISTORY_WINDOW: int = 8
     CHAT_SESSION_TTL_SECONDS: int = 3600
@@ -301,6 +308,11 @@ class Settings(BaseSettings):
         return value
 
     IMAGE_ASSET_ROOT: str | None = None
+    # Miniaturas `?w=` em /chat/images (ver app/services/image_thumbnails.py).
+    # Desligado: ignora `w` e serve sempre o original, sem Cache-Control.
+    CHAT_IMAGE_THUMBNAILS: bool = False
+    IMAGE_THUMBNAIL_CACHE_DIR: str | None = None
+    CHAT_IMAGE_CACHE_MAX_AGE_SECONDS: int = 86400
     POI_TOURS_DIR: str | None = None
     MULTIVIEW_WORKER_HOST: str = "127.0.0.1"
     MULTIVIEW_WORKER_PORT: int = 3101
@@ -403,6 +415,15 @@ class Settings(BaseSettings):
         return base
 
     @property
+    def llm_fallback_openai_base_url_resolved(self) -> str | None:
+        base = (self.LLM_FALLBACK_BASE_URL or "").strip().rstrip("/")
+        if not base:
+            return None
+        if base.endswith("/chat/completions"):
+            base = base[: -len("/chat/completions")].rstrip("/")
+        return base
+
+    @property
     def llm_model_resolved(self) -> str:
         if self.LLM_MODEL and self.LLM_MODEL.strip():
             return self.LLM_MODEL.strip()
@@ -470,6 +491,13 @@ class Settings(BaseSettings):
                 return default_root
             return None
         return Path(raw).expanduser().resolve()
+
+    @property
+    def image_thumbnail_cache_dir_resolved(self) -> Path:
+        raw = (self.IMAGE_THUMBNAIL_CACHE_DIR or "").strip()
+        if raw:
+            return Path(raw).expanduser().resolve()
+        return (Path(__file__).resolve().parents[2] / "tmp" / "image_thumbs").resolve()
 
     @property
     def poi_tours_dir_resolved(self) -> Path:

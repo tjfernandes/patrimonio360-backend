@@ -7,7 +7,7 @@ from functools import lru_cache
 import os
 from typing import Any, AsyncIterator, Awaitable, Callable
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.config import get_settings
@@ -27,6 +27,7 @@ from app.schemas.chat import (
     ResponseFormatObject,
 )
 from app.services.chat_service import ChatService, get_chat_service
+from app.services.image_thumbnails import ensure_thumbnail, snap_thumbnail_width
 from app.services.chat_i18n import translate
 
 router = APIRouter()
@@ -500,7 +501,10 @@ async def post_chat_model_message_stream(
 
 
 @router.get("/images/{image_ref:path}")
-async def get_chat_image_asset(image_ref: str) -> FileResponse:
+async def get_chat_image_asset(
+    image_ref: str,
+    w: int | None = Query(default=None, ge=1, le=10000),
+) -> FileResponse:
     settings = get_settings()
     root = settings.image_asset_root_resolved
     if root is None:
@@ -544,5 +548,23 @@ async def get_chat_image_asset(image_ref: str) -> FileResponse:
     elif suffix == ".webp":
         media_type = "image/webp"
 
+    headers: dict[str, str] | None = None
+    if settings.CHAT_IMAGE_THUMBNAILS:
+        headers = {"Cache-Control": f"public, max-age={max(int(settings.CHAT_IMAGE_CACHE_MAX_AGE_SECONDS), 0)}"}
+        width = snap_thumbnail_width(w)
+        if width is not None:
+            try:
+                thumbnail = await asyncio.to_thread(
+                    ensure_thumbnail, Path(target), width, settings.image_thumbnail_cache_dir_resolved
+                )
+            except Exception as exc:  # imagem corrompida, disco cheio: serve o original
+                log_event(
+                    logger, logging.WARNING, "chat.image_asset.thumbnail_error",
+                    image_ref=raw_ref, width=width, error=str(exc),
+                )
+                thumbnail = None
+            if thumbnail is not None:
+                return FileResponse(path=thumbnail, media_type="image/jpeg", headers=headers)
+
     log_event(logger, logging.INFO, "chat.image_asset.serve", image_ref=raw_ref, path=target)
-    return FileResponse(path=Path(target), media_type=media_type)
+    return FileResponse(path=Path(target), media_type=media_type, headers=headers)

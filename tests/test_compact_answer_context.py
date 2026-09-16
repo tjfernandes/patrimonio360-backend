@@ -128,5 +128,54 @@ class TestFinalPromptV2(unittest.TestCase):
         self.assertIn("Es um assistente virtual para uma visita 360 ao museu.", off)
 
 
+class TestMediaPromptAndRetries(unittest.TestCase):
+    def test_v2_image_and_model_notes(self) -> None:
+        image = build_final_answer_prompt_v2(
+            museum_name="MNT", intent="image_search", mode="rag", rolling_summary="", filters_state={},
+            user_message="Encontra semelhantes mas pretos", rewritten_query="Encontra semelhantes mas pretos",
+            retrieval_context="[doc_1] Título: Visite", language="pt", input_modality="image")
+        self.assertIn("TIPO DE RESPOSTA: pesquisa por imagem", image)
+        self.assertIn("Semelhança não prova identidade", image)
+        model = build_final_answer_prompt_v2(
+            museum_name="MNT", intent="model_search", mode="rag", rolling_summary="", filters_state={},
+            user_message="x", rewritten_query="x", retrieval_context="", language="en", input_modality="model")
+        self.assertIn("ANSWER TYPE: 3D model search", model)
+        self.assertIn("views of the uploaded 3D model", model)
+        text = build_final_answer_prompt_v2(
+            museum_name="MNT", intent="search", mode="rag", rolling_summary="", filters_state={},
+            user_message="x", rewritten_query="x", retrieval_context="", language="pt")
+        self.assertNotIn("pesquisa visual", text)
+
+    def test_media_prompt_helper_respects_flag(self) -> None:
+        kwargs = dict(modality="image", museum_slug="mnt", museum_name="MNT", filters_state={}, sort_state={},
+                      user_message="Que peça é esta?", retrieval_context="[doc_1] x", language="pt")
+        self.assertIn("pesquisa por imagem", _service(True)._media_final_prompt(**kwargs))
+        legacy = _service(False)._media_final_prompt(**kwargs)
+        self.assertIn("input_modality: image", legacy)
+
+    def test_compact_context_drops_duplicate_image_json(self) -> None:
+        from app.schemas.chat import ImageMatchResult
+        matches = [ImageMatchResult(original_image_name="a.jpg", artifact_id="art-1", score=0.9, title="Visite", inventory="7619",
+                                    artifact={"title": "Visite", "inventory_number": "7619", "category": "Traje"})]
+        compact = _service(True)._build_visible_results_retrieval_context(
+            artifact_results=[], image_matches=matches, page=1, page_size=8, total=1,
+            match_section_label="visible_image_retrieval_matches")
+        self.assertNotIn("visible_image_retrieval_matches:", compact)
+        self.assertIn("[doc_1] Título: Visite", compact)
+        legacy = _service(False)._build_visible_results_retrieval_context(
+            artifact_results=[], image_matches=matches, page=1, page_size=8, total=1,
+            match_section_label="visible_image_retrieval_matches")
+        self.assertIn("visible_image_retrieval_matches:", legacy)
+
+    def test_output_length_error_is_not_context_overflow(self) -> None:
+        service = _service(True)
+        length_msg = ("LLM request failed: Could not parse response content as the length limit was reached - "
+                      "CompletionUsage(completion_tokens=450, prompt_tokens=3758, total_tokens=4208)")
+        self.assertFalse(service._is_llm_token_limit_error(Exception(length_msg)))
+        overflow = ("This model's maximum context length is 16384 tokens. However, you requested 17000 tokens "
+                    "(16550 in the messages, 450 in the completion).")
+        self.assertTrue(service._is_llm_token_limit_error(Exception(overflow)))
+
+
 if __name__ == "__main__":
     unittest.main()
