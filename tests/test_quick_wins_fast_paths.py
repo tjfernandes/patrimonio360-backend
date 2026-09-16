@@ -394,3 +394,81 @@ class TestGroundingCardText(unittest.TestCase):
             docs=cards, conversation_id="c", query_id="q", user_message="Encontra chapéus de mulher")
         self.assertEqual(report["violations"], 0, report)
         self.assertEqual(report["quoted_titles"], 1)
+
+
+class TestGroundingRepairInventories(unittest.TestCase):
+    CARDS = [
+        {"title": "Caneca", "inventory_number": "71 Cer CMP/ MNSR"},
+        {"title": "Terrina", "inventory_number": "13 Cer CMP/ MNSR"},
+        {"title": "Jarra", "inventory_number": "328 Cer CMP/ MNSR"},
+        {"title": "Traje à marinheiro/Criança", "inventory_number": "15075"},
+    ]
+    # Resposta real de produção (2026-09-16), com os inventários abreviados pelo LLM.
+    REPLY = ("1. **Caneca (Inventário: 71 CMP/MNSR)** – decoração de 1780-1800.\n"
+             "2. **Terrina (Inventário: 13 CMP/MNSR)**\n"
+             "3. **Jarra (Inventário: 328 cer cmp mnsr)**, datada entre 1780 e 1820.")
+
+    def test_repair_restores_exact_card_inventories(self) -> None:
+        service = _service(_settings(CHAT_GROUNDING_CHECK="repair"))
+        fixed = service._sanitize_assistant_reply(self.REPLY, docs=self.CARDS, language="pt")
+        self.assertIn("Inventário: 71 Cer CMP/ MNSR", fixed)
+        self.assertIn("Inventário: 13 Cer CMP/ MNSR", fixed)
+        self.assertIn("Inventário: 328 Cer CMP/ MNSR", fixed)
+        self.assertIn("1780-1800", fixed)
+        self.assertIn("entre 1780 e 1820", fixed)
+        report = service._grounding_report(reply=fixed, docs=self.CARDS, conversation_id="c", query_id="q",
+                                           user_message="peças de 1780 - 1800")
+        self.assertEqual(report["unmatched_inventories"], [], report)
+
+    def test_log_mode_does_not_touch_text(self) -> None:
+        service = _service(_settings(CHAT_GROUNDING_CHECK="log"))
+        fixed = service._sanitize_assistant_reply(self.REPLY, docs=self.CARDS, language="pt")
+        self.assertIn("71 CMP/MNSR", fixed)
+        report = service._grounding_report(reply=fixed, docs=self.CARDS, conversation_id="c", query_id="q",
+                                           user_message="peças de 1780 - 1800")
+        # «328 cer cmp mnsr» só difere em maiúsculas/pontuação: não é violação.
+        self.assertEqual(sorted(report["unmatched_inventories"]), ["13 cmp mnsr", "71 cmp mnsr"])
+        self.assertNotIn("mnsr 3", report["unmatched_inventories"])
+
+    def test_ambiguous_and_short_inventories_are_left_alone(self) -> None:
+        service = _service(_settings(CHAT_GROUNDING_CHECK="repair"))
+        cards = [{"title": "Caneca", "inventory_number": "71 Cer CMP/ MNSR"},
+                 {"title": "Quadro", "inventory_number": "71 Pin CMP/ MNSR"},
+                 {"title": "Blusão", "inventory_number": "15069/1"}]
+        text = "A peça 71 CMP/MNSR e o blusão 15069 estão na sala; também a 71 Pin CMP/ MNSR."
+        fixed = service._sanitize_assistant_reply(text, docs=cards, language="pt")
+        self.assertIn("A peça 71 CMP/MNSR", fixed)          # dois cartões possíveis
+        self.assertIn("blusão 15069 estão", fixed)          # inventário curto: não se adivinha
+        self.assertIn("71 Pin CMP/ MNSR", fixed)            # já exato
+
+    def test_blank_use_ssl_means_auto(self) -> None:
+        self.assertIsNone(_settings(OPENSEARCH_USE_SSL="").OPENSEARCH_USE_SSL)
+        self.assertEqual(_settings(CHAT_GROUNDING_CHECK="REPAIR").CHAT_GROUNDING_CHECK, "repair")
+
+
+class TestGroundingRepairBareNumbers(unittest.TestCase):
+    CARDS = TestGroundingRepairInventories.CARDS + [
+        {"title": "Sarcófago das Quatro Estações", "inventory_number": "88 Esc CMP/ MNSR"},
+        {"title": "Blusão", "inventory_number": "15069/1"},
+        {"title": "Calção", "inventory_number": "15069/2"},
+    ]
+
+    def _fix(self, text: str) -> str:
+        service = _service(_settings(CHAT_GROUNDING_CHECK="repair"))
+        return service._sanitize_assistant_reply(text, docs=self.CARDS, language="pt")
+
+    def test_label_plus_bare_number_is_completed(self) -> None:
+        # Resposta real de produção (2026-09-16, 2.ª variante do LLM).
+        fixed = self._fix("* **Caneca (Inventário: 71)**: datada de 1775-1800.\n* O **Sarcófago** (Inv. 88) está na sala.")
+        self.assertIn("(Inventário: 71 Cer CMP/ MNSR)", fixed)
+        self.assertIn("(Inv. 88 Esc CMP/ MNSR)", fixed)
+        self.assertIn("datada de 1775-1800", fixed)
+
+    def test_idempotent_and_conservative(self) -> None:
+        once = self._fix("Caneca (Inventário: 71 CMP/MNSR) e Jarra (Inventário: 328).")
+        self.assertEqual(self._fix(once), once)
+        self.assertIn("Inventário: 71 Cer CMP/ MNSR)", once)
+        self.assertIn("Inventário: 328 Cer CMP/ MNSR)", once)
+        # Ambíguo (15069/1 e 15069/2) e inventário simples (15075): não mexe.
+        text = "Blusão (Inventário: 15069) e traje (Inventário: 15075)."
+        self.assertEqual(self._fix(text), text)

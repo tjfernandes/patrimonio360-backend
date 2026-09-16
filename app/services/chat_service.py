@@ -7790,7 +7790,100 @@ class ChatService:
         cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
         cleaned = re.sub(r" +([,.;:!?])", r"\1", cleaned)
         cleaned = self._renumber_ordered_list_markers(cleaned)
+        if docs and str(getattr(self.settings, "CHAT_GROUNDING_CHECK", "off") or "off").strip().lower() == "repair":
+            cleaned = self._repair_inventory_mentions(cleaned, docs=docs)
         return cleaned.strip()
+
+    @staticmethod
+    def _inventory_variant_pattern(inventory: str) -> re.Pattern[str] | None:
+        """Padrão das formas abreviadas de um inventário com código de tipo.
+
+        Só para inventários «<número> <Tipo> [CMP] <MUSEU>» (ex.: «71 Cer CMP/
+        MNSR»): número e museu obrigatórios, códigos intermédios opcionais,
+        separadores livres. Inventários curtos («38090», «15069/1») ficam de
+        fora — uma forma abreviada deles não se distingue de outro número.
+        """
+        tokens = re.findall(r"[A-Za-z0-9]+", inventory or "")
+        if len(tokens) < 3 or not tokens[0].isdigit() or not tokens[-1].isalpha():
+            return None
+        if not all(token.isalpha() for token in tokens[1:]):
+            return None
+        separator = r"[\s/._-]*"
+        middle = "".join(f"(?:{separator}{re.escape(token)})?" for token in tokens[1:-1])
+        return re.compile(
+            rf"(?<![\w/.-]){re.escape(tokens[0])}{middle}{separator}{re.escape(tokens[-1])}(?![\w])",
+            flags=re.IGNORECASE,
+        )
+
+    def _repair_inventory_mentions(self, text: str, *, docs: list[dict[str, object]]) -> str:
+        """Modo repair do grounding: repõe o inventário exato do cartão.
+
+        Erro real observado em produção (2026-09-16): o LLM escreveu «71 CMP/MNSR»
+        para o cartão «71 Cer CMP/ MNSR». Só se corrige quando a forma abreviada
+        corresponde a um único cartão visível; ambíguas ficam como estão e o
+        relatório de grounding continua a registá-las.
+        """
+        inventories: list[str] = []
+        for doc in docs:
+            for key in ("inventory_number", "inventory"):
+                value = str(doc.get(key) or "").strip()
+                if value and value not in inventories:
+                    inventories.append(value)
+        candidates: dict[tuple[int, int], set[str]] = {}
+        for inventory in inventories:
+            pattern = self._inventory_variant_pattern(inventory)
+            if pattern is None:
+                continue
+            for match in pattern.finditer(text):
+                candidates.setdefault(match.span(), set()).add(inventory)
+        repairs: list[tuple[str, str]] = []
+        repaired = text
+        for (start, end), options in sorted(candidates.items(), reverse=True):
+            if len(options) != 1:
+                continue
+            canonical = next(iter(options))
+            found = repaired[start:end]
+            if found == canonical:
+                continue
+            repaired = f"{repaired[:start]}{canonical}{repaired[end:]}"
+            repairs.append((found, canonical))
+
+        # Número solto depois de um rótulo de inventário («Inventário: 71»,
+        # «Inv. 88»), variante também vista em produção: completa-se quando um
+        # único cartão tem esse número como primeiro elemento do inventário.
+        by_number: dict[str, set[str]] = {}
+        for inventory in inventories:
+            tokens = re.findall(r"[A-Za-z0-9]+", inventory)
+            if len(tokens) > 1 and tokens[0].isdigit():
+                by_number.setdefault(tokens[0], set()).add(inventory)
+
+        def already_complete(position: int, canonical: str) -> bool:
+            compact = re.sub(r"[^a-z0-9]+", "", canonical.lower())
+            window = re.sub(r"[^a-z0-9]+", "", repaired[position:position + len(canonical) + 8].lower())
+            return window.startswith(compact)
+
+        label_pattern = re.compile(
+            r"\b(?:invent[aá]rio|inv\.?)\s*(?:n\.?\s*[ºo°]\s*)?:?\s*(\d{1,6})(?![\w/-]|\.\w)",
+            flags=re.IGNORECASE,
+        )
+        for match in reversed(list(label_pattern.finditer(repaired))):
+            options = by_number.get(match.group(1), set())
+            if len(options) != 1:
+                continue
+            canonical = next(iter(options))
+            if already_complete(match.start(1), canonical):
+                continue
+            repaired = f"{repaired[:match.start(1)]}{canonical}{repaired[match.end(1):]}"
+            repairs.append((match.group(1), canonical))
+        if repairs:
+            log_event(
+                logger,
+                logging.INFO,
+                "chat.grounding.inventory_repaired",
+                count=len(repairs),
+                repairs=[f"{found} -> {canonical}" for found, canonical in reversed(repairs)][:10],
+            )
+        return repaired
 
     _QUOTED_TITLE_PATTERNS: tuple[str, ...] = (
         r"«([^»]{3,120})»",
@@ -7798,10 +7891,14 @@ class ChatService:
         r"\"([^\"\n]{3,120})\"",
         r"\*\*([^*\n]{3,120})\*\*",
     )
+    # «71 Cer CMP/ MNSR» tem até dois códigos entre o número e o museu.
     _INVENTORY_MENTION_PATTERN = (
         r"\b(?:(?:mnt|mnaz|mnsr|mj|mnaa|mnac|mnaj|mnar|mnap|mnmc)\s*[a-z]{0,3}\s*\d[\w./-]*"
-        r"|\d{2,6}\s+[a-z]{2,4}\s+(?:mnt|mnaz|mnsr|mj))\b"
+        r"|\d{2,6}(?:\s+[a-z]{2,4}){1,2}\s+(?:mnt|mnaz|mnsr|mj))\b"
     )
+    # Um inventário nunca atravessa estes caracteres; sem este corte, o texto
+    # dobrado juntava «… MNSR)**\n3. **Jarra» em «mnsr 3» (falso inventário).
+    _INVENTORY_SEGMENT_BREAKS = r"[\n\r()*,;:|\[\]«»\"“”–—]+"
 
     def _grounding_report(
         self,
@@ -7904,10 +8001,11 @@ class ChatService:
             unmatched_titles.append(candidate)
 
         mentioned_inventories: list[str] = []
-        for match in re.finditer(self._INVENTORY_MENTION_PATTERN, self._fold_query_text(text)):
-            value = match.group(0).strip()
-            if value and value not in mentioned_inventories:
-                mentioned_inventories.append(value)
+        for segment in re.split(self._INVENTORY_SEGMENT_BREAKS, text):
+            for match in re.finditer(self._INVENTORY_MENTION_PATTERN, self._fold_query_text(segment)):
+                value = match.group(0).strip()
+                if value and value not in mentioned_inventories:
+                    mentioned_inventories.append(value)
         unmatched_inventories = [
             value
             for value in mentioned_inventories

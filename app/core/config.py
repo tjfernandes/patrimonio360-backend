@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     CHAT_STREAM_FINAL_ANSWER: bool = False          # tokens da resposta final por SSE
     CHAT_COMPACT_ANSWER_CONTEXT: bool = False       # cartões compactos + prompt final PT v2
     CHAT_INVENTORY_GRAMMAR_V2: bool = False         # «793 Mob MNSR» reconhecido como inventário
-    CHAT_GROUNDING_CHECK: str = "off"               # off | log — verifica títulos/inventários citados
+    # off | log — verifica títulos/inventários citados | repair — log + repõe
+    # inventários abreviados que correspondem a um único cartão («71 CMP/MNSR»)
+    CHAT_GROUNDING_CHECK: str = "off"
     # Router: "llm" = chamada JSON ao 9B em todos os turnos (2,7–2,9 s, estudo);
     # "deterministic" = política de contexto decide (rag salvo small talk;
     # refine se follow-up; filtros só por extração determinística). Nos 146
@@ -210,13 +212,22 @@ class Settings(BaseSettings):
             )
         return normalized
 
+    @field_validator("OPENSEARCH_USE_SSL", mode="before")
+    @classmethod
+    def _blank_use_ssl_is_auto(cls, value: object) -> object:
+        # O .env.example documenta «vazio = automático», mas o pydantic rejeitava
+        # a string vazia e um .env copiado do exemplo não arrancava.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @field_validator("CHAT_GROUNDING_CHECK")
     @classmethod
     def _validate_grounding_check(cls, value: str) -> str:
         normalized = (value or "").strip().lower() or "off"
-        if normalized not in {"off", "log"}:
+        if normalized not in {"off", "log", "repair"}:
             raise ValueError(
-                f"CHAT_GROUNDING_CHECK must be one of ['log', 'off']; got {value!r}"
+                f"CHAT_GROUNDING_CHECK must be one of ['log', 'off', 'repair']; got {value!r}"
             )
         return normalized
 
