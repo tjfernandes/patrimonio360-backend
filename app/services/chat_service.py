@@ -73,7 +73,9 @@ logger = logging.getLogger(__name__)
 # pesquisa como sempre.
 _TOUR_LOCATION_TAIL = r"(?:\s+(?:agora|neste\s+momento|exatamente|na\s+visita|no\s+museu|no\s+mosteiro|right\s+now|now|exactly|in\s+the\s+tour|in\s+the\s+museum))*"
 _TOUR_LOCATION_PATTERNS: tuple[str, ...] = (
-    r"^(?:e\s+)?onde\s+(?:e\s+que\s+)?(?:eu\s+)?(?:estou|me\s+encontro|estamos|nos\s+encontramos)" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:e\s+)?onde\s+(?:e\s+que\s+)?(?:eu\s+)?(?:estou|me\s+encontro|me\s+situo|estamos|nos\s+encontramos)(?:\s+(?:localizad[oa]|situad[oa]|posicionad[oa]|localizados|situados))?" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:em\s+)?(?:que|qual)\s+(?:parte|zona|sitio|lugar|ponto)\s+(?:do\s+(?:museu|mosteiro)|da\s+visita)\s+(?:e\s+que\s+)?(?:eu\s+)?(?:estou|me\s+encontro|estamos)" + _TOUR_LOCATION_TAIL + r"$",
+    r"^onde\s+(?:e\s+que\s+)?(?:fica|e)\s+(?:isto|isso|aqui|este\s+sitio|este\s+lugar)" + _TOUR_LOCATION_TAIL + r"$",
     r"^(?:em\s+)?(?:que|qual)\s+(?:sala|zona|espaco|parte|lugar|sitio|local)(?:\s+do\s+(?:museu|mosteiro))?\s+(?:e\s+que\s+)?(?:eu\s+)?(?:estou|me\s+encontro|estamos|e\s+esta|e\s+este)" + _TOUR_LOCATION_TAIL + r"$",
     r"^(?:que|qual)\s+(?:sala|zona|espaco|lugar|sitio|local)\s+e\s+(?:esta|este|aqui)" + _TOUR_LOCATION_TAIL + r"$",
     r"^qual\s+e\s+(?:a\s+sala|a\s+zona|o\s+espaco|o\s+lugar|o\s+sitio|o\s+local)\s+(?:em\s+que|onde)\s+(?:eu\s+)?(?:estou|me\s+encontro|estamos)" + _TOUR_LOCATION_TAIL + r"$",

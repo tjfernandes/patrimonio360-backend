@@ -111,6 +111,9 @@ class TestDetection(_Base):
                      "Em que sala estou?", "em que sala é que estou", "que sala é esta?", "Qual é a sala em que estou",
                      "o que há nesta sala?", "O que posso ver aqui?", "que peças há nesta sala", "o que é que há por aqui",
                      "que sala é esta no museu", "Where am I?", "which room am I in", "what is in this room?",
+                     # formulação real de produção (2026-09-16) que ia à pesquisa
+                     "onde estou localizado?", "onde é que estou situada", "em que parte do museu estou?",
+                     "em que ponto da visita me encontro", "onde fica isto?", "onde me situo",
                      "what's here", "What can I see here?"]:
             self.assertTrue(service._is_tour_location_query(text), text)
 
