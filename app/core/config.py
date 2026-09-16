@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # turnos de texto do estudo o router LLM nunca produziu filters_delta e as
     # 3 vezes em que escolheu llm_only fora de saudações estava errado.
     CHAT_ROUTER_MODE: str = "llm"
+    # «Onde estou?» / «o que há nesta sala?»: resposta determinística a partir
+    # da posição na visita (metadata.tour_location enviado pelo widget) e dos
+    # ficheiros poi_tours, sem pesquisa nem LLM. Desligado = vai ao router.
+    CHAT_TOUR_LOCATION_ANSWERS: bool = False
     # EXPERIMENTAL, manter desligado: medido em 2026-09-15 sem ganho de tempo
     # (o 9B enche filters_delta com filtros inventados). Ver PLANO_MELHORIAS §3.
     CHAT_ROUTER_COMPACT_SCHEMA: bool = False        # router pede 5 campos em vez de 12

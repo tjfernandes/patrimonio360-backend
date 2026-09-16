@@ -105,6 +105,48 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
             "Tell me what you are looking for: an object, a theme, a period or a maker."
         ),
     },
+    "message.tour_location_unknown": {
+        "pt": (
+            "Ainda não sei em que ponto da visita está: a visita virtual não me indicou a sua posição. "
+            "Avance para um panorama ou abra uma peça e volte a perguntar. Posso, entretanto, procurar peças no acervo."
+        ),
+        "en": (
+            "I don't know where you are yet: the virtual tour hasn't reported your position. "
+            "Move to a panorama or open an object and ask again. Meanwhile, I can search the collection for you."
+        ),
+    },
+    "message.tour_location_here": {
+        "pt": "Está em «{room}».",
+        "en": "You are in \"{room}\".",
+    },
+    "message.tour_location_here_unnamed": {
+        "pt": "Está num ponto da visita sem nome atribuído.",
+        "en": "You are at a point of the tour without an assigned name.",
+    },
+    "message.tour_location_pieces": {
+        "pt": {
+            "one": "Neste ponto da visita está assinalada 1 peça: {pieces}. Abra o cartão para ver a ficha ou peça-me detalhes.",
+            "other": "Neste ponto da visita estão assinaladas {count} peças: {pieces}. Abra um cartão para ver a ficha ou peça-me detalhes sobre uma delas.",
+        },
+        "en": {
+            "one": "At this point of the tour there is 1 highlighted object: {pieces}. Open the card to see the record or ask me for details.",
+            "other": "At this point of the tour there are {count} highlighted objects: {pieces}. Open a card to see the record or ask me for details about one of them.",
+        },
+    },
+    "message.tour_location_room_pieces": {
+        "pt": {
+            "one": "Nesta sala a visita assinala 1 peça: {pieces}. Abra o cartão para ver a ficha ou peça-me detalhes.",
+            "other": "Nesta sala a visita assinala {count} peças: {pieces}. Abra um cartão para ver a ficha ou peça-me detalhes sobre uma delas.",
+        },
+        "en": {
+            "one": "In this room the tour highlights 1 object: {pieces}. Open the card to see the record or ask me for details.",
+            "other": "In this room the tour highlights {count} objects: {pieces}. Open a card to see the record or ask me for details about one of them.",
+        },
+    },
+    "message.tour_location_no_pieces": {
+        "pt": "Esta zona da visita não tem peças assinaladas. Diga-me o que procura e pesquiso no acervo do museu.",
+        "en": "This area of the tour has no highlighted objects. Tell me what you are looking for and I will search the museum's collection.",
+    },
     "message.results_page_template": {
         "pt": {
             "one": "Página {page}: mais 1 peça desta pesquisa ({total} no total). Abra o cartão para ver a ficha ou peça-me detalhes.",

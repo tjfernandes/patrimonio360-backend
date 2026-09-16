@@ -29,7 +29,19 @@ class TourNavigationService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._inventory_index: dict[str, dict[str, list[_TourNavigationEntry]]] = {}
+        # Índices por posição na visita (CHAT_TOUR_LOCATION_ANSWERS): panorama
+        # -> overlays desse panorama; sala (texto dobrado) -> overlays da sala.
+        self._panorama_index: dict[str, dict[str, list[_TourNavigationEntry]]] = {}
+        self._room_index: dict[str, dict[str, list[_TourNavigationEntry]]] = {}
         self._loaded_museums: set[str] = set()
+
+    @staticmethod
+    def _fold_room(value: str | None) -> str:
+        import unicodedata
+
+        normalized = unicodedata.normalize("NFKD", (value or "").casefold())
+        folded = "".join(char for char in normalized if not unicodedata.combining(char))
+        return re.sub(r"[^a-z0-9]+", " ", folded).strip()
 
     def _normalize_inventory(self, raw: str) -> str:
         cleaned = (raw or "").upper().strip()
@@ -80,6 +92,8 @@ class TourNavigationService:
             return
 
         index: dict[str, list[_TourNavigationEntry]] = {}
+        panorama_index: dict[str, list[_TourNavigationEntry]] = {}
+        room_index: dict[str, list[_TourNavigationEntry]] = {}
         loaded_any = False
 
         for file_path in self._mapping_file_candidates(museum_slug=museum_slug, museum_id=museum_id):
@@ -115,25 +129,84 @@ class TourNavigationService:
                 title = str(item.get("title") or "").strip() or None
 
                 for inventory_id in inventory_list:
+                    entry = _TourNavigationEntry(
+                        overlay_id=overlay_id,
+                        panorama_key=panorama_key,
+                        inventory_id=inventory_id,
+                        location=location,
+                        title=title,
+                    )
+                    panorama_index.setdefault(panorama_key, []).append(entry)
+                    if location:
+                        room_index.setdefault(self._fold_room(location), []).append(entry)
                     for candidate in self._extract_candidates(inventory_id):
                         normalized = self._normalize_inventory(candidate)
                         if not normalized:
                             continue
-                        index.setdefault(normalized, []).append(
-                            _TourNavigationEntry(
-                                overlay_id=overlay_id,
-                                panorama_key=panorama_key,
-                                inventory_id=inventory_id,
-                                location=location,
-                                title=title,
-                            )
-                        )
+                        index.setdefault(normalized, []).append(entry)
 
         if loaded_any:
             self._inventory_index[museum_key] = index
+            self._panorama_index[museum_key] = panorama_index
+            self._room_index[museum_key] = room_index
         else:
             self._inventory_index[museum_key] = {}
+            self._panorama_index[museum_key] = {}
+            self._room_index[museum_key] = {}
         self._loaded_museums.add(museum_key)
+
+    def describe_location(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        panorama_key: str | None,
+        room: str | None,
+    ) -> dict[str, Any]:
+        """Peças assinaladas na posição atual da visita.
+
+        Prefere o panorama (posição exata); sem panorama conhecido, ou sem
+        peças nele, cai para a sala. `known` diz se a posição existe nos
+        ficheiros da visita; `room` é o nome da sala resolvido.
+        """
+        self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
+        museum_key = (museum_slug or "").strip().lower()
+        panorama_entries = self._panorama_index.get(museum_key, {}).get((panorama_key or "").strip(), [])
+        resolved_room = (room or "").strip() or None
+        if not resolved_room:
+            resolved_room = next((e.location for e in panorama_entries if e.location), None)
+        room_entries = self._room_index.get(museum_key, {}).get(self._fold_room(resolved_room), []) if resolved_room else []
+
+        def unique_inventories(entries: list[_TourNavigationEntry]) -> list[str]:
+            seen: set[str] = set()
+            ordered: list[str] = []
+            for entry in entries:
+                normalized = self._normalize_inventory(entry.inventory_id)
+                if normalized and normalized not in seen:
+                    seen.add(normalized)
+                    ordered.append(entry.inventory_id)
+            return ordered
+
+        scope = "panorama" if panorama_entries else ("room" if room_entries else "none")
+        chosen = panorama_entries or room_entries
+        return {
+            "known": bool(panorama_entries or room_entries),
+            "scope": scope,
+            "room": resolved_room,
+            "panorama_key": (panorama_key or "").strip() or None,
+            "inventories": unique_inventories(chosen),
+            "room_inventory_count": len(unique_inventories(room_entries)),
+            "targets": [
+                {
+                    "overlay_id": e.overlay_id,
+                    "panorama_key": e.panorama_key,
+                    "inventory_id": e.inventory_id,
+                    "location": e.location,
+                    "title": e.title,
+                }
+                for e in chosen
+            ],
+        }
 
     def resolve_targets(
         self,
