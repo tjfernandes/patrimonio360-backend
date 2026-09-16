@@ -10,6 +10,34 @@ from typing import Any
 from app.core.config import Settings, get_settings
 
 
+_TOUR_ROOMS_PATH = Path(__file__).resolve().parents[1] / "data" / "tour_rooms.json"
+
+
+@lru_cache(maxsize=1)
+def _load_room_descriptions() -> dict[str, dict[str, dict[str, str]]]:
+    """Descrições curadas por museu -> zona (dobrada) -> {description, source}."""
+    try:
+        payload = json.loads(_TOUR_ROOMS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    loaded: dict[str, dict[str, dict[str, str]]] = {}
+    for museum, rooms in (payload.items() if isinstance(payload, dict) else []):
+        if not isinstance(rooms, dict) or str(museum).startswith("_"):
+            continue
+        entries: dict[str, dict[str, str]] = {}
+        for room, meta in rooms.items():
+            if not isinstance(meta, dict):
+                continue
+            description = str(meta.get("description") or "").strip()
+            if description:
+                entries[TourNavigationService._fold_room(room)] = {
+                    "description": description,
+                    "source": str(meta.get("source") or "").strip(),
+                }
+        loaded[str(museum).strip().lower()] = entries
+    return loaded
+
+
 
 @dataclass(frozen=True)
 class _TourNavigationEntry:
@@ -175,8 +203,12 @@ class TourNavigationService:
         self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
         museum_key = (museum_slug or "").strip().lower()
         result: list[dict[str, Any]] = []
+        descriptions = _load_room_descriptions().get(museum_key) or _load_room_descriptions().get(
+            (museum_id or "").strip().lower(), {}
+        )
         for folded, room in self._rooms.get(museum_key, {}).items():
             entries = self._room_index.get(museum_key, {}).get(folded, [])
+            curated = descriptions.get(folded, {})
             inventories: list[str] = []
             seen: set[str] = set()
             for entry in entries:
@@ -190,6 +222,8 @@ class TourNavigationService:
                     "folded": folded,
                     "panorama_keys": list(room["panorama_keys"]),
                     "inventories": inventories,
+                    "description": curated.get("description") or None,
+                    "source": curated.get("source") or None,
                     "targets": [
                         {
                             "overlay_id": e.overlay_id,

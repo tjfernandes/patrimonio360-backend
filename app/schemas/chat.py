@@ -407,6 +407,8 @@ class TourRoomTarget(BaseModel):
     panorama_key: str
     overlay_id: str | None = None
     piece_count: int = 0
+    # Descrição curada (app/data/tour_rooms.json); vazia quando não há evidência.
+    description: str | None = None
 
 
 class ChatMessageResponse(BaseModel):
@@ -423,6 +425,8 @@ class ChatMessageResponse(BaseModel):
     artifact_results: list[ArtifactResult] = Field(default_factory=list)
     navigation_targets: list[TourNavigationTarget] = Field(default_factory=list)
     tour_room: TourRoomTarget | None = None
+    # Lista de zonas da visita («que salas há?»), cada uma com botão de navegação.
+    tour_rooms: list[TourRoomTarget] = Field(default_factory=list)
     results_page: int = 1
     results_page_size: int = 0
     results_total: int = 0

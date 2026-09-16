@@ -284,12 +284,22 @@ class TestRoomQueries(_Base):
     def test_rooms_list_and_unknown_room(self) -> None:
         service = self._service()
         listed = asyncio.run(service.handle_message(self._request("que salas há?")))
-        self.assertIn("4 zonas: Sala da Música, Pátio, Hall, Sala Cantonal", listed.reply)
+        self.assertIn("A visita virtual tem 4 zonas.", listed.reply)
         self.assertIsNone(listed.tour_room)
+        self.assertEqual([r.room for r in listed.tour_rooms], ["Sala da Música", "Pátio", "Hall", "Sala Cantonal"])
+        self.assertEqual([r.piece_count for r in listed.tour_rooms], [3, 0, 2, 2])
+        self.assertEqual(listed.tour_rooms[0].panorama_key, "pan_musica")
+        # descrição curada do ficheiro real (Sala da Música do MNT); as outras ficam vazias
+        self.assertTrue((listed.tour_rooms[0].description or "").startswith("Sala do andar nobre"))
+        self.assertIsNone(listed.tour_rooms[3].description)
+        for text in ["Que outras salas existem?", "há mais salas?", "mostra-me as zonas da visita", "quais são as salas do museu"]:
+            self.assertEqual(service._match_tour_room_query(text, museum_slug="mnt", museum_id="mnt"), {"kind": "list"}, text)
         unknown = asyncio.run(service.handle_message(self._request("e a sala das armas?")))
         self.assertIn("Não encontro nenhuma zona da visita com esse nome", unknown.reply)
-        self.assertIn("Sala Cantonal", unknown.reply)
+        self.assertEqual(len(unknown.tour_rooms), 4)
         self.assertEqual(unknown.artifact_results, [])
+        cantonal = asyncio.run(service.handle_message(self._request("E a sala cantonal?")))
+        self.assertEqual(cantonal.tour_rooms, [])
 
     def test_llm_wording_uses_facts_and_falls_back_to_template(self) -> None:
         settings = Settings(_env_file=None, QUERY_LOG_ENABLED=False, BACKEND_LOG_ENABLED=False,

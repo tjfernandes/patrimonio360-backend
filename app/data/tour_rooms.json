@@ -1,0 +1,58 @@
+{
+  "_descricao": "Descrições curadas das zonas da visita virtual, por museu, com a fonte de cada uma. Só entram zonas com evidência publicada; as restantes ficam sem descrição até haver fonte (ex.: Sala Cantonal, Sala do Arco, Sala Vitrine, salas numeradas do MNSR). A chave é o nome da zona tal como está nos ficheiros poi_tours (comparação sem acentos/maiúsculas). Recolhido em 2026-09-16.",
+  "mnt": {
+    "Salão Nobre": {
+      "description": "Sala de aparato do andar nobre do Palácio Angeja-Palmela, onde se destaca o teto abobadado e a profusa decoração rocaille dos estuques, com temas ligados à história natural e alegorias às quatro estações.",
+      "source": "https://pt.wikipedia.org/wiki/Museu_Nacional_do_Traje"
+    },
+    "Sala Chinioiserie": {
+      "description": "A sala oriental do palácio, conhecida pelas pinturas ornamentais com «chinoiseries», o gosto pelo Oriente em voga no século XVIII.",
+      "source": "https://pt.wikipedia.org/wiki/Museu_Nacional_do_Traje"
+    },
+    "Sala da Música": {
+      "description": "Sala do andar nobre do palácio, decorada com pinturas a fresco.",
+      "source": "https://pt.wikipedia.org/wiki/Museu_Nacional_do_Traje"
+    },
+    "Sala das Bandeiras": {
+      "description": "Sala do andar nobre do palácio, decorada com pinturas a fresco.",
+      "source": "https://pt.wikipedia.org/wiki/Museu_Nacional_do_Traje"
+    }
+  },
+  "mj": {
+    "Igreja": {
+      "description": "Igreja de Santa Maria de Belém: planta em cruz latina com três naves à mesma altura (igreja-salão), cobertas por uma extensa abóbada polinervada apoiada em seis pilares.",
+      "source": "https://pt.wikipedia.org/wiki/Mosteiro_dos_Jer%C3%B3nimos"
+    },
+    "Capela-Mor": {
+      "description": "Traçada por Jerónimo de Ruão em 1571, em estilo maneirista, por encomenda de D. Catarina. Guarda os túmulos de D. Manuel I e D. Maria e de D. João III e D. Catarina, nas arcadas entre as colunas.",
+      "source": "https://pt.wikipedia.org/wiki/Mosteiro_dos_Jer%C3%B3nimos"
+    },
+    "Capela dos filhos de D. Manuel I": {
+      "description": "Capela do transepto onde estão sepultados o Cardeal-Rei D. Henrique e filhos de D. Manuel I.",
+      "source": "https://pt.wikipedia.org/wiki/Mosteiro_dos_Jer%C3%B3nimos"
+    },
+    "Capela dos filhos de D. João III": {
+      "description": "Capela do transepto com o túmulo de D. Sebastião e sepulturas de descendentes de D. João III.",
+      "source": "https://pt.wikipedia.org/wiki/Mosteiro_dos_Jer%C3%B3nimos"
+    },
+    "Claustro Terreo": {
+      "description": "Piso térreo do claustro quinhentista, de dois pisos abobadados, projetado por Diogo de Boitaca e adaptado por João de Castilho; primeira obra do género em Portugal e síntese do gótico tardio com o renascimento.",
+      "source": "https://pt.wikipedia.org/wiki/Mosteiro_dos_Jer%C3%B3nimos"
+    },
+    "Sala do Capítulo": {
+      "description": "Concluída apenas em 1886, guarda o túmulo de Alexandre Herculano, esculpido por Eduardo Augusto da Silva em 1888.",
+      "source": "https://pt.wikipedia.org/wiki/Mosteiro_dos_Jer%C3%B3nimos"
+    },
+    "Refeitório": {
+      "description": "Antigo refeitório dos monges, construído em 1517-1518, com abóbada polinervada abatida e paredes revestidas de azulejos de 1780-1785.",
+      "source": "https://pt.wikipedia.org/wiki/Mosteiro_dos_Jer%C3%B3nimos"
+    }
+  },
+  "mnaz": {
+    "Grande Panorama de Lisboa": {
+      "description": "Painel de azulejos com 23 metros de comprimento, da autoria do mestre espanhol Gabriel del Barco (1649-1703), que retrata a cidade antes do terramoto de 1755. Veio do Palácio dos Condes de Tentúgal, em Alfama, e é o n.º 1 do inventário do museu.",
+      "source": "https://maislisboa.fcsh.unl.pt/percurso-rocambulesco-do-grande-panorama-lisboa/"
+    }
+  },
+  "mnsr": {}
+}

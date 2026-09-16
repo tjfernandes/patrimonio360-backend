@@ -92,9 +92,12 @@ _TOUR_LOCATION_PATTERNS: tuple[str, ...] = (
 
 # «que salas há?» / «quais são as zonas da visita?»
 _TOUR_ROOMS_LIST_PATTERNS: tuple[str, ...] = (
-    r"^(?:e\s+)?(?:que|quais)\s+(?:sao\s+as\s+|as\s+)?(?:salas|zonas|espacos|areas|partes)(?:\s+(?:e\s+que\s+)?(?:ha|existem|tem|posso\s+ver|posso\s+visitar|se\s+podem\s+visitar))?(?:\s+(?:na|da|nesta|desta)\s+visita|\s+(?:no|do|neste|deste)\s+(?:museu|mosteiro))?" + _TOUR_LOCATION_TAIL + r"$",
-    r"^(?:que|quais)\s+(?:salas|zonas|espacos)\s+(?:e\s+que\s+)?(?:a\s+visita|o\s+museu|o\s+mosteiro)\s+tem" + _TOUR_LOCATION_TAIL + r"$",
-    r"^(?:which|what)\s+(?:rooms|areas|spaces)\s+(?:are\s+there|can\s+i\s+(?:see|visit)|does\s+the\s+(?:tour|museum)\s+have)(?:\s+in\s+the\s+(?:tour|museum))?" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:e\s+)?(?:que|quais)\s+(?:sao\s+as\s+|as\s+)?(?:outras\s+|mais\s+|restantes\s+)?(?:salas|zonas|espacos|areas|partes|divisoes)(?:\s+(?:e\s+que\s+)?(?:ha|existem|tem|posso\s+ver|posso\s+visitar|se\s+podem\s+visitar|estao\s+disponiveis))?(?:\s+(?:na|da|nesta|desta)\s+visita|\s+(?:no|do|neste|deste)\s+(?:museu|mosteiro|palacio))?" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:que|quais)\s+(?:outras\s+|mais\s+)?(?:salas|zonas|espacos)\s+(?:e\s+que\s+)?(?:a\s+visita|o\s+museu|o\s+mosteiro)\s+tem" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:ha|existem|tem)\s+(?:outras|mais)\s+(?:salas|zonas|espacos)(?:\s+(?:na|da)\s+visita|\s+(?:no|do)\s+(?:museu|mosteiro))?" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:mostra|lista|diz)(?:\s+me)?\s+(?:as|todas\s+as)\s+(?:salas|zonas)(?:\s+(?:da|desta)\s+visita|\s+(?:do|deste)\s+(?:museu|mosteiro))?" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:which|what)\s+(?:other\s+|more\s+)?(?:rooms|areas|spaces)\s+(?:are\s+there|exist|can\s+i\s+(?:see|visit)|does\s+the\s+(?:tour|museum)\s+have)(?:\s+in\s+the\s+(?:tour|museum))?" + _TOUR_LOCATION_TAIL + r"$",
+    r"^(?:are\s+there|is\s+there)\s+(?:any\s+)?(?:other|more)\s+(?:rooms|areas)(?:\s+in\s+the\s+(?:tour|museum))?" + _TOUR_LOCATION_TAIL + r"$",
 )
 # Palavras que podem sobrar numa pergunta sobre uma zona da visita depois de
 # retirar o nome da zona; qualquer outra («vestidos») faz dela uma pesquisa.
@@ -4959,17 +4962,30 @@ class ChatService:
         museum_id = self._resolve_museum_id(payload)
         await self._emit_status(status_cb, "status.analyzing_request", language=language)
         rooms = self.tour_navigation_service.list_rooms(museum_slug=museum_slug, museum_id=museum_id)
-        room_names = [r["room"] for r in rooms]
+        room_targets = [
+            TourRoomTarget(
+                room=str(r["room"]),
+                panorama_key=str(r["panorama_keys"][0]),
+                overlay_id=None,
+                piece_count=len(r.get("inventories") or []),
+                description=r.get("description"),
+            )
+            for r in rooms
+            if r.get("panorama_keys")
+        ]
         described: dict[str, Any] = {"known": False, "scope": "none", "room": None, "inventories": [], "targets": []}
         tour_room: TourRoomTarget | None = None
+        tour_rooms: list[TourRoomTarget] = []
         facts: list[str] | None = None
         pieces_key: str | None = None
         kind = room_query.get("kind")
         if kind == "list":
-            intro = translate("message.tour_rooms_list", language, count=len(room_names), rooms=", ".join(room_names))
+            intro = translate("message.tour_rooms_list", language, count=len(room_targets))
+            tour_rooms = room_targets
             room_name = None
         elif kind == "unknown":
-            intro = translate("message.tour_room_unknown", language, rooms=", ".join(room_names))
+            intro = translate("message.tour_room_unknown", language)
+            tour_rooms = room_targets
             room_name = None
         else:
             room_name = str(room_query.get("room") or "")
@@ -4981,14 +4997,18 @@ class ChatService:
                 "targets": list(room_query.get("targets") or []),
             }
             panorama_keys = list(room_query.get("panorama_keys") or [])
+            description = str(room_query.get("description") or "").strip() or None
             if panorama_keys:
                 tour_room = TourRoomTarget(
                     room=room_name,
                     panorama_key=panorama_keys[0],
                     overlay_id=None,
                     piece_count=len(described["inventories"]),
+                    description=description,
                 )
             intro = translate("message.tour_room_intro", language, room=room_name)
+            if description:
+                intro = f"{intro} {description}"
             pieces_key = "message.tour_location_room_pieces"
             en = normalize_language(language) == "en"
             facts = [
@@ -4997,6 +5017,11 @@ class ChatService:
                 ("The visitor can go there with the button under the answer" if en
                  else "O visitante pode ir até lá com o botão que aparece por baixo da resposta"),
             ]
+            if description:
+                facts.append(
+                    (f"Curated description of the area: {description}" if en
+                     else f"Descrição curada da zona: {description}")
+                )
         return await self._finish_tour_context_answer(
             payload=payload,
             state=state,
@@ -5013,6 +5038,7 @@ class ChatService:
             facts=facts,
             fast_path="tour_room",
             tour_room=tour_room,
+            tour_rooms=tour_rooms,
             log_extra={
                 "tour_room": {
                     "kind": kind,
@@ -5020,6 +5046,7 @@ class ChatService:
                     "asked": room_query.get("name"),
                     "inventories": list(described.get("inventories") or []),
                     "panorama_key": tour_room.panorama_key if tour_room else None,
+                    "rooms_listed": len(tour_rooms),
                 }
             },
         )
@@ -5043,6 +5070,7 @@ class ChatService:
         fast_path: str,
         tour_room: TourRoomTarget | None,
         log_extra: dict[str, Any],
+        tour_rooms: list[TourRoomTarget] | None = None,
     ) -> ChatMessageResponse:
         """Parte comum das respostas de contexto da visita (posição, zona).
 
@@ -5284,6 +5312,7 @@ class ChatService:
             artifact_results=paged_artifacts,
             navigation_targets=paged_targets,
             tour_room=tour_room,
+            tour_rooms=list(tour_rooms or []),
             results_page=results_page,
             results_page_size=results_page_size,
             results_total=results_total,

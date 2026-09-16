@@ -152,17 +152,17 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "en": "You can go there with the button below.",
     },
     "message.tour_room_unknown": {
-        "pt": "Não encontro nenhuma zona da visita com esse nome. As zonas da visita são: {rooms}.",
-        "en": "I can't find a tour area with that name. The tour areas are: {rooms}.",
+        "pt": "Não encontro nenhuma zona da visita com esse nome. Estas são as zonas da visita; escolha uma e levo-o até lá.",
+        "en": "I can't find a tour area with that name. These are the tour areas; pick one and I will take you there.",
     },
     "message.tour_rooms_list": {
         "pt": {
-            "one": "A visita virtual tem 1 zona: {rooms}.",
-            "other": "A visita virtual tem {count} zonas: {rooms}. Diga-me qual quer ver e levo-o até lá.",
+            "one": "A visita virtual tem 1 zona. Pode ir até lá com o botão abaixo.",
+            "other": "A visita virtual tem {count} zonas. Escolha uma e levo-o até lá.",
         },
         "en": {
-            "one": "The virtual tour has 1 area: {rooms}.",
-            "other": "The virtual tour has {count} areas: {rooms}. Tell me which one you want and I will take you there.",
+            "one": "The virtual tour has 1 area. You can go there with the button below.",
+            "other": "The virtual tour has {count} areas. Pick one and I will take you there.",
         },
     },
     "message.tour_location_no_pieces": {
