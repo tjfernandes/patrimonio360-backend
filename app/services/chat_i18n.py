@@ -105,6 +105,14 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
             "Tell me what you are looking for: an object, a theme, a period or a maker."
         ),
     },
+    "message.smalltalk_thanks_reply": {
+        "pt": "De nada! Se quiser, continue a explorar: diga-me uma peça, um tema, uma época ou um autor.",
+        "en": "You're welcome! Keep exploring if you like: name an object, a theme, a period or a maker.",
+    },
+    "message.smalltalk_bye_reply": {
+        "pt": "Até à próxima! Boa visita.",
+        "en": "See you next time! Enjoy the tour.",
+    },
     "message.tour_location_unknown": {
         "pt": (
             "Ainda não sei em que ponto da visita está: a visita virtual não me indicou a sua posição. "

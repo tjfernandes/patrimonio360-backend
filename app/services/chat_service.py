@@ -181,7 +181,9 @@ _SMALLTALK_WORDS = frozenset(
     "good morning afternoon evening night how are doing everything all fine great nice cool yes yep nope "
     "i am im its it is this that so well right".split()
 )
-_SMALLTALK_PREFIX = re.compile(r"^(?:(?:ola|oi|hey|hello|hi|boas|bom dia|boa tarde|boa noite|amalia|obrigado|obrigada|ok|entao|e|por favor)s+)*")
+_SMALLTALK_THANKS_WORDS = frozenset("obrigado obrigada obrigadinho obrigadinha agradecido agradecida valeu brigado thanks thank thx ty cheers".split())
+_SMALLTALK_BYE_WORDS = frozenset("adeus tchau xau bye goodbye".split())
+_SMALLTALK_PREFIX = re.compile(r"^(?:(?:ola|oi|hey|hello|hi|boas|bom dia|boa tarde|boa noite|amalia|obrigado|obrigada|ok|entao|e|por favor)\s+)*")
 _SMALLTALK_PATTERNS: tuple[str, ...] = (
     r"quem (?:es|e) (?:tu|voce|voces|a amalia|amalia|o assistente)(?: afinal)?",
     r"(?:o )?que (?:podes|pode|sabes|sabe|consegues|consegue|e que podes|e que sabes)(?: tu)? fazer(?: por mim)?",
@@ -5598,7 +5600,14 @@ class ChatService:
         retrieval_mode=none — mas sem qualquer chamada ao LLM. O evento leva
         `fast_path="smalltalk"` e `latency_llm_ms=0` para ser distinguível.
         """
-        reply = translate("message.smalltalk_reply", language)
+        # «obrigado» e «adeus» não se respondem com «Olá!»
+        tokens = set(self._fold_query_text(payload.message).split())
+        if tokens & _SMALLTALK_THANKS_WORDS:
+            reply = translate("message.smalltalk_thanks_reply", language)
+        elif tokens & _SMALLTALK_BYE_WORDS:
+            reply = translate("message.smalltalk_bye_reply", language)
+        else:
+            reply = translate("message.smalltalk_reply", language)
         router_decision: dict[str, object] = {
             "mode": "llm_only",
             "intent": "fallback",
