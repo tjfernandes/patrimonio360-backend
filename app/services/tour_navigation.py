@@ -380,8 +380,8 @@ class TourNavigationService:
     ) -> dict[str, Any]:
         """Peças assinaladas na posição atual da visita.
 
-        Prefere o panorama (posição exata); sem panorama conhecido, ou sem
-        peças nele, cai para a sala. `known` diz se a posição existe nos
+        Responde pela sala inteira (peças do panorama atual primeiro); sem
+        sala conhecida fica pelo panorama. `known` diz se a posição existe nos
         ficheiros da visita; `room` é o nome da sala resolvido.
         """
         self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
@@ -420,14 +420,25 @@ class TourNavigationService:
                     ordered.append(entry.inventory_id)
             return ordered
 
-        scope = "panorama" if panorama_entries else ("room" if room_entries else "none")
-        chosen = panorama_entries or room_entries
+        # «Onde estou?» responde pela sala inteira: uma sala tem vários
+        # panoramas e cada um só mostra alguns hotspots, por isso listar só os
+        # do panorama dava respostas diferentes dentro da mesma sala. As peças
+        # deste ponto vêm primeiro; o resto da sala a seguir. Só sem sala
+        # conhecida é que a resposta fica pelo panorama.
+        if room_entries:
+            scope = "room"
+            here = {id(e) for e in panorama_entries}
+            chosen = list(panorama_entries) + [e for e in room_entries if id(e) not in here]
+        else:
+            scope = "panorama" if panorama_entries else "none"
+            chosen = panorama_entries
         return {
             "known": bool(panorama_entries or room_entries or place is not None),
             "scope": scope,
             "room": resolved_room,
             "panorama_key": (panorama_key or "").strip() or None,
             "inventories": unique_inventories(chosen),
+            "panorama_inventories": unique_inventories(panorama_entries),
             "room_inventory_count": len(unique_inventories(room_entries)),
             "targets": [
                 {

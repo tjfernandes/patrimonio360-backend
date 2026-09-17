@@ -169,14 +169,16 @@ class TestDescribeLocation(_Base):
         # O tour manda o título do panorama («Sala da Música 12»); a zona é a do ficheiro.
         described = self.nav.describe_location(museum_slug="mnt", museum_id="mnt", panorama_key="pan_musica", room="Sala da Música 12")
         self.assertEqual(described["room"], "Sala da Música")
-        self.assertEqual(described["scope"], "panorama")
+        self.assertEqual(described["scope"], "room")
 
     def test_panorama_with_pieces(self) -> None:
         described = self.nav.describe_location(museum_slug="mnt", museum_id="mnt", panorama_key="pan_musica", room=None)
         self.assertTrue(described["known"])
-        self.assertEqual(described["scope"], "panorama")
+        # a sala inteira, com as peças deste panorama à frente
+        self.assertEqual(described["scope"], "room")
         self.assertEqual(described["room"], "Sala da Música")
-        self.assertEqual(described["inventories"], ["19663", "5262"])
+        self.assertEqual(described["panorama_inventories"], ["19663", "5262"])
+        self.assertEqual(described["inventories"], ["19663", "5262", "38090"])
         self.assertEqual(described["room_inventory_count"], 3)
 
     def test_rooms_and_find_room(self) -> None:
@@ -216,26 +218,28 @@ class TestFastPath(_Base):
         with self.assertRaises(_RouterCalled):
             asyncio.run(service.handle_message(self._request("Onde estou?", {"panorama_key": "pan_musica"})))
 
-    def test_known_panorama_lists_pieces_in_tour_order(self) -> None:
+    def test_known_panorama_lists_whole_room_current_panorama_first(self) -> None:
         service = self._service()
         response = asyncio.run(service.handle_message(
             self._request("Onde estou?", {"panorama_key": "pan_musica", "room": "Sala da Música"}, conversation_id="c1")))
         self.assertEqual(response.model_hint, "deterministic:tour_location")
         self.assertIn("Está em «Sala da Música».", response.reply)
-        self.assertIn("2 peças", response.reply)
+        # a sala inteira (3 peças), não só os hotspots deste panorama (2);
+        # as do panorama atual vêm primeiro
+        self.assertIn("3 peças", response.reply)
         self.assertLess(response.reply.index("Barrete"), response.reply.index("Leque"))
-        self.assertEqual([a.inventory_number for a in response.artifact_results], ["19663", "5262"])
-        self.assertEqual({t.panorama_key for t in response.navigation_targets}, {"pan_musica"})
-        self.assertEqual(sorted(t.inventory_id for t in response.navigation_targets), ["19663", "5262"])
-        self.assertEqual(service.opensearch_gateway.inventory_calls, [["19663", "5262"]])
+        self.assertLess(response.reply.index("Leque"), response.reply.index("Chapéu"))
+        self.assertEqual([a.inventory_number for a in response.artifact_results], ["19663", "5262", "38090"])
+        self.assertEqual(sorted(t.inventory_id for t in response.navigation_targets), ["19663", "38090", "5262"])
+        self.assertEqual(service.opensearch_gateway.inventory_calls, [["19663", "5262", "38090"]])
         event = service.query_logger.events[-1]
         self.assertEqual(event["retrieval_mode"], "tour_location")
         self.assertEqual(event["fast_path"], "tour_location")
         self.assertEqual(event["latency_llm_ms"], 0.0)
-        self.assertEqual(event["tour_location"]["scope"], "panorama")
-        self.assertEqual([a["inventory_number"] for a in event["shown_artifacts"]], ["19663", "5262"])
+        self.assertEqual(event["tour_location"]["scope"], "room")
+        self.assertEqual([a["inventory_number"] for a in event["shown_artifacts"]], ["19663", "5262", "38090"])
         state = service.session_store.get("c1")
-        self.assertEqual(state.last_result_ids, ["a-19663", "a-5262"])
+        self.assertEqual(state.last_result_ids, ["a-19663", "a-5262", "a-38090"])
         self.assertEqual([t.role for t in state.history], ["user", "assistant"])
 
     def test_room_fallback_and_empty_area(self) -> None:
