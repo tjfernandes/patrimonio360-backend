@@ -75,12 +75,14 @@ class TestImplicitArtifactWiring(_Base):
 
         async def fake(payload, *, status_cb=None):
             seen["metadata"] = payload.metadata
+            seen["message"] = payload.message
             return ChatMessageResponse(reply="ok")
 
         service._handle_message_with_selection = fake
         request = self._request(message)
         request.metadata.update({"visible_artifacts": VISIBLE, "context_artifact": FIRST})
         response = asyncio.run(service.handle_message(request))
+        self.last_message = seen["message"]
         return response, seen["metadata"]
 
     def test_resolved_piece_is_injected_and_reported(self) -> None:
@@ -88,6 +90,12 @@ class TestImplicitArtifactWiring(_Base):
         self.assertEqual(metadata["selected_artifact"]["artifact_id"], "a2")
         self.assertEqual(response.subject_artifact.artifact_id, "a2")
         self.assertEqual(response.subject_artifact.resolved_by, "ordinal")
+        # o LLM fica a saber de que peça se trata
+        self.assertIn("«Vestido (duas peças)/Feminino» (5622)", self.last_message)
+
+    def test_context_question_is_not_rewritten(self) -> None:
+        self._run(True, "De que é feito?")
+        self.assertEqual(self.last_message, "De que é feito?")
 
     def test_new_search_goes_without_piece(self) -> None:
         response, metadata = self._run(True, "Encontra chapéus de mulher")

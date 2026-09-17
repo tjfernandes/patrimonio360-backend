@@ -2874,7 +2874,21 @@ class ChatService:
                     "title": subject.get("title"),
                     "source": f"implicit_{subject['resolved_by']}",
                 }
-                payload = payload.model_copy(update={"metadata": kept})
+                update: dict[str, Any] = {"metadata": kept}
+                if subject["resolved_by"] in {"ordinal", "inventory", "title"}:
+                    # «E o segundo?» chega ao LLM à letra e ele não sabe que «o
+                    # segundo» é esta peça: diz-se qual é, na própria pergunta.
+                    label = " ".join(
+                        part for part in (
+                            f"«{subject['title']}»" if subject.get("title") else None,
+                            f"({subject['inventory_number']})" if subject.get("inventory_number") else None,
+                        ) if part
+                    )
+                    if label:
+                        english = normalize_language(payload.language) == "en"
+                        note = f"(I mean the object {label})" if english else f"(refiro-me à peça {label})"
+                        update["message"] = f"{(payload.message or '').rstrip()} {note}"
+                payload = payload.model_copy(update=update)
         elif selected and bool(getattr(self.settings, "CHAT_SELECTED_ARTIFACT_AUTO_RELEASE", False)):
             decision = self._selected_artifact_decision(
                 payload.message, museum_slug=payload.museum_slug, museum_id=payload.museum_id
