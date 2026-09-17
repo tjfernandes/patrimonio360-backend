@@ -165,6 +165,36 @@ _SELECTED_FILLER_WORDS = frozenset(
     "the an of in on for with and or but to me please some something anything about more tell".split()
 )
 
+# Conversa sem pedido: saudações, cortesia, vocativos e enchimento. Uma
+# mensagem só com estas palavras não vai à pesquisa.
+_SMALLTALK_WORDS = frozenset(
+    "ola oi hey hello hi hej alo viva ei ola bom boa dia tarde noite bons dias tardes noites tudo bem bom otimo "
+    "fixe porreiro top boas bemvindo bem vindo vinda "
+    "obrigado obrigada obrigadinho obrigadinha agradecido agradecida valeu brigado thanks thank you thx ty cheers "
+    "adeus tchau xau ate logo breve amanha ja depois bye goodbye see later "
+    "como estas esta estao vai vais anda andas sentes te sente vao correm as coisas isso por ai contigo consigo "
+    "voces tu voce a o e um uma e que quem sou es sim nao ok okay okey certo claro pois entao enfim ah oh eh uau "
+    "wow hmm hum hm ha ha haha lol xd kk desculpa desculpe perdao lamento sorry please favor "
+    "irmao irma mano mana amigo amiga amigos parceiro parceira colega chefe pessoal malta gente bro sis mate "
+    "dude man buddy friend folks amalia there very much "
+    "muito mesmo bastante tambem ainda hoje agora aqui la ca eu me mim meu minha nos nosso nossa "
+    "good morning afternoon evening night how are doing everything all fine great nice cool yes yep nope "
+    "i am im its it is this that so well right".split()
+)
+_SMALLTALK_PREFIX = re.compile(r"^(?:(?:ola|oi|hey|hello|hi|boas|bom dia|boa tarde|boa noite|amalia|obrigado|obrigada|ok|entao|e|por favor)s+)*")
+_SMALLTALK_PATTERNS: tuple[str, ...] = (
+    r"quem (?:es|e) (?:tu|voce|voces|a amalia|amalia|o assistente)(?: afinal)?",
+    r"(?:o )?que (?:podes|pode|sabes|sabe|consegues|consegue|e que podes|e que sabes)(?: tu)? fazer(?: por mim)?",
+    r"(?:o que|que|como|em que) (?:e que )?(?:me )?(?:podes|pode|posso|consegues|consegue) (?:te )?(?:ajudar|perguntar|pedir)(?: me)?",
+    r"(?:podes|pode|consegues|conseguem) (?:me )?ajudar(?: me)?",
+    r"(?:preciso|precisava|precisamos) de ajuda",
+    r"ajuda(?: me)?",
+    r"who are you",
+    r"what can you do(?: for me)?",
+    r"(?:can|could) you help(?: me)?",
+    r"i need help",
+)
+
 _TOUR_WHERE_TO_GO_PATTERN = re.compile(
     r"^(?:e\s+)?(?:(?:por|para|a|ate)\s+)?(?:a?onde|where)\s+(?:e\s+que\s+|mais\s+|else\s+)?"
     r"(?:eu\s+)?(?:posso|podemos|pode|se\s+pode|da\s+para|devo|can\s+i|can\s+we|could\s+i|should\s+i)\s+"
@@ -2837,7 +2867,11 @@ class ChatService:
         try:
             if (
                 self._is_tour_location_query(message)
-                or self._is_obvious_greeting_or_smalltalk(message)
+                # «O que é?» com uma peça em foco é sobre ela, não small talk:
+                # só conta como conversa se não houver interrogativo
+                or (self._is_obvious_greeting_or_smalltalk(message)
+                    and not any(t in _SELECTED_INTERROGATIVES for t in tokens))
+                or any(re.fullmatch(p, _SMALLTALK_PREFIX.sub("", folded)) for p in _SMALLTALK_PATTERNS)
                 or self._match_tour_room_query(message, museum_slug=museum_slug, museum_id=museum_id) is not None
             ):
                 return "release"
@@ -5689,30 +5723,26 @@ class ChatService:
         )
 
     def _is_obvious_greeting_or_smalltalk(self, message: str) -> bool:
-        greetings = {
-            "ola",
-            "olá",
-            "oi",
-            "bom dia",
-            "boa tarde",
-            "boa noite",
-            "tudo bem",
-            "como estas",
-            "como estás",
-            "hello",
-            "hi",
-            "hey",
-            "good morning",
-            "good afternoon",
-            "good evening",
-            "how are you",
-        }
-        folded_message = self._fold_query_text(message)
-        folded_greetings = {
-            self._fold_query_text(greeting)
-            for greeting in greetings
-        }
-        return bool(folded_message and folded_message in folded_greetings)
+        """Saudação, agradecimento, despedida ou conversa sem pedido («olá
+        irmão», «tudo bem contigo?», «obrigado!», «ok», «quem és tu?»).
+
+        Por estrutura, não por lista de frases: basta que nenhuma palavra seja
+        de conteúdo (tudo saudação, vocativo, cortesia ou enchimento). Assim
+        «olá, encontra vestidos» continua a ser pesquisa. Medido a 2026-09-17:
+        «olá irmão» ia para a pesquisa e o LLM inventava três peças.
+        """
+        folded = self._fold_query_text(message)
+        if not folded:
+            return False
+        tokens = folded.split()
+        if len(tokens) > 12:
+            return False
+        if all(t in _SMALLTALK_WORDS for t in tokens):
+            return True
+        # «quem és tu?», «o que sabes fazer?», «podes ajudar-me?»: pedido de
+        # ajuda ou apresentação, sem assunto do acervo
+        core = _SMALLTALK_PREFIX.sub("", folded)
+        return any(re.fullmatch(pattern, core) for pattern in _SMALLTALK_PATTERNS)
 
     def _fallback_router_decision(
         self,
