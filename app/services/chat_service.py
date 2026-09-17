@@ -106,14 +106,32 @@ _TOUR_ROOM_QUESTION_WORDS = frozenset(
     "what is in the there room area take go to show tell about where can i see are which objects pieces works "
     "lets let s and visit please me us how do get find search look for locate open navigate bring".split()
 )
-# «encontra as salas deste museu», «que outras salas existem?», «mostra-me as zonas»
-_TOUR_AREA_NOUNS = frozenset(
-    "sala salas zona zonas espaco espacos divisao divisoes area areas lugar lugares sitio sitios local locais "
-    "parte partes room rooms space spaces place places".split()
+# Lista das zonas, por estrutura e não por lista fechada de frases (medido a
+# 2026-09-17 em 33 formulações: a lista fechada apanhava 13, o LLM local 18–25
+# conforme o prompt — falhava até «Lista as salas»). Regra: um nome de zona no
+# PLURAL (ou «mapa») é o assunto do pedido — antes dele pode vir qualquer verbo
+# («listas», «podes enumerar», «indica-me»), desde que não seja «X de salas»;
+# depois dele só palavras de enquadramento («do museu», «posso visitar»). Pedir
+# peças, ou qualquer outra palavra a seguir («salas com vestidos»), é pesquisa.
+_TOUR_AREA_PLURALS = frozenset(
+    "salas zonas espacos divisoes areas lugares sitios locais partes alas pisos andares recintos compartimentos "
+    "rooms spaces places zones sections floors mapa map".split()
 )
-_TOUR_ROOMS_LIST_WORDS = _TOUR_ROOM_QUESTION_WORDS | frozenset(
-    "outras outros todas todos restantes existentes disponiveis deste desta neste nesta destas destes lista listar "
-    "diferentes varias vários varios other all available this museum tour".split()
+_TOUR_PIECES_WORDS = frozenset(
+    "pecas peca objetos objeto obras obra artefactos artefacto itens colecao colecoes acervo "
+    "objects object pieces piece works items collection".split()
+)
+_TOUR_LIST_TAIL_WORDS = _TOUR_ROOM_QUESTION_WORDS | frozenset(
+    "outras outros todas todos restantes existentes disponiveis deste desta neste nesta destas destes diferentes "
+    "varias varios palacio edificio convento igreja casa parque jardim exposicao percurso tour explorar percorrer "
+    "passear andar entrar descobrir seguir a seguir depois dentro ca pode podes podem se da tenho "
+    "lista listas listar listagem enumera enumerar indica indicar list quantas quantos how many "
+    "other all available this museum building palace visit explore walk around next inside here of does do have has any".split()
+)
+_TOUR_WHERE_TO_GO_PATTERN = re.compile(
+    r"^(?:e\s+)?(?:(?:por|para|a|ate)\s+)?(?:a?onde|where)\s+(?:e\s+que\s+|mais\s+|else\s+)?"
+    r"(?:eu\s+)?(?:posso|podemos|pode|se\s+pode|da\s+para|devo|can\s+i|can\s+we|could\s+i|should\s+i)\s+"
+    r"(?:ir|andar|passear|visitar|explorar|entrar|circular|go|walk|visit|explore)\b"
 )
 
 _MUSEUM_OVERVIEW_PATTERNS: tuple[str, ...] = (
@@ -4933,6 +4951,23 @@ class ChatService:
             )
         return pieces
 
+    @staticmethod
+    def _asks_for_tour_areas_list(folded: str, tokens: list[str]) -> bool:
+        """«Que salas há?», «listas as áreas do museu?», «por onde posso andar?»."""
+        if any(t in _TOUR_PIECES_WORDS for t in tokens):
+            return False
+        if _TOUR_WHERE_TO_GO_PATTERN.search(folded):
+            return True
+        index = next((i for i, t in enumerate(tokens) if t in _TOUR_AREA_PLURALS), None)
+        if index is None:
+            return False
+        # «pinturas de salas», «mobiliário das salas»: a zona é complemento de outra coisa
+        if index > 0 and tokens[index - 1] in {"de", "da", "do", "das", "dos", "of", "com", "with", "em", "in"}:
+            before = [t for t in tokens[:index - 1] if t not in _TOUR_LIST_TAIL_WORDS]
+            if before:
+                return False
+        return all(t in _TOUR_LIST_TAIL_WORDS or t in _TOUR_AREA_PLURALS for t in tokens[index + 1:])
+
     def _match_tour_room_query(
         self,
         message: str,
@@ -4953,6 +4988,8 @@ class ChatService:
         if not folded:
             return None
         tokens = folded.split()
+        if self._asks_for_tour_areas_list(folded, tokens):
+            return {"kind": "list"}
         try:
             match = self.tour_navigation_service.match_rooms(museum_slug=museum_slug, museum_id=museum_id, text=message)
         except Exception as exc:
@@ -4983,8 +5020,6 @@ class ChatService:
             # «vestidos na sala cantonal» é uma pesquisa (não cai para a lista)
             if any(t in matched for t in tokens):
                 return None
-        if any(t in _TOUR_AREA_NOUNS for t in tokens) and all(t in _TOUR_ROOMS_LIST_WORDS for t in tokens):
-            return {"kind": "list"}
         # Sala pedida que não existe: «e a sala das armas?» -> o nome vem logo a
         # seguir à palavra de tipo (e às ligações); «vestidos da sala» não é isto.
         type_words = {"sala", "capela", "galeria", "zona", "room", "chapel"}

@@ -449,5 +449,25 @@ class TestTourPlaces(_Base):
         self.assertIsNone(unnamed["room"])
 
 
+class TestAreasListPhrasings(_Base):
+    """Formas de pedir a lista de zonas (medição de 2026-09-17: regra estrutural
+    58/58 e 0 falsos positivos; o LLM local ficou por 18–25/33 conforme o prompt)."""
+
+    LISTS = ['Listas as áreas do museu?', 'Lista as salas', 'Que salas existem?', 'Que outras salas existem?', 'Quais são as zonas da visita?', 'Encontra as salas deste museu', 'Mostra-me as áreas do museu', 'Que espaços posso visitar?', 'Por onde posso andar?', 'Que sítios há para ver aqui?', 'Diz-me as divisões do palácio', 'Quais as partes do museu?', 'Dá-me a lista de salas', 'Podes enumerar as salas?', 'Que salas tem o museu?', 'Quantas salas há?', 'O museu tem que salas?', 'Onde posso ir?', 'Para onde posso ir a seguir?', 'Quais são os espaços da visita virtual?', 'Mostra o mapa das salas', 'Que zonas tem esta visita?', 'Há mais salas?', 'Salas do museu', 'quero ver todas as salas', 'indica-me os locais da visita', 'que áreas existem neste museu', 'lista de zonas', 'what rooms are there?', 'list the areas of the museum', 'which rooms can I visit?', 'show me all the rooms', 'where can I go?', 'Quais salas posso explorar?', 'Mostra todas as zonas', 'Tens uma lista dos espaços?', 'Que divisões existem aqui?', 'Enumera as áreas da visita', 'Quero saber que salas há', 'Indica as zonas disponíveis', 'E que outras áreas há?', 'Que lugares posso conhecer neste museu?', 'Quantos espaços tem a visita?', 'Quais os pisos do museu?', 'Aonde posso ir?', 'Onde é que posso ir agora?', 'Por onde devo ir?', 'Mostra-me o mapa', 'Há um mapa do museu?', 'As salas todas, por favor', 'Zonas?', 'Listagem das salas do palácio', 'Diz quais são os sítios a visitar', 'What areas does the museum have?', 'List all rooms', 'Which places can I explore?', 'Where else can I go?', 'Is there a map?']
+    OTHERS = ['Lista os vestidos do museu', 'Que vestidos há na sala cantonal?', 'Encontra chapéus de mulher', 'Mostra-me leques', 'Onde estou?', 'Em que sala me encontro?', 'E a sala cantonal?', 'Leva-me ao pátio', 'Fala-me do museu', 'Que tipos de peças existem?', 'Quais são as categorias do acervo?', 'Lista as peças desta sala', 'Que peças há nesta zona?', 'Quantas peças tem o museu?', 'Encontra peças do século XIX', 'Olá', 'Obrigado', 'Qual é o horário do museu?', 'Onde fica o museu?', 'Mostra-me pinturas de salas', 'Vestidos de noiva', 'Que materiais foram usados neste vestido?', 'Quem fez esta peça?', 'Encontra a sala da música', 'Procura mobiliário de sala', 'list the dresses', 'show me fans', 'where am I?', 'what is this object made of?', 'Há sapatos de criança?', 'Que áreas temáticas cobre a coleção de trajes?', 'Mostra-me peças de espaços religiosos', 'Que salas têm vestidos de noiva?', 'Salas com pinturas', 'Mostra peças das salas nobres', 'Em que zona estou?', 'Leva-me à sala seguinte', 'O que há nesta sala?', 'Mostra-me retratos', 'Lista os leques', 'Quantos vestidos existem?', 'Onde posso comprar bilhetes?', 'Onde fica a casa de banho?', 'Mapa de Lisboa antigo', 'Encontra mapas', 'Fala-me da sala da música', 'Que peças estão no pátio?', 'Casacos do século XVIII', 'Quem foi o marquês de Angeja?', 'Azulejos com partes do corpo', 'Lugares de Lisboa em azulejo', 'Show me paintings of rooms', 'Which room am I in?', 'Take me to the chapel', 'Find shoes', 'Peças de sala de jantar', 'Divisões administrativas em mapas']
+
+    def _kind(self, message: str):
+        found = self._service()._match_tour_room_query(message, museum_slug="mnt", museum_id="mnt")
+        return (found or {}).get("kind")
+
+    def test_every_phrasing_asks_for_the_list(self) -> None:
+        missed = [m for m in self.LISTS if self._kind(m) != "list"]
+        self.assertEqual(missed, [])
+
+    def test_searches_and_other_questions_are_not_the_list(self) -> None:
+        wrong = [m for m in self.OTHERS if self._kind(m) == "list"]
+        self.assertEqual(wrong, [])
+
+
 if __name__ == "__main__":
     unittest.main()
