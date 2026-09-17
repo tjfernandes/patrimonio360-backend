@@ -128,6 +128,43 @@ _TOUR_LIST_TAIL_WORDS = _TOUR_ROOM_QUESTION_WORDS | frozenset(
     "lista listas listar listagem enumera enumerar indica indicar list quantas quantos how many "
     "other all available this museum building palace visit explore walk around next inside here of does do have has any".split()
 )
+# Peça selecionada: o que faz de uma mensagem um pedido SOBRE ela. Tudo por
+# regras (o LLM local não é fiável a decidir intenções — medição de 2026-09-17).
+_SELECTED_REFERENCE_WORDS = frozenset(
+    "este esta isto isso esse essa aquele aquela aquilo deste desta disto disso desse dessa daquele daquela "
+    "neste nesta nisto nisso nesse nessa dele dela lhe "
+    "this that it its".split()
+)
+_SELECTED_ATTRIBUTE_STEMS: tuple[str, ...] = (
+    "materia", "feit", "fabric", "data", "datac", "ano", "anos", "secul", "epoca", "quando", "idade", "antig",
+    "quem", "autor", "criador", "criou", "fez", "desenh", "pintou", "pintor", "artista", "assin", "usava", "usou",
+    "usad", "usar", "pertenc", "dono", "dona", "propriet", "dimens", "tamanho", "mede", "medida", "altura",
+    "largura", "compriment", "peso", "pesa", "tecnic", "origem", "origin", "provenien", "veio", "vem", "histor",
+    "conta", "fala", "descrev", "descric", "explic", "resum", "serve", "servia", "func", "utilidade", "utiliz",
+    "cor", "cores", "estado", "conserv", "restaur", "expost", "guardad", "reserva", "signific", "simbol",
+    "represent", "inscri", "decora", "bordad", "motivo", "detalh", "pormenor", "inform", "curios", "valor",
+    "vale", "rar", "importan", "famos", "doad", "doou", "adquir", "comprad", "inventar", "numero", "categoria",
+    "tipo", "nome", "chama", "titulo", "designa", "estilo", "moda", "ocasi", "cerimon", "ler", "diz", "saber",
+    "made", "date", "year", "century", "when", "old", "who", "maker", "artist", "wore", "worn", "owner",
+    "size", "technique", "tell", "describ", "explain", "detail", "meaning", "color", "colour", "condition",
+    "story", "purpose", "name", "style",
+)
+_SELECTED_SEARCH_VERBS = frozenset(
+    "encontra encontrar encontre encontras procura procurar procure procuro pesquisa pesquisar pesquise mostra "
+    "mostrar mostre lista listar listas liste quero queria gostava gostaria ver apresenta sugere recomenda "
+    "ha existe existem tem tens temos find search show list look want see recommend suggest are is there any".split()
+)
+_SELECTED_INTERROGATIVES = frozenset(
+    "que qual quais quem quando onde como porque porquê quanto quanta quantos quantas e era foi sera pode podes "
+    "what which who when where how why is was does did can could".split()
+)
+_SELECTED_FILLER_WORDS = frozenset(
+    "a o as os um uma uns umas de da do das dos em na no nas nos por para com sem e ou mas se me te nos lhe "
+    "mais muito pouco bem so tambem ainda ja agora entao por favor pf ola sim nao sobre acerca algo alguma algum "
+    "coisa coisas me diz diga dizer dá da podes pode poderia consegues sabes sabe "
+    "the an of in on for with and or but to me please some something anything about more tell".split()
+)
+
 _TOUR_WHERE_TO_GO_PATTERN = re.compile(
     r"^(?:e\s+)?(?:(?:por|para|a|ate)\s+)?(?:a?onde|where)\s+(?:e\s+que\s+|mais\s+|else\s+)?"
     r"(?:eu\s+)?(?:posso|podemos|pode|se\s+pode|da\s+para|devo|can\s+i|can\s+we|could\s+i|should\s+i)\s+"
@@ -2754,6 +2791,81 @@ class ChatService:
         return entries
 
     async def handle_message(
+        self,
+        payload: ChatMessageRequest,
+        *,
+        status_cb: StatusCallback | None = None,
+    ) -> ChatMessageResponse:
+        """Decide primeiro o destino da peça selecionada (se o pedido a traz):
+        um pedido independente segue sem ela e a resposta avisa o widget."""
+        metadata = payload.metadata if isinstance(payload.metadata, dict) else None
+        selected = self._selected_artifact_from_metadata(metadata)
+        status: str | None = None
+        if selected and bool(getattr(self.settings, "CHAT_SELECTED_ARTIFACT_AUTO_RELEASE", False)):
+            decision = self._selected_artifact_decision(
+                payload.message, museum_slug=payload.museum_slug, museum_id=payload.museum_id
+            )
+            status = "released" if decision == "release" else "used"
+            log_event(
+                logger, logging.INFO, "chat.selected_artifact.decision",
+                decision=decision, selected_artifact_id=selected.get("artifact_id"),
+            )
+            if decision == "release":
+                kept = {
+                    k: v for k, v in (metadata or {}).items()
+                    if k not in {"selected_artifact", "selected_artifact_id", "selected_context_mode"}
+                }
+                kept["released_selected_artifact_id"] = selected.get("artifact_id")
+                payload = payload.model_copy(update={"metadata": kept})
+        response = await self._handle_message_with_selection(payload, status_cb=status_cb)
+        if status is not None:
+            response.selected_artifact_status = status  # type: ignore[assignment]
+        return response
+
+    def _selected_artifact_decision(self, message: str, *, museum_slug: str, museum_id: str | None) -> str:
+        """"about" (pergunta sobre a peça), "similar" (parte dela: «outras
+        parecidas») ou "release" (pedido independente: nova pesquisa, «onde
+        estou?», zonas da visita, saudação)."""
+        folded = self._fold_query_text(message)
+        tokens = folded.split()
+        if not tokens:
+            return "about"
+        if self._selected_artifact_context_mode(message) == "anchored_similarity":
+            return "similar"
+        if any(t in _SELECTED_REFERENCE_WORDS for t in tokens):
+            return "about"
+        try:
+            if (
+                self._is_tour_location_query(message)
+                or self._is_obvious_greeting_or_smalltalk(message)
+                or self._match_tour_room_query(message, museum_slug=museum_slug, museum_id=museum_id) is not None
+            ):
+                return "release"
+        except Exception:  # pragma: no cover - deteção auxiliar; nunca bloqueia
+            pass
+        is_attribute = lambda t: any(t.startswith(stem) for stem in _SELECTED_ATTRIBUTE_STEMS)  # noqa: E731
+        content = [
+            t for t in tokens
+            if t not in _SELECTED_FILLER_WORDS and t not in _SELECTED_SEARCH_VERBS
+            and t not in _SELECTED_INTERROGATIVES and not is_attribute(t)
+        ]
+        has_attribute = any(is_attribute(t) for t in tokens)
+        has_search_verb = any(t in _SELECTED_SEARCH_VERBS for t in tokens)
+        if has_search_verb:
+            # «mostra-me mais detalhes» é sobre a peça; «encontra chapéus» não
+            return "release" if content else "about"
+        # «É de seda?», «era usado por homens?»: pergunta de sim/não sobre a peça
+        # (o «é» perde o acento ao normalizar e confunde-se com «e chapéus?»)
+        first_raw = (message or "").strip().split(" ", 1)[0].strip("¿¡\"'«").casefold()
+        if first_raw in {"é", "era", "foi", "será", "está", "estava", "is", "was", "does", "did", "has"}:
+            return "about"
+        if tokens[0] in _SELECTED_INTERROGATIVES or (len(tokens) > 1 and tokens[1] in _SELECTED_INTERROGATIVES):
+            # «de que é feito?», «quem o usava?»; «que vestidos de noiva?» traz assunto próprio
+            return "release" if (content and not has_attribute) else "about"
+        # frase solta: «conta-me a história» é da peça; «peças do século XIX» é pesquisa
+        return "release" if content else "about"
+
+    async def _handle_message_with_selection(
         self,
         payload: ChatMessageRequest,
         *,

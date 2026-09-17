@@ -438,6 +438,9 @@ class ChatMessageResponse(BaseModel):
     tour_room: TourRoomTarget | None = None
     # Lista de zonas da visita («que salas há?»), cada uma com botão de navegação.
     tour_rooms: list[TourRoomTarget] = Field(default_factory=list)
+    # Só quando o pedido trouxe uma peça selecionada: "used" (a resposta é sobre
+    # ela ou parte dela) ou "released" (pedido independente; o widget tira a etiqueta).
+    selected_artifact_status: Literal["used", "released"] | None = None
     results_page: int = 1
     results_page_size: int = 0
     results_total: int = 0

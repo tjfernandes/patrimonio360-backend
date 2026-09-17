@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # da posição na visita (metadata.tour_location enviado pelo widget) e dos
     # ficheiros poi_tours, sem pesquisa nem LLM. Desligado = vai ao router.
     CHAT_TOUR_LOCATION_ANSWERS: bool = False
+    # Peça selecionada («Perguntar», hotspot aberto): um pedido que não é sobre ela
+    # (nova pesquisa, «onde estou?») liberta-a em vez de a forçar como contexto.
+    CHAT_SELECTED_ARTIFACT_AUTO_RELEASE: bool = False
     # Com o anterior: a frase é redigida pelo LLM a partir dos factos da
     # visita (sala e peças fixas; cartões trancados); template se falhar.
     CHAT_TOUR_CONTEXT_LLM_WORDING: bool = False
