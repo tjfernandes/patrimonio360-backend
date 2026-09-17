@@ -308,6 +308,10 @@ class TestRoomQueries(_Base):
         self.assertIsNone(listed.tour_room)
         self.assertEqual([r.room for r in listed.tour_rooms], ["Sala da Música", "Pátio", "Hall", "Sala Cantonal"])
         self.assertEqual([r.piece_count for r in listed.tour_rooms], [3, 0, 2, 2])
+        # cada zona leva as suas peças (uma por inventário) para abrir no item
+        self.assertEqual([p.inventory_id for p in listed.tour_rooms[0].pieces], ["19663", "5262", "38090"])
+        self.assertTrue(all(p.overlay_id and p.panorama_key for p in listed.tour_rooms[0].pieces))
+        self.assertEqual(listed.tour_rooms[1].pieces, [])
         self.assertEqual(listed.tour_rooms[0].panorama_key, "pan_musica")
         # descrição curada do ficheiro real (Sala da Música do MNT); as outras ficam vazias
         self.assertTrue((listed.tour_rooms[0].description or "").startswith("Sala do andar nobre"))

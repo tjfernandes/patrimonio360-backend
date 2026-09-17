@@ -400,6 +400,15 @@ class ChatSearchScope(BaseModel):
     is_cross_museum: bool = False
 
 
+class TourRoomPiece(BaseModel):
+    """Peça assinalada numa zona da visita (lista que abre por baixo da zona)."""
+
+    inventory_id: str
+    title: str | None = None
+    overlay_id: str
+    panorama_key: str
+
+
 class TourRoomTarget(BaseModel):
     """Zona da visita referida na resposta; o widget mostra «Ir para …»."""
 
@@ -409,6 +418,8 @@ class TourRoomTarget(BaseModel):
     piece_count: int = 0
     # Descrição curada (app/data/tour_rooms.json); vazia quando não há evidência.
     description: str | None = None
+    # Só na lista de zonas: as peças de cada uma, para abrir no próprio item.
+    pieces: list[TourRoomPiece] = Field(default_factory=list)
 
 
 class ChatMessageResponse(BaseModel):

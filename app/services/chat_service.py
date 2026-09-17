@@ -40,6 +40,7 @@ from app.schemas.chat import (
     ImageMatchResult,
     ResponseFormatObject,
     TourNavigationTarget,
+    TourRoomPiece,
     TourRoomTarget,
     ArtifactDetailContextResponse,
     AuthorEntity,
@@ -4910,6 +4911,28 @@ class ChatService:
             },
         )
 
+    @staticmethod
+    def _tour_room_pieces(room: dict[str, Any]) -> list[TourRoomPiece]:
+        """Peças de uma zona, uma por n.º de inventário, pela ordem da visita."""
+        pieces: list[TourRoomPiece] = []
+        seen: set[str] = set()
+        for target in room.get("targets") or []:
+            inventory = str(target.get("inventory_id") or "").strip()
+            overlay = str(target.get("overlay_id") or "").strip()
+            panorama = str(target.get("panorama_key") or "").strip()
+            if not inventory or not overlay or not panorama or inventory.lower() in seen:
+                continue
+            seen.add(inventory.lower())
+            pieces.append(
+                TourRoomPiece(
+                    inventory_id=inventory,
+                    title=str(target.get("title") or "").strip() or None,
+                    overlay_id=overlay,
+                    panorama_key=panorama,
+                )
+            )
+        return pieces
+
     def _match_tour_room_query(
         self,
         message: str,
@@ -4999,6 +5022,7 @@ class ChatService:
                 overlay_id=None,
                 piece_count=len(r.get("inventories") or []),
                 description=r.get("description"),
+                pieces=self._tour_room_pieces(r),
             )
             for r in rooms
             if r.get("panorama_keys")
