@@ -40,6 +40,7 @@ from app.schemas.chat import (
     ImageMatchResult,
     ResponseFormatObject,
     TourNavigationTarget,
+    ChatSubjectArtifact,
     TourRoomPiece,
     TourRoomTarget,
     ArtifactDetailContextResponse,
@@ -181,6 +182,25 @@ _SMALLTALK_WORDS = frozenset(
     "good morning afternoon evening night how are doing everything all fine great nice cool yes yep nope "
     "i am im its it is this that so well right".split()
 )
+# Referências a um cartão visível, sem clicar em nada.
+_ORDINAL_WORDS: dict[str, int] = {
+    "primeiro": 0, "primeira": 0, "segundo": 1, "segunda": 1, "terceiro": 2, "terceira": 2,
+    "quarto": 3, "quarta": 3, "quinto": 4, "quinta": 4, "sexto": 5, "sexta": 5, "setimo": 6, "setima": 6,
+    "oitavo": 7, "oitava": 7, "nono": 8, "nona": 8, "decimo": 9, "decima": 9,
+    "ultimo": -1, "ultima": -1, "penultimo": -2, "penultima": -2,
+    "first": 0, "second": 1, "third": 2, "fourth": 3, "fifth": 4, "sixth": 5, "seventh": 6, "eighth": 7,
+    "ninth": 8, "tenth": 9, "last": -1,
+}
+_REFERENCE_DETERMINERS = frozenset(
+    "o a os as esse essa este esta aquele aquela do da desse dessa deste desta daquele daquela no na nesse nessa "
+    "neste nesta naquele naquela pelo pela ao the that this".split()
+)
+# pedir peças com estes verbos é pesquisa, mesmo com «o vestido»
+_REFERENCE_SEARCH_VERBS = frozenset(
+    "encontra encontrar encontre procura procurar procure procuro pesquisa pesquisar pesquise lista listar liste "
+    "mostra mostrar mostre ha existe existem find search show list any".split()
+)
+
 _SMALLTALK_THANKS_WORDS = frozenset("obrigado obrigada obrigadinho obrigadinha agradecido agradecida valeu brigado thanks thank thx ty cheers".split())
 _SMALLTALK_BYE_WORDS = frozenset("adeus tchau xau bye goodbye".split())
 _SMALLTALK_PREFIX = re.compile(r"^(?:(?:ola|oi|hey|hello|hi|boas|bom dia|boa tarde|boa noite|amalia|obrigado|obrigada|ok|entao|e|por favor)\s+)*")
@@ -2833,7 +2853,29 @@ class ChatService:
         metadata = payload.metadata if isinstance(payload.metadata, dict) else None
         selected = self._selected_artifact_from_metadata(metadata)
         status: str | None = None
-        if selected and bool(getattr(self.settings, "CHAT_SELECTED_ARTIFACT_AUTO_RELEASE", False)):
+        subject: dict[str, Any] | None = None
+        if not selected and bool(getattr(self.settings, "CHAT_IMPLICIT_ARTIFACT_CONTEXT", False)):
+            subject = self._resolve_implicit_artifact(
+                payload.message, metadata, museum_slug=payload.museum_slug, museum_id=payload.museum_id
+            )
+            log_event(
+                logger, logging.INFO, "chat.implicit_artifact.decision",
+                resolved_by=(subject or {}).get("resolved_by"),
+                artifact_id=(subject or {}).get("artifact_id"),
+                visible=len((metadata or {}).get("visible_artifacts") or []),
+                has_context=bool((metadata or {}).get("context_artifact")),
+            )
+            if subject:
+                kept = dict(metadata or {})
+                kept["selected_artifact_id"] = subject["artifact_id"]
+                kept["selected_artifact"] = {
+                    "artifact_id": subject["artifact_id"],
+                    "inventory_number": subject.get("inventory_number"),
+                    "title": subject.get("title"),
+                    "source": f"implicit_{subject['resolved_by']}",
+                }
+                payload = payload.model_copy(update={"metadata": kept})
+        elif selected and bool(getattr(self.settings, "CHAT_SELECTED_ARTIFACT_AUTO_RELEASE", False)):
             decision = self._selected_artifact_decision(
                 payload.message, museum_slug=payload.museum_slug, museum_id=payload.museum_id
             )
@@ -2852,7 +2894,143 @@ class ChatService:
         response = await self._handle_message_with_selection(payload, status_cb=status_cb)
         if status is not None:
             response.selected_artifact_status = status  # type: ignore[assignment]
+        if subject:
+            response.subject_artifact = ChatSubjectArtifact(
+                artifact_id=subject["artifact_id"],
+                inventory_number=subject.get("inventory_number"),
+                title=subject.get("title"),
+                resolved_by=subject["resolved_by"],
+                context_source=subject.get("context_source"),
+            )
         return response
+
+    @staticmethod
+    def _artifact_refs(raw: Any, limit: int = 60) -> list[dict[str, str | None]]:
+        refs: list[dict[str, str | None]] = []
+        for item in (raw if isinstance(raw, list) else [raw])[:limit]:
+            if not isinstance(item, dict):
+                continue
+            artifact_id = str(item.get("artifact_id") or "").strip()
+            if not artifact_id:
+                continue
+            refs.append({
+                "artifact_id": artifact_id,
+                "inventory_number": str(item.get("inventory_number") or "").strip() or None,
+                "title": str(item.get("title") or "").strip() or None,
+                "source": str(item.get("source") or "").strip() or None,
+            })
+        return refs
+
+    def _resolve_implicit_artifact(
+        self,
+        message: str,
+        metadata: dict[str, Any] | None,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+    ) -> dict[str, Any] | None:
+        """A peça de que a mensagem fala, sem o visitante a ter escolhido.
+
+        1. referência explícita a um cartão visível: ordinal («o segundo»), n.º
+           de inventário («e o 5622?») ou nome com determinante («o retrato de
+           família é de quando?»);
+        2. sem referência, uma pergunta sem assunto próprio («de que é feito?»,
+           «quem o usava?», «peças parecidas») vai para o contexto que o widget
+           manda: o hotspot aberto na visita ou o primeiro resultado;
+        3. tudo o resto (nova pesquisa, «onde estou?», zonas, saudação) segue
+           sem peça. Tudo por regras.
+        """
+        metadata = metadata if isinstance(metadata, dict) else {}
+        visible = self._artifact_refs(metadata.get("visible_artifacts"))
+        contexts = self._artifact_refs(metadata.get("context_artifact"), limit=1)
+        context = contexts[0] if contexts else None
+        if not visible and not context:
+            return None
+        folded = self._fold_query_text(message)
+        tokens = folded.split()
+        if not tokens:
+            return None
+        try:
+            if (
+                self._is_tour_location_query(message)
+                or self._match_tour_room_query(message, museum_slug=museum_slug, museum_id=museum_id) is not None
+                or (self._is_obvious_greeting_or_smalltalk(message)
+                    and not any(t in _SELECTED_INTERROGATIVES for t in tokens))
+            ):
+                return None
+        except Exception:  # pragma: no cover - deteção auxiliar; nunca bloqueia
+            return None
+
+        def pick(ref: dict[str, str | None], how: str) -> dict[str, Any]:
+            return {**ref, "resolved_by": how, "context_source": ref.get("source") if how == "context" else None}
+
+        if visible:
+            # 1a. ordinal
+            for index, token in enumerate(tokens):
+                position = _ORDINAL_WORDS.get(token)
+                if position is None and token.isdigit() and 0 < int(token) <= 20 and index + 1 < len(tokens) and tokens[index + 1] in {"o", "a"} and index > 0 and tokens[index - 1] in _REFERENCE_DETERMINERS:
+                    position = int(token) - 1  # «o 2.º» -> «o 2 o»
+                if position is None:
+                    continue
+                if -len(visible) <= position < len(visible):
+                    return pick(visible[position], "ordinal")
+            # 1b. n.º de inventário de um cartão visível
+            for ref in visible:
+                inventory = self._fold_query_text(ref.get("inventory_number") or "")
+                if not inventory:
+                    continue
+                inv_tokens = inventory.split()
+                for start in range(len(tokens) - len(inv_tokens) + 1):
+                    if tokens[start:start + len(inv_tokens)] != inv_tokens:
+                        continue
+                    before = tokens[start - 1] if start > 0 else ""
+                    alone = len(tokens) <= len(inv_tokens) + 1
+                    if alone or before in _REFERENCE_DETERMINERS or before in {"inventario", "numero", "n", "peca", "objeto", "e"}:
+                        return pick(ref, "inventory")
+            # 1c. nome do cartão a seguir a um determinante («o retrato de família»)
+            if not any(t in _REFERENCE_SEARCH_VERBS for t in tokens):
+                # o nome principal tem de vir a seguir a um determinante; entre os
+                # cartões que batem, ganha o que partilha mais palavras do título
+                # («o vestido de criança» -> Vestido/Criança, não o primeiro vestido)
+                message_tokens = set(tokens)
+                best: tuple[int, int] | None = None
+                for position, ref in enumerate(visible):
+                    title_tokens = self._fold_query_text(ref.get("title") or "").split()
+                    if not title_tokens:
+                        continue
+                    head = title_tokens[0]
+                    if not any(tokens[i] == head and tokens[i - 1] in _REFERENCE_DETERMINERS for i in range(1, len(tokens))):
+                        continue
+                    score = len({t for t in title_tokens if len(t) > 2} & message_tokens)
+                    if best is None or score > best[0]:
+                        best = (score, position)
+                if best is not None:
+                    return pick(visible[best[1]], "title")
+
+        # 2. pergunta sem assunto próprio -> contexto (hotspot aberto / primeiro resultado).
+        # Mais exigente do que com uma peça escolhida à mão: qualquer palavra de
+        # conteúdo que não seja do título dessa peça faz dela uma pergunta com
+        # assunto próprio («quem foi o marquês de Angeja?»). Exceção: sim/não
+        # sobre a peça («é de seda?», «foi usado por homens?»).
+        if not context:
+            return None
+        decision = self._selected_artifact_decision(message, museum_slug=museum_slug, museum_id=museum_id)
+        if decision == "similar":
+            return pick(context, "context")
+        if decision != "about":
+            return None
+        first_raw = (message or "").strip().split(" ", 1)[0].strip("¿¡\"'«").casefold()
+        if first_raw in {"é", "era", "foi", "será", "está", "estava", "is", "was", "does", "did"}:
+            return pick(context, "context")
+        context_title = set(self._fold_query_text(context.get("title") or "").split())
+        is_attribute = lambda t: any(t.startswith(stem) for stem in _SELECTED_ATTRIBUTE_STEMS)  # noqa: E731
+        content = [
+            t for t in tokens
+            if t not in _SELECTED_FILLER_WORDS and t not in _SELECTED_SEARCH_VERBS
+            and t not in _SELECTED_INTERROGATIVES and t not in _SELECTED_REFERENCE_WORDS
+            and t not in _REFERENCE_DETERMINERS and t not in context_title and not is_attribute(t)
+        ]
+        return None if content else pick(context, "context")
 
     def _selected_artifact_decision(self, message: str, *, museum_slug: str, museum_id: str | None) -> str:
         """"about" (pergunta sobre a peça), "similar" (parte dela: «outras

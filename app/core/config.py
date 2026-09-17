@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     # Peça selecionada («Perguntar», hotspot aberto): um pedido que não é sobre ela
     # (nova pesquisa, «onde estou?») liberta-a em vez de a forçar como contexto.
     CHAT_SELECTED_ARTIFACT_AUTO_RELEASE: bool = False
+    # Peça implícita: sem botões nem etiquetas, a pergunta resolve-se para a peça de que
+    # o visitante fala (ordinal, n.º de inventário ou nome de um cartão visível; senão o
+    # hotspot aberto ou o primeiro resultado) quando não traz assunto próprio.
+    CHAT_IMPLICIT_ARTIFACT_CONTEXT: bool = False
     # Com o anterior: a frase é redigida pelo LLM a partir dos factos da
     # visita (sala e peças fixas; cartões trancados); template se falhar.
     CHAT_TOUR_CONTEXT_LLM_WORDING: bool = False

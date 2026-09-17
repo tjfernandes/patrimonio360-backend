@@ -422,6 +422,17 @@ class TourRoomTarget(BaseModel):
     pieces: list[TourRoomPiece] = Field(default_factory=list)
 
 
+class ChatSubjectArtifact(BaseModel):
+    """Peça a que a pergunta foi resolvida sem o visitante a escolher."""
+
+    artifact_id: str
+    inventory_number: str | None = None
+    title: str | None = None
+    # ordinal | inventory | title | context (hotspot aberto / primeiro resultado)
+    resolved_by: str
+    context_source: str | None = None
+
+
 class ChatMessageResponse(BaseModel):
     status: Literal["ok"] = "ok"
     conversation_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -441,6 +452,7 @@ class ChatMessageResponse(BaseModel):
     # Só quando o pedido trouxe uma peça selecionada: "used" (a resposta é sobre
     # ela ou parte dela) ou "released" (pedido independente; o widget tira a etiqueta).
     selected_artifact_status: Literal["used", "released"] | None = None
+    subject_artifact: ChatSubjectArtifact | None = None
     results_page: int = 1
     results_page_size: int = 0
     results_total: int = 0
