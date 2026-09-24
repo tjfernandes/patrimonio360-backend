@@ -148,19 +148,26 @@
   "overlayId": "overlay_071920A4_5766_6FFB_41D2_59912B1A7EC0",
   "panoramaKey": "panorama_6B9BBC83_725D_2CDB_41D4_5C102A6D5AB3",
   "inventoryIds": [
-   "MNAz_9742_Az"
+   "MNAz 9742 Az"
   ],
   "location": "17_Exposicao_P2-B",
-  "title": "Batalha de Alexandre da Macedónia e Dario da Pérsia em Gaugamela"
+  "title": "Batalha de Alexandre da Macedónia e Dario da Pérsia em Gaugamela",
+  "inventoryIdsOriginal": [
+   "MNAz_9742_Az"
+  ]
  },
  {
   "overlayId": "overlay_D75FC686_57E2_73C7_41D1_2F69DB824A99",
   "panoramaKey": "panorama_65648AAA_72B5_1611_41C0_2E8A2532DB51",
   "inventoryIds": [
-   "DEP_EXT_1_Col_BS_Az"
+   "DEP_EXT 1 Col. BS Az"
   ],
   "location": "16_claustro_P2",
-  "title": "Albarrada"
+  "title": "Albarrada",
+  "inventoryIdsOriginal": [
+   "DEP_EXT_1_Col_BS_Az"
+  ],
+  "inventoryIdsNota": "corrigido à mão a 2026-09-24: números confirmados no catálogo pelo título"
  },
  {
   "overlayId": "overlay_714FA3B3_5722_31DD_41BE_A70F138D7D1E",
@@ -202,10 +209,17 @@
   "overlayId": "overlay_10D67D2A_577E_F6CF_41BB_AE1933D05130",
   "panoramaKey": "panorama_68A43497_72F5_3DCC_41D7_147C65A76778",
   "inventoryIds": [
-   "MNAz_227_Az"
+   "MNAz 227/1 Az",
+   "MNAz 227/2 Az",
+   "MNAz 227/3 Az",
+   "MNAz 227/4 Az"
   ],
   "location": "18_Exposicao_P2-C",
-  "title": "História do Chapeleiro António Joaquim Carneiro"
+  "title": "História do Chapeleiro António Joaquim Carneiro",
+  "inventoryIdsOriginal": [
+   "MNAz_227_Az"
+  ],
+  "inventoryIdsNota": "corrigido à mão a 2026-09-24: números confirmados no catálogo pelo título"
  },
  {
   "overlayId": "overlay_1284D55A_5762_F14F_41C5_0571BD020737",
@@ -319,10 +333,13 @@
   "overlayId": "overlay_97A48E80_5927_F3BB_41C3_6294CC4BF119",
   "panoramaKey": "panorama_72124213_633B_61D9_41D1_36E1B16544F1",
   "inventoryIds": [
-   "MNAz_141_Az"
+   "MNAz 141 Az"
   ],
   "location": "11_Claustro_Pequeno",
-  "title": "Cortejo de Neptuno e Anfitrite"
+  "title": "Cortejo de Neptuno e Anfitrite",
+  "inventoryIdsOriginal": [
+   "MNAz_141_Az"
+  ]
  },
  {
   "overlayId": "overlay_B9A8EF63_AA13_9CEC_41C8_DCF29499339D",
@@ -495,10 +512,15 @@
   "overlayId": "overlay_A026AED3_9B4A_B329_41CC_5DE41CCF413A",
   "panoramaKey": "panorama_775FD81F_636E_E39E_41A3_575D6B8B5643",
   "inventoryIds": [
-   "MNAz_6991_Az"
+   "MNAz 6991/1 Az",
+   "MNAz 6991/2 Az"
   ],
   "location": "13_Eng_Joao_Simoes",
-  "title": "Balaustrada com meninos"
+  "title": "Balaustrada com meninos",
+  "inventoryIdsOriginal": [
+   "MNAz_6991_Az"
+  ],
+  "inventoryIdsNota": "corrigido à mão a 2026-09-24: números confirmados no catálogo pelo título"
  },
  {
   "overlayId": "overlay_896F528A_9ADF_9E70_41BD_859BA4F71C2A",
