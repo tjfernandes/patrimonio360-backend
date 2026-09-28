@@ -58,3 +58,12 @@ Thumbs.db
 Desktop.ini
 .idea/
 .vscode/
+
+# Dados locais e ferramentas desta máquina: não entram na imagem
+Images/
+logs/
+benchmark_runs/
+benchmarks/assets/
+tools/
+deploy/
+.github/
