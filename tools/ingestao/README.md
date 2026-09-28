@@ -14,7 +14,7 @@ e das docstrings dos scripts.
 
 ```bash
 conda activate visitas_virtuais
-cd ~/Projects/AMALIA/patrimonio360_assistant
+cd ~/Projects/AMALIA/patrimonio360-backend
 python tools/ingestao/verificar_ambiente.py --museu "Museu Nacional do Azulejo"
 ```
 
@@ -26,8 +26,8 @@ pena ler o que ela diz sobre estes quatro pontos:
   a correr, não cabem: parar o backend (`pkill -f "uvicorn app.main:app"`) e o
   LLM (`deploy/llm/amalia_llm.sh --stop`) antes de indexar.
 - **Museu novo.** O `museum_id` não vem dos dados: sai de `MUSEUM_NAME_TO_ID`,
-  em `patrimonio360_indexer/scripts/ingest_museum_opensearch.py`, que hoje só
-  conhece os quatro museus (`mnt`, `mnsr`, `mnaz`, `mj`). Um museu que não
+  em `patrimonio360_indexer/scripts/ingest_museum_opensearch.py`, que hoje
+  conhece `mnt`, `mnsr`, `mnaz`, `mj`, `cmag`, `mnc` e `mnaa`. Um museu que não
   esteja lá fica com `museum_id` vazio e nunca aparece nas respostas.
 - **Disco.** As imagens de um museu ocupam alguns GB (o `output/` já vai em
   9 GB) e a partição está quase cheia.
@@ -108,8 +108,8 @@ Notas que poupam tempo:
 - O índice é criado sozinho se não existir, a partir de
   `patrimonio360_indexer/mappings/museum_*_v4.json`. Se já existir com outra
   dimensão de vetores, o indexador recusa (as dimensões kNN são imutáveis).
-- O `--entity-index` é sempre explícito, pelos nomes que estão no
-  `backend/.env`. Sem ele, o indexador escreve nos índices de entidades
+- O `--entity-index` é sempre explícito, pelos nomes que estão no `.env` do
+  backend (na raiz deste repositório). Sem ele, o indexador escreve nos índices de entidades
   antigos (`cultural_heritage_authors`, de 2560 dimensões) em vez dos `_v4`
   que o assistente lê, e a ingestão morre a meio com «mapping dimension !=
   embedding dimension» — depois de artefactos e imagens já terem entrado.
@@ -125,8 +125,7 @@ Notas que poupam tempo:
 
 1. `python tools/ingestao/verificar_ambiente.py --museu "…" --contagens mnaz`
    — quantos documentos ficaram e quantos estão marcados como na visita.
-2. Reiniciar o backend, se o tiveres parado:
-   `bash user_study/scripts/amalia_online.sh`.
+2. Reiniciar o backend, se o tiveres parado: `deploy/amalia_online.sh`.
 3. Perguntar alguma coisa ao assistente nesse museu e confirmar que os
    resultados trazem peças com hotspot.
 

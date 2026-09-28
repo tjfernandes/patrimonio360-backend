@@ -21,10 +21,12 @@ import sys
 import unicodedata
 from pathlib import Path
 
-ASSISTANT = Path(__file__).resolve().parents[2]
-RAIZ = ASSISTANT.parent / "raiz_scraper"
-INDEXER = ASSISTANT.parent / "patrimonio360_indexer"
-RAIZAMALIA = ASSISTANT.parent / "RaizAMALIA"
+BACKEND = Path(__file__).resolve().parents[2]  # raiz do repositório do backend
+# os projetos irmãos vivem ao lado deste repositório (~/Projects/AMALIA/);
+# noutro sítio, indicar RAIZ_SCRAPER_DIR e INDEXER_DIR (os mesmos do ingerir_museu.sh)
+RAIZ = Path(os.environ.get("RAIZ_SCRAPER_DIR") or BACKEND.parent / "raiz_scraper")
+INDEXER = Path(os.environ.get("INDEXER_DIR") or BACKEND.parent / "patrimonio360_indexer")
+RAIZAMALIA = BACKEND.parent / "RaizAMALIA"
 SAIDA = RAIZ / "output"
 
 # o que o build_raiz_index.py lê (os móveis vêm do XML, não do Movel.xlsx)
@@ -185,9 +187,9 @@ def ligar_backend():
     dele que diz onde a ingestão tem de escrever. (As credenciais do .env do
     indexador deram 401 a 2026-09-20.)
     """
-    sys.path.insert(0, str(ASSISTANT / "backend"))
+    sys.path.insert(0, str(BACKEND))
     cwd = Path.cwd()
-    os.chdir(ASSISTANT / "backend")
+    os.chdir(BACKEND)
     from app.core.config import get_settings  # noqa: PLC0415
     from opensearchpy import OpenSearch  # noqa: PLC0415
 

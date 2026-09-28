@@ -15,8 +15,8 @@ como estavam (o hotspot não se perde) e saem no relatório para verificação.
     python tools/poi_mapping/validar_inventarios_poi.py mnaz --simular
     python tools/poi_mapping/validar_inventarios_poi.py mnaz --ficheiro /caminho/x.json
 
-Corre com o Python do ambiente do backend (lê o `backend/.env` para chegar ao
-índice): /home/hedge6000pro/miniconda3/envs/visitas_virtuais/bin/python
+Corre com o Python do ambiente do backend (lê o `.env` da raiz do repositório
+para chegar ao índice): /home/hedge6000pro/miniconda3/envs/visitas_virtuais/bin/python
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-BACKEND = Path(__file__).resolve().parents[2] / "backend"
+BACKEND = Path(__file__).resolve().parents[2]  # raiz do repositório do backend
 sys.path.insert(0, str(BACKEND))
 os.chdir(BACKEND)
 

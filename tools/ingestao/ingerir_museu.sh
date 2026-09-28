@@ -32,9 +32,11 @@
 set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-ASSISTANT="$(cd "$AQUI/../.." && pwd)"
-RAIZ="$(cd "$ASSISTANT/.." && pwd)/raiz_scraper"
-INDEXER="$(cd "$ASSISTANT/.." && pwd)/patrimonio360_indexer"
+BACKEND="$(cd "$AQUI/../.." && pwd)"   # raiz do repositório do backend
+# os projetos irmãos vivem ao lado deste repositório (~/Projects/AMALIA/);
+# noutro sítio, indicar RAIZ_SCRAPER_DIR e INDEXER_DIR
+RAIZ="${RAIZ_SCRAPER_DIR:-$(cd "$BACKEND/.." && pwd)/raiz_scraper}"
+INDEXER="${INDEXER_DIR:-$(cd "$BACKEND/.." && pwd)/patrimonio360_indexer}"
 SAIDA="$RAIZ/output"
 
 MUSEU=""; SLUG=""; FONTE="raiz"; PASSOS="dados,indexar,pos"; EXECUTAR=0
@@ -82,7 +84,7 @@ indice_entidades() {  # indice_entidades <autores|conjuntos|exposicoes>
   # O indexador, sem --entity-index, escreve em cultural_heritage_authors/_sets/
   # _exhibitions — os índices antigos, de 2560 dimensões. O assistente lê os _v4,
   # de 4096, e a ingestão rebenta com «mapping dimension != embedding dimension».
-  # O nome vem do backend/.env, que é quem manda no que o assistente consulta.
+  # O nome vem do .env do backend, que é quem manda no que o assistente consulta.
   local chave omissao valor
   case "$1" in
     autores)    chave=OPENSEARCH_INDEX_AUTOR;     omissao=cultural_heritage_authors_v4 ;;
@@ -90,7 +92,7 @@ indice_entidades() {  # indice_entidades <autores|conjuntos|exposicoes>
     exposicoes) chave=OPENSEARCH_INDEX_EXPOSICAO; omissao=cultural_heritage_exhibitions_v4 ;;
     *) echo "tipo de entidade desconhecido: $1" >&2; return 1 ;;
   esac
-  valor=$(sed -n "s/^${chave}=//p" "$ASSISTANT/backend/.env" 2>/dev/null | tail -1 | tr -d "\"' " )
+  valor=$(sed -n "s/^${chave}=//p" "$BACKEND/.env" 2>/dev/null | tail -1 | tr -d "\"' " )
   echo "${valor:-$omissao}"
 }
 
@@ -188,7 +190,7 @@ fi
 if tem_passo pos; then
   if [ -n "$SLUG" ]; then
     # o in_tour é gravado na ingestão a partir dos POIs; isto apanha qualquer desvio
-    correr "6-in-tour" python3 "$ASSISTANT/tools/poi_mapping/marcar_in_tour.py" "$SLUG" $SIMULAR
+    correr "6-in-tour" python3 "$BACKEND/tools/poi_mapping/marcar_in_tour.py" "$SLUG" $SIMULAR
     # Só a secção das contagens, inteira. Um «tail -N» cortava a linha das peças
     # quando as contagens cresceram (as entidades acrescentaram três linhas) e
     # deixava no fim um «pronto a ingerir» que não faz sentido depois de ingerir.

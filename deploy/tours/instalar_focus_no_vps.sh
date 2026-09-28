@@ -44,7 +44,7 @@ python3 - "$HERE" "${MUSEUS[@]}" > /tmp/p360_inv_map.json <<'PY'
 import json, pathlib, sys
 here = pathlib.Path(sys.argv[1]); mapa = {}
 for museu in sys.argv[2:]:
-    ficheiro = here.parents[1] / "backend" / "poi_tours" / f"panorama-overlays-inventory-{museu}.json"
+    ficheiro = here.parents[1] / "poi_tours" / f"panorama-overlays-inventory-{museu}.json"
     if not ficheiro.exists(): continue
     por_museu = {}
     for poi in json.loads(ficheiro.read_text(encoding="utf-8")):

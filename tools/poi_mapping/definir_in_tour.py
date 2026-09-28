@@ -22,7 +22,7 @@ próxima corrida do `marcar_in_tour.py` (ou uma reingestão) volta a pôr o
 `in_tour` a valer o que estiver nos POIs e desfaz o que aqui se fizer. Para
 uma peça ficar mesmo na visita, o sítio certo é o ficheiro de POIs.
 
-Corre com o Python do backend (lê o `backend/.env`):
+Corre com o Python do backend (lê o `.env` da raiz do repositório):
 /home/hedge6000pro/miniconda3/envs/visitas_virtuais/bin/python
 """
 from __future__ import annotations
@@ -33,7 +33,7 @@ import re
 import sys
 from pathlib import Path
 
-BACKEND = Path(__file__).resolve().parents[2] / "backend"
+BACKEND = Path(__file__).resolve().parents[2]  # raiz do repositório do backend
 sys.path.insert(0, str(BACKEND))
 os.chdir(BACKEND)
 

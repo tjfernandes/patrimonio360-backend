@@ -16,7 +16,7 @@ ingestão e do assistente: maiúsculas, só letras e algarismos.
     python tools/poi_mapping/marcar_in_tour.py mnaz
     python tools/poi_mapping/marcar_in_tour.py            # os quatro museus
 
-Corre com o Python do backend (lê o `backend/.env`):
+Corre com o Python do backend (lê o `.env` da raiz do repositório):
 /home/hedge6000pro/miniconda3/envs/visitas_virtuais/bin/python
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ import re
 import sys
 from pathlib import Path
 
-BACKEND = Path(__file__).resolve().parents[2] / "backend"
+BACKEND = Path(__file__).resolve().parents[2]  # raiz do repositório do backend
 sys.path.insert(0, str(BACKEND))
 os.chdir(BACKEND)
 

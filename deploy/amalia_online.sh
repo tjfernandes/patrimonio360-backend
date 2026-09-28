@@ -12,16 +12,18 @@
 # O LLM local não é um elo crítico: se estiver em baixo, o backend usa a API
 # remota (LLM_FALLBACK_BASE_URL) até o supervisor o voltar a pôr de pé.
 #
-#   ./amalia_online.sh            verifica e repara o que estiver em baixo
-#   ./amalia_online.sh --status   só diagnostica, não mexe
-#   ./amalia_online.sh --vigiar   fica a vigiar e repara sozinho (Ctrl+C sai)
+#   deploy/amalia_online.sh            verifica e repara o que estiver em baixo
+#   deploy/amalia_online.sh --status   só diagnostica, não mexe
+#   deploy/amalia_online.sh --vigiar   fica a vigiar e repara sozinho (Ctrl+C sai)
 #
 # Para arrancar com o Windows: Agendador de Tarefas → nova tarefa → «Ao iniciar
 # sessão» → Programa: wsl.exe
-# Argumentos: -d ubuntu-24.04 -- bash -lc "~/Projects/AMALIA/patrimonio360_assistant/user_study/scripts/amalia_online.sh --vigiar"
+# Argumentos: -d ubuntu-24.04 -- bash -lc "~/Projects/AMALIA/patrimonio360-backend/deploy/amalia_online.sh --vigiar"
 
 set -u
-REPO="$HOME/Projects/AMALIA/patrimonio360_assistant"
+# raiz do repositório do backend (este script está em deploy/): é daqui que o
+# uvicorn arranca, e é aqui que ele lê o .env
+BACKEND="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 K="$HOME/.ssh/id_ed25519_vps"
 H="root@patrimonio360.webredirect.org"
 PORTO_VPS=8001                     # a ponta do túnel no VPS (o que o nginx procura)
@@ -31,7 +33,7 @@ LOG_BACKEND="$HOME/.amalia_backend.log"
 # uvicorn do ambiente conda quando o PATH não o traz (shell não interativo,
 # tarefa agendada sem o conda ativado): sem isto o arranque falhava em silêncio.
 UVICORN_BIN="$(command -v uvicorn 2>/dev/null || echo "$HOME/miniconda3/envs/visitas_virtuais/bin/uvicorn")"
-LLM_SCRIPT="$REPO/deploy/llm/amalia_llm.sh"
+LLM_SCRIPT="$BACKEND/deploy/llm/amalia_llm.sh"
 
 verde() { printf '\033[92m%s\033[0m\n' "$1"; }
 vermelho() { printf '\033[91m%s\033[0m\n' "$1"; }
@@ -96,7 +98,7 @@ arranca_backend() {
     pkill -f "$padrao"; sleep 5
   fi
   amarelo "  a arrancar o uvicorn (porto 8001)…"
-  cd "$REPO/backend" || return 1
+  cd "$BACKEND" || return 1
   nohup "$UVICORN_BIN" app.main:app --host 127.0.0.1 --port 8001 \
     > "$LOG_BACKEND" 2>&1 &
   for _ in $(seq 1 60); do sleep 2; backend_vivo && return 0; done
