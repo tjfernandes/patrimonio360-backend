@@ -1,32 +1,30 @@
-# OS / editor files
-.DS_Store
-Thumbs.db
-Desktop.ini
-.idea/
-.vscode/
-!.vscode/extensions.json
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Segredos e configuração local (o modelo das variáveis está em .env.example)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
 
-# Logs
+# Dados de runtime: ficam só na máquina onde o backend corre (ver README, «O que não está no git»)
+Images/
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+tmp/
+temp/
+*.tmp
+uploads/
+benchmark_runs/
+benchmarks/assets/
+tests/assets/
+tools/poi_mapping/relatorios/
 
-# Local environment files
-.env
-.env.local
-.env.*.local
-!.env.example
+# Caches de modelos e de ferramentas
+.cache/
+.huggingface/
+hf_cache/
+.torch/
 
-# Python artifacts
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -47,15 +45,30 @@ pip-wheel-metadata/
 build/
 dist/
 
-# Node worker artifacts
+# Node (multiview_worker)
 node_modules/
-multiview_worker/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Local runtime/cache data
-tmp/
-temp/
-*.tmp
-.cache/
-.huggingface/
-Images/
+# Cópias de segurança e lixo do Windows
+*.bak
+*.bak-*
+*.bak.*
+*:Zone.Identifier
+Desktop.ini
+Thumbs.db
+.DS_Store
+
+# Editores
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 vendor/

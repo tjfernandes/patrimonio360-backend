@@ -1,0 +1,446 @@
+[
+  {
+    "overlayId": "overlay_05A2C0EE_3F99_81B0_41C3_3087DAC970BE",
+    "panoramaKey": "panorama_34FE4F0B_1158_0A07_4180_D5611E2A7A31",
+    "inventoryIds": [
+      "CMAG 774"
+    ],
+    "location": "Escritório",
+    "title": "Secretária de Cilindro"
+  },
+  {
+    "overlayId": "overlay_09F6250D_3F9B_8070_41A8_59B05DCD1CC5",
+    "panoramaKey": "panorama_34FE4F0B_1158_0A07_4180_D5611E2A7A31",
+    "inventoryIds": [
+      "CMAG 790"
+    ],
+    "location": "Escritório",
+    "title": "Relógio de mesa"
+  },
+  {
+    "overlayId": "overlay_09DB1A21_3F9E_80B0_41C7_81687D014741",
+    "panoramaKey": "panorama_34FE4F0B_1158_0A07_4180_D5611E2A7A31",
+    "inventoryIds": [
+      "CMAG 926"
+    ],
+    "location": "Escritório",
+    "title": "Convite à valsa"
+  },
+  {
+    "overlayId": "overlay_66D57F31_3F9A_8004_41C0_B2FD81048AF1",
+    "panoramaKey": "panorama_326E0E52_13C4_2D2A_41AE_A3128B24E3B1",
+    "inventoryIds": [
+      "CMAG 801"
+    ],
+    "location": "Sala do Barganho",
+    "title": "Barganho, contador espanhol"
+  },
+  {
+    "overlayId": "overlay_66212981_3FA6_8002_41C5_8D6580DF9D07",
+    "panoramaKey": "panorama_326E0E52_13C4_2D2A_41AE_A3128B24E3B1",
+    "inventoryIds": [
+      "CMAG 1008"
+    ],
+    "location": "Sala do Barganho",
+    "title": "Alegoria dos 4 elementos"
+  },
+  {
+    "overlayId": "overlay_1F6E7258_3E6A_8101_41C8_EBC8CFE34372",
+    "panoramaKey": "panorama_1DF6E171_133C_17E6_41A5_D0D889383801",
+    "inventoryIds": [
+      "CMAG 359",
+      "CMAG 360"
+    ],
+    "location": "Vitrina das Porcelanas",
+    "title": "Cães (dois)"
+  },
+  {
+    "overlayId": "overlay_155785E7_3EB9_8322_41C6_584FBA498C4D",
+    "panoramaKey": "panorama_06A1555D_1344_1FDE_41B1_70402988D0BC",
+    "inventoryIds": [
+      "CMAG 857"
+    ],
+    "location": "Corredor",
+    "title": "Busto de velho calvo"
+  },
+  {
+    "overlayId": "overlay_13C9F040_3EBA_815D_41C5_83E7D0559C76",
+    "panoramaKey": "panorama_31ED11EF_1128_161F_41A6_E7C7AB932CBD",
+    "inventoryIds": [
+      "CMAG 162"
+    ],
+    "location": "Sala Wucai",
+    "title": "Aquário"
+  },
+  {
+    "overlayId": "overlay_1194410C_3EBA_80EB_4166_AA22E556BF33",
+    "panoramaKey": "panorama_31ED11EF_1128_161F_41A6_E7C7AB932CBD",
+    "inventoryIds": [
+      "CMAG 671"
+    ],
+    "location": "Sala Wucai",
+    "title": "Cómoda papeleira de alçado"
+  },
+  {
+    "overlayId": "overlay_19A8A3F7_3E9E_871F_41A5_56BD1D6DEB96",
+    "panoramaKey": "panorama_1C60F014_134C_152F_41AA_8A955D789F22",
+    "inventoryIds": [
+      "CMAG 797"
+    ],
+    "location": "Salas das exposições temporárias",
+    "title": "Móvel de aparato"
+  },
+  {
+    "overlayId": "overlay_5CEB5B84_3FBE_80DA_41B6_0D93C504CFFA",
+    "panoramaKey": "panorama_32CC7867_13C4_15E9_41B2_AA059EA2C487",
+    "inventoryIds": [
+      "CMAG 150",
+      "CMAG 151"
+    ],
+    "location": "Atelier",
+    "title": "Aquários (par)"
+  },
+  {
+    "overlayId": "overlay_5A67B9E4_3FBB_805E_419C_AA9E7AF74F04",
+    "panoramaKey": "panorama_32CC7867_13C4_15E9_41B2_AA059EA2C487",
+    "inventoryIds": [
+      "CMAG 700"
+    ],
+    "location": "Atelier",
+    "title": "Preguiceiro"
+  },
+  {
+    "overlayId": "overlay_2787CBB7_3EF2_83DE_41BF_6A0E07609727",
+    "panoramaKey": "panorama_6726F47D_4346_0F33_41C3_7AFAFC7F0816",
+    "inventoryIds": [
+      "CMAG 1002"
+    ],
+    "location": "Cozinha",
+    "title": "Maternidade"
+  },
+  {
+    "overlayId": "overlay_03624CF0_3FEA_81AE_41B4_B78C28C3ED01",
+    "panoramaKey": "panorama_06C8D23F_135C_1559_4189_E50E6C3A5EA5",
+    "inventoryIds": [
+      "CMAG 772"
+    ],
+    "location": "Escritório",
+    "title": "Mesa secretária"
+  },
+  {
+    "overlayId": "overlay_0232B2D6_3FEA_8193_41BF_14831C83ECBE",
+    "panoramaKey": "panorama_06C8D23F_135C_1559_4189_E50E6C3A5EA5",
+    "inventoryIds": [
+      "CMAG 916"
+    ],
+    "location": "Escritório",
+    "title": "Primavera"
+  },
+  {
+    "overlayId": "overlay_6850E3A4_3F9F_8015_41C6_99D8A90517CD",
+    "panoramaKey": "panorama_0ECFD89B_13FC_355A_4178_72D85D5CB0E0",
+    "inventoryIds": [
+      "CMAG 789"
+    ],
+    "location": "Entrada do Atelier",
+    "title": "Relógio de caixa alta"
+  },
+  {
+    "overlayId": "overlay_68F1291D_3F9B_8033_41CE_C0A8FECDDE1F",
+    "panoramaKey": "panorama_0ECFD89B_13FC_355A_4178_72D85D5CB0E0",
+    "inventoryIds": [
+      "CMAG 789"
+    ],
+    "location": "Entrada do Atelier",
+    "title": "Relógio de caixa alta"
+  },
+  {
+    "overlayId": "overlay_EC2B46E6_C2EE_61E3_41E0_4ED923715651",
+    "panoramaKey": "panorama_44FA99D1_2201_3868_419A_8B7334363F1D",
+    "inventoryIds": [
+      "CMAG 859"
+    ],
+    "location": "Quarto",
+    "title": "A aguadeira (costume de Coimbra)"
+  },
+  {
+    "overlayId": "overlay_85C999BA_B8F0_BB2C_41A0_36A76651BE4E",
+    "panoramaKey": "panorama_446DBBC8_2201_5867_41B0_CEC12EB7AB24",
+    "inventoryIds": [
+      "CMAG 972"
+    ],
+    "location": "Corredor",
+    "title": "Interior de igreja (Igreja Matriz de Viana do Alentejo)"
+  },
+  {
+    "overlayId": "overlay_868F7BC0_B8F1_BF5E_41D8_68AFC550BE4E",
+    "panoramaKey": "panorama_446DBBC8_2201_5867_41B0_CEC12EB7AB24",
+    "inventoryIds": [
+      "CMAG 970"
+    ],
+    "location": "Corredor",
+    "title": "O púlpito de S. João (Igreja de S. João Baptista, Tomar)"
+  },
+  {
+    "overlayId": "overlay_8607EA26_B8F1_7923_41C2_5AF6C1CE8222",
+    "panoramaKey": "panorama_446DBBC8_2201_5867_41B0_CEC12EB7AB24",
+    "inventoryIds": [
+      "CMAG 857"
+    ],
+    "location": "Corredor",
+    "title": "Busto de velho calvo"
+  },
+  {
+    "overlayId": "overlay_1D64E7DE_3E6A_8F06_41B5_5B329F0EBB50",
+    "panoramaKey": "panorama_1DD14DAA_1344_2F7A_4189_BB8ACC0B53DA",
+    "inventoryIds": [
+      "CMAG 162"
+    ],
+    "location": "Vitrina das Porcelanas",
+    "title": "Bule"
+  },
+  {
+    "overlayId": "overlay_1F11A382_3E66_87F8_419B_1F99C15A7F75",
+    "panoramaKey": "panorama_1DD14DAA_1344_2F7A_4189_BB8ACC0B53DA",
+    "inventoryIds": [
+      "CMAG 60"
+    ],
+    "location": "Vitrina das Porcelanas",
+    "title": "Gomil"
+  },
+  {
+    "overlayId": "overlay_1D6C302C_3E66_810F_41B1_3DB6734A4511",
+    "panoramaKey": "panorama_1DD14DAA_1344_2F7A_4189_BB8ACC0B53DA",
+    "inventoryIds": [
+      "CMAG 65"
+    ],
+    "location": "Vitrina das Porcelanas",
+    "title": "Prato grande Kraakporcelain"
+  },
+  {
+    "overlayId": "overlay_639B46BF_3FA9_800E_41C7_54191E27AC30",
+    "panoramaKey": "panorama_323FD459_13C4_3D26_4160_EA08CC975D7B",
+    "inventoryIds": [
+      "CMAG 959"
+    ],
+    "location": "Atelier",
+    "title": "Senhora de preto"
+  },
+  {
+    "overlayId": "overlay_5DD6571D_3FAB_8011_41C6_233522BE604C",
+    "panoramaKey": "panorama_323FD459_13C4_3D26_4160_EA08CC975D7B",
+    "inventoryIds": [
+      "CMAG 51"
+    ],
+    "location": "Atelier",
+    "title": "Pote (dito dos 100 meninos)"
+  },
+  {
+    "overlayId": "overlay_5EA3E750_3FA6_806B_41C2_1F8E5762ABB6",
+    "panoramaKey": "panorama_32283ECE_13C4_ED3B_41B0_32088EB72582",
+    "inventoryIds": [
+      "CMAG 799"
+    ],
+    "location": "Atelier",
+    "title": "Contador de Antuérpia"
+  },
+  {
+    "overlayId": "overlay_685ACB6C_3FA6_8007_41A7_1C38DCF2C615",
+    "panoramaKey": "panorama_320E6A3F_13C4_155A_41AF_B718C97DB305",
+    "inventoryIds": [
+      "CMAG 118"
+    ],
+    "location": "Atelier",
+    "title": "Pote (dito dos jesuítas)"
+  },
+  {
+    "overlayId": "overlay_66D29185_3FAA_80FA_41C5_A1D1B87BEEDA",
+    "panoramaKey": "panorama_320E6A3F_13C4_155A_41AF_B718C97DB305",
+    "inventoryIds": [
+      "CMAG 32"
+    ],
+    "location": "Atelier",
+    "title": "Garrafa (dita de peregrino ou de Filipe I de Portugal)"
+  },
+  {
+    "overlayId": "overlay_7819A23C_3FEB_8057_41A4_5C9BB5937D79",
+    "panoramaKey": "panorama_0F833D6C_13C4_2FFE_41B2_03ADFFEEFF4A",
+    "inventoryIds": [
+      "CMAG 1029"
+    ],
+    "location": "Entrada da Casa Malhoa",
+    "title": "Paisagem com barcos"
+  },
+  {
+    "overlayId": "overlay_787EAA79_3FFA_80C7_41C5_CC0A1150F476",
+    "panoramaKey": "panorama_05DDE936_134C_376A_419E_BAD220A28F21",
+    "inventoryIds": [
+      "CMAG 709"
+    ],
+    "location": "Quarto",
+    "title": "Cómoda"
+  },
+  {
+    "overlayId": "overlay_78502D53_3FFA_80C6_41B6_BF820135EC09",
+    "panoramaKey": "panorama_05DDE936_134C_376A_419E_BAD220A28F21",
+    "inventoryIds": [
+      "CMAG 329"
+    ],
+    "location": "Quarto",
+    "title": "Pote azul soprado"
+  },
+  {
+    "overlayId": "overlay_76204521_3FE7_807A_4173_C381F7F4ABE2",
+    "panoramaKey": "panorama_05DDE936_134C_376A_419E_BAD220A28F21",
+    "inventoryIds": [
+      "CMAG 942"
+    ],
+    "location": "Quarto",
+    "title": "Camões"
+  },
+  {
+    "overlayId": "overlay_7705A282_3FE6_803A_418B_F8EF4B0CDD88",
+    "panoramaKey": "panorama_05DDE936_134C_376A_419E_BAD220A28F21",
+    "inventoryIds": [
+      "CMAG 744"
+    ],
+    "location": "Quarto",
+    "title": "Cama ou Leito"
+  },
+  {
+    "overlayId": "overlay_09ADB326_3FA9_80B1_4192_03D327143BF9",
+    "panoramaKey": "panorama_0587C075_135C_15E9_418F_6EF6EB4C00B6",
+    "inventoryIds": [
+      "CMAG 263"
+    ],
+    "location": "Sala de Jantar",
+    "title": "Refrescador"
+  },
+  {
+    "overlayId": "overlay_5E85CEDE_3FB9_8060_41A2_0B1FE3A23D4C",
+    "panoramaKey": "panorama_3212CDD0_13C5_EF26_419A_A82F5C961636",
+    "inventoryIds": [
+      "CMAG 920"
+    ],
+    "location": "Atelier",
+    "title": "Xéxé"
+  },
+  {
+    "overlayId": "overlay_6875661F_3FAF_800B_41CC_F84C3EE219A8",
+    "panoramaKey": "panorama_322AAA87_13C4_1529_4197_74CBF0E23BA8",
+    "inventoryIds": [
+      "CMAG 898"
+    ],
+    "location": "Atelier",
+    "title": "A Ceifa"
+  },
+  {
+    "overlayId": "overlay_09C2D5C2_3F99_83F0_41C9_F17EE2499427",
+    "panoramaKey": "panorama_04F81102_1344_172B_41AB_199EB0AD7A24",
+    "inventoryIds": [
+      "CMAG 812"
+    ],
+    "location": "Escritório",
+    "title": "Relógio de chaminé"
+  },
+  {
+    "overlayId": "overlay_07743585_3F9B_8071_4198_C60F7702D365",
+    "panoramaKey": "panorama_04F81102_1344_172B_41AB_199EB0AD7A24",
+    "inventoryIds": [
+      "CMAG 1031"
+    ],
+    "location": "Escritório",
+    "title": "Busto de Árabe"
+  },
+  {
+    "overlayId": "overlay_046B2D59_3F99_8091_41C2_CD67A184085B",
+    "panoramaKey": "panorama_04F81102_1344_172B_41AB_199EB0AD7A24",
+    "inventoryIds": [
+      "CMAG 1063"
+    ],
+    "location": "Escritório",
+    "title": "Cofre"
+  },
+  {
+    "overlayId": "overlay_07417265_3FE7_80B1_41C9_094602F44461",
+    "panoramaKey": "panorama_04F81102_1344_172B_41AB_199EB0AD7A24",
+    "inventoryIds": [
+      "CMAG 981"
+    ],
+    "location": "Escritório",
+    "title": "Cabeça de estudo"
+  },
+  {
+    "overlayId": "overlay_7BCC84EC_3FF9_81A5_41B2_2836FF3CE931",
+    "panoramaKey": "panorama_44AEEE81_2201_38E8_41B4_593C82FD2BC2",
+    "inventoryIds": [
+      "CMAG 139"
+    ],
+    "location": "Quarto",
+    "title": "Jarrão"
+  },
+  {
+    "overlayId": "overlay_1DC1CD0D_4807_FD24_4187_ACA3FAD01AAD",
+    "panoramaKey": "panorama_44AEEE81_2201_38E8_41B4_593C82FD2BC2",
+    "inventoryIds": [
+      "CMAG 856"
+    ],
+    "location": "Quarto",
+    "title": "Caminho da mata"
+  },
+  {
+    "overlayId": "overlay_19D3F435_3EA6_812A_41C6_7871EF01935C",
+    "panoramaKey": "panorama_061D0147_137C_772A_41A8_07E5416D09C6",
+    "inventoryIds": [
+      "CMAG 1026"
+    ],
+    "location": "Sala do Colecionador",
+    "title": "Praia (Honfleur)"
+  },
+  {
+    "overlayId": "overlay_163E489E_3EAB_8118_41C9_F0FC4BD5DE46",
+    "panoramaKey": "panorama_061D0147_137C_772A_41A8_07E5416D09C6",
+    "inventoryIds": [
+      "CMAG 924"
+    ],
+    "location": "Sala do Colecionador",
+    "title": "Retrato do Dr. Anastácio Gonçalves"
+  },
+  {
+    "overlayId": "overlay_17445D62_3EAE_832A_419F_ECF1DB1BA172",
+    "panoramaKey": "panorama_061D0147_137C_772A_41A8_07E5416D09C6",
+    "inventoryIds": [
+      "CMAG 1045"
+    ],
+    "location": "Sala do Colecionador",
+    "title": "Busto do Dr. Anastácio Gonçalves"
+  },
+  {
+    "overlayId": "overlay_5DF3B6C1_3FA6_804F_41CB_01E5348B49E5",
+    "panoramaKey": "panorama_327E345F_13CC_1DD9_41B2_51042602FD1F",
+    "inventoryIds": [
+      "CMAG 802"
+    ],
+    "location": "Atelier",
+    "title": "Papeleira miniatura"
+  },
+  {
+    "overlayId": "overlay_5724D9FB_3FAA_803E_4191_E61660B787FA",
+    "panoramaKey": "panorama_327E345F_13CC_1DD9_41B2_51042602FD1F",
+    "inventoryIds": [
+      "CMAG 1054"
+    ],
+    "location": "Atelier",
+    "title": "Eva"
+  },
+  {
+    "overlayId": "overlay_5E8EBD7F_3FA6_8032_4190_924877661EFD",
+    "panoramaKey": "panorama_327E345F_13CC_1DD9_41B2_51042602FD1F",
+    "inventoryIds": [
+      "CMAG 150",
+      "CMAG 151"
+    ],
+    "location": "Atelier",
+    "title": "Aquários (par)"
+  }
+]
