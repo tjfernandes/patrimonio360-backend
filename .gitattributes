@@ -1,0 +1,37 @@
+# Fins de linha: LF no repositório e nas cópias de trabalho.
+# O backend corre em Linux (WSL) e um script .sh com CRLF não arranca.
+* text=auto eol=lf
+
+# Binários: sem conversão de fins de linha nem diffs de texto
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.bmp binary
+*.ico binary
+*.tif binary
+*.tiff binary
+*.pdf binary
+*.glb binary
+*.zip binary
+*.rar binary
+*.7z binary
+*.gz binary
+*.tgz binary
+*.npy binary
+*.npz binary
+*.pkl binary
+*.pt binary
+*.bin binary
+*.safetensors binary
+*.parquet binary
+*.xlsx binary
+*.xls binary
+*.docx binary
+*.mp4 binary
+*.webm binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
