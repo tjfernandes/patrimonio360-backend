@@ -1,0 +1,215 @@
+<!-- p360-embed-handler v1 — ponte entre a visita 3DVista e o assistente.
+     Extraído do index.html do MNSR a 2026-09-18 (o do MJ é igual, tirando
+     espaços). Reencaminha a ficha aberta (openedInfoWindow ->
+     selectedArtifacts), trata o navigateToArtifact «clássico» (muda de
+     panorama e abre a ficha) e avisa o fecho da ficha (deselectedArtifacts).
+     Uma republicação da visita pelo 3DVista apaga isto: repor com
+     deploy/tours/instalar_focus_no_vps.sh -->
+    <script>
+      window.addEventListener("message", (event) => {
+        if (event.data && event.data.type === "openedInfoWindow") {
+          console.log("Info window opened:", event.data);
+          window.parent.postMessage(
+            {
+              type: "selectedArtifacts",
+              inventoryIds: event.data.inventoryIds,
+              text: event.data.text,
+              title: event.data.title,
+              location: event.data.location,
+            },
+            "*"
+          );
+          window.P360TourEventBridge &&
+            window.P360TourEventBridge.handleOpenedInfoWindow(event.data);
+        }
+      });
+
+      window.addEventListener("message", (event) => {
+        if (event.data && event.data.type === "navigateToArtifact") {
+          console.log("Navigating to artifact:", event.data);
+          const { overlayId, panoramaKey } = event.data;
+          if (window.TDV && window.TDV.Tour && window.TDV.Tour.Script) {
+            const tour =
+              window.tour ||
+              (window.TDV &&
+                window.TDV.PlayerAPI &&
+                window.TDV.PlayerAPI.getInstance());
+            if (!tour) return;
+            const rootPlayer = tour._getRootPlayer
+              ? tour._getRootPlayer()
+              : tour;
+            window.P360TourEventBridge &&
+              window.P360TourEventBridge.install(rootPlayer);
+
+            const getTourValue = (obj, key) => {
+              if (!obj) return undefined;
+              if (typeof obj.get === "function") {
+                try {
+                  const value = obj.get(key);
+                  if (value !== undefined) return value;
+                } catch (e) {}
+              }
+              if (obj[key] !== undefined) return obj[key];
+              if (obj.tq && obj.tq[key] !== undefined) return obj.tq[key];
+              return undefined;
+            };
+
+            const getTourData = (obj) =>
+              getTourValue(obj, "data") || (obj && obj.tq && obj.tq.data) || {};
+
+            const getTourLabel = (obj) =>
+              getTourValue(obj, "label") || getTourData(obj).label || null;
+
+            const getTourId = (obj) =>
+              getTourValue(obj, "id") || (obj && obj.id) || (obj && obj.tq && obj.tq.id) || null;
+
+            const setMainMediaByName = (name) => {
+              if (typeof rootPlayer.setMainMediaByName === "function") {
+                rootPlayer.setMainMediaByName(name);
+                return true;
+              }
+              if (typeof tour.setMediaByName === "function") {
+                tour.setMediaByName(name);
+                return true;
+              }
+              console.warn("No media navigation API found.");
+              return false;
+            };
+
+            const resolveTourRef = (value) => {
+              if (typeof value !== "string") return value;
+              const key = value.replace(/^this\./, "");
+              return rootPlayer[key] || value;
+            };
+
+            const asArray = (value) => {
+              if (!value) return [];
+              return Array.isArray(value)
+                ? value.map(resolveTourRef)
+                : [resolveTourRef(value)];
+            };
+
+            const getClickTarget = (overlay) => {
+              const targets = [overlay, ...asArray(getTourValue(overlay, "areas"))];
+              return (
+                targets.find((target) => {
+                  const click = getTourValue(target, "click");
+                  const select = getTourValue(target, "select");
+                  return typeof click === "string" || typeof select === "string";
+                }) || overlay
+              );
+            };
+
+            const findOverlayById = (id, panorama) => {
+              if (!id) return null;
+              if (rootPlayer[id]) return rootPlayer[id];
+              if (typeof rootPlayer.getById === "function") {
+                try {
+                  const found = rootPlayer.getById(id);
+                  if (found) return found;
+                } catch (e) {}
+              }
+              const candidates = [
+                ...asArray(getTourValue(panorama, "overlays") || panorama.overlays),
+                ...asArray(getTourValue(panorama, "objects") || panorama.objects),
+              ];
+              return candidates.find((item) => getTourId(item) === id) || null;
+            };
+
+            const closeOpenInfoWindows = () => {
+              const windows =
+                typeof rootPlayer.getByClassName === "function"
+                  ? rootPlayer.getByClassName("Window")
+                  : [];
+              for (const win of windows || []) {
+                try {
+                  if (typeof win.set === "function") {
+                    win.set("visible", false);
+                  } else if (typeof win.trigger === "function") {
+                    win.trigger("close");
+                  } else if (typeof win.hide === "function") {
+                    win.hide();
+                  }
+                } catch (e) {}
+              }
+            };
+
+            const panorama = rootPlayer[panoramaKey];
+            if (!panorama) {
+              console.warn("Panorama not found:", panoramaKey);
+              return;
+            }
+
+            const panoramaName = getTourLabel(panorama);
+            if (!panoramaName) {
+              console.warn("Panorama label not found:", panoramaKey, panorama);
+              return;
+            }
+
+            console.log("Panorama:", panorama);
+            console.log("Name of panorama: ", panoramaName);
+            closeOpenInfoWindows();
+            if (!setMainMediaByName(panoramaName)) return;
+            window.P360TourEventBridge &&
+              window.P360TourEventBridge.postPanoramaChanged({
+                panoramaId: panoramaKey,
+                title: panoramaName,
+                source: "assistant_navigation",
+              });
+
+            setTimeout(() => {
+              const overlay = findOverlayById(overlayId, panorama);
+              if (!overlay) {
+                console.warn("Overlay not found:", overlayId);
+                return;
+              }
+              const clickTarget = getClickTarget(overlay);
+              console.log("Triggering overlay:", overlay);
+              let overlayTriggered = false;
+              if (typeof rootPlayer.triggerOverlay === "function") {
+                rootPlayer.triggerOverlay(clickTarget, "click");
+                overlayTriggered = true;
+              } else if (clickTarget && typeof clickTarget.trigger === "function") {
+                clickTarget.trigger("click");
+                overlayTriggered = true;
+              } else if (clickTarget && typeof clickTarget.click === "function") {
+                clickTarget.click();
+                overlayTriggered = true;
+              } else {
+                console.warn("No overlay trigger API found:", overlayId, overlay);
+              }
+              if (overlayTriggered && window.P360TourEventBridge) {
+                window.P360TourEventBridge.postOverlayOpened({
+                  panoramaId: panoramaKey,
+                  overlayId,
+                  title: getTourLabel(overlay),
+                  source: "assistant_navigation",
+                });
+                window.P360TourEventBridge.postNavigationCompleted({
+                  panoramaId: panoramaKey,
+                  overlayId,
+                  title: getTourLabel(overlay),
+                  source: "assistant_navigation",
+                });
+              }
+            }, 1500);
+          } else {
+            console.warn("TDV ou Tour ou Script não estão disponíveis ainda.");
+          }
+        }
+      });
+
+      const originalResumePlayers = window.TDV.Tour.Script.resumePlayers;
+      window.TDV.Tour.Script.resumePlayers = function (...args) {
+        // Listener: executa quando resumePlayers é chamada
+        console.log("resumePlayers chamada", args);
+        // Você pode disparar um evento customizado aqui se quiser
+        window.P360TourEventBridge &&
+          window.P360TourEventBridge.handleClosedInfoWindow({
+            source: "resume_players",
+          });
+        window.parent.postMessage({ type: "deselectedArtifacts" }, "*");
+        return originalResumePlayers.apply(this, args);
+      };
+    
+    </script>
