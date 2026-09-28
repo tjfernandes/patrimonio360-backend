@@ -17,6 +17,7 @@ benchmark_runs/
 benchmarks/assets/
 tests/assets/
 tools/poi_mapping/relatorios/
+FIXES/
 
 # Caches de modelos e de ferramentas
 .cache/
