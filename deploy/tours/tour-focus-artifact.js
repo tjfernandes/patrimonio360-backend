@@ -13,30 +13,29 @@
  * estiver à frente), vai para o panorama com a câmara virada
  * para o hotspot (setPanoramaCameraWithSpot do 3DVista; movimento suave se já
  * estiver no panorama), NÃO abre a janela da peça, e destaca o ícone do
- * hotspot durante uns segundos: pulsação de tamanho («breathing») e cor. O
- * clique do visitante no hotspot continua a abrir a ficha como sempre.
+ * hotspot durante uns segundos com uma pulsação de tamanho («breathing»). A
+ * imagem do ícone não é tocada: mantém a cor, a animação (os ícones animados
+ * do 3DVista são folhas de sprites) e a orientação. O clique do visitante no
+ * hotspot continua a abrir a ficha como sempre.
  *
  * Como o listener é registado em fase de captura e chama
  * stopImmediatePropagation(), o handler antigo nunca vê o comando em modo
  * «focus». Sem `mode` (botão «Ir para a sala», deep-links) tudo fica como era.
  *
- * Verificado a 2026-09-16 no player do Museu do Traje: yaw/pitch dos hotspots,
- * width/height/opacity/image alteráveis em tempo real; createInstance de
- * ImageResourceLevel + ImageResource aceita data URLs.
+ * Verificado a 2026-09-16 no player do Museu do Traje: yaw/pitch e
+ * width/height dos hotspots alteráveis em tempo real.
  */
 (function () {
   "use strict";
 
-  var VERSION = "2026-09-18.4";
+  var VERSION = "2026-09-28.1";
   var HIGHLIGHT_MS = 10000;   // duração do destaque
   var PERIOD_MS = 1300;       // período da pulsação
   var SCALE_MAX = 1.65;       // tamanho máximo relativo ao original
-  var TINT = "#22c55e";       // cor do ícone em destaque (verde «encontrado»)
   var WAIT_MEDIA_MS = 8000;   // máximo à espera de o panorama ficar ativo
   var INIT_WAIT_MS = 180000;  // máximo à espera de o tour inicializar
 
   var current = null;   // destaque em curso
-  var tintCache = {};   // url do ícone -> ImageResource pintado
 
   function log() {
     try { console.log.apply(console, ["[p360 focus]"].concat([].slice.call(arguments))); } catch (e) {}
@@ -210,7 +209,6 @@
       if (o.vfov !== undefined) it.set("vfov", o.vfov);
       if (o.yaw !== undefined) it.set("yaw", o.yaw);
       if (o.pitch !== undefined) it.set("pitch", o.pitch);
-      if (o.image !== undefined) it.set("image", o.image);
     } catch (e) {}
     log("destaque terminado", c.reason || "");
   }
@@ -231,36 +229,6 @@
     } catch (e) { return 0; }
   }
 
-  function tintedImage(rp, image, cb) {
-    var levels = getValue(image, "levels") || [];
-    var level = resolveRef(rp, levels[0]);
-    var url = level && getValue(level, "url");
-    if (!url) return cb(null);
-    if (tintCache[url]) return cb(tintCache[url]);
-    var img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = function () {
-      try {
-        var canvas = document.createElement("canvas");
-        canvas.width = img.width; canvas.height = img.height;
-        var g = canvas.getContext("2d");
-        g.drawImage(img, 0, 0);
-        g.globalCompositeOperation = "source-in";
-        g.fillStyle = TINT;
-        g.fillRect(0, 0, canvas.width, canvas.height);
-        var dataUrl = canvas.toDataURL("image/png");
-        var newLevel = rp.createInstance("ImageResourceLevel");
-        newLevel.set("url", dataUrl); newLevel.set("width", img.width); newLevel.set("height", img.height);
-        var res = rp.createInstance("ImageResource");
-        res.set("levels", [newLevel]);
-        tintCache[url] = res;
-        cb(res);
-      } catch (e) { log("sem cor (canvas/createInstance):", e); cb(null); }
-    };
-    img.onerror = function () { cb(null); };
-    img.src = url;
-  }
-
   function startHighlight(rp, overlay, spot, panoramaIndex) {
     stopHighlight();
     var item = spot.item;
@@ -268,7 +236,6 @@
       width: getValue(item, "width"), height: getValue(item, "height"),
       hfov: getValue(item, "hfov"), vfov: getValue(item, "vfov"),
       yaw: getValue(item, "yaw"), pitch: getValue(item, "pitch"),
-      image: getValue(item, "image"),
     };
     var anchored = typeof originals.yaw === "number" && typeof originals.pitch === "number";
     var cosPitch = anchored ? (Math.cos(originals.pitch * Math.PI / 180) || 1) : 1;
@@ -297,11 +264,6 @@
       state.raf = requestAnimationFrame(frame);
     }
     state.raf = requestAnimationFrame(frame);
-    if (originals.image) {
-      tintedImage(rp, originals.image, function (res) {
-        if (res && current === state) { try { item.set("image", res); } catch (e) {} }
-      });
-    }
     state.timer = setTimeout(function () { state.reason = "tempo"; stopHighlight(); }, HIGHLIGHT_MS);
     // termina se o visitante mudar de panorama ou abrir uma janela (a ficha)
     state.poll = setInterval(function () {

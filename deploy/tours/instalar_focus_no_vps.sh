@@ -24,7 +24,7 @@
 # index.html na primeira alteração de cada dia. Um bloco inline antigo (sem a
 # marca p360-embed-handler) fica como está, para não mexer no que já funciona.
 #
-#   deploy/tours/instalar_focus_no_vps.sh [mnt mnsr mnaz mj cmag]
+#   deploy/tours/instalar_focus_no_vps.sh [mnt mnsr mnaz mj cmag mnaa]
 #
 # Uma visita nova não traz nada disto: o CMAG foi publicado a 2026-09-18 e até
 # 2026-09-20 o «Ver na tour» não fazia nada e os hotspots não avisavam a app,
@@ -32,9 +32,28 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 K="$HOME/.ssh/id_ed25519_vps"; H="root@patrimonio360.webredirect.org"; ROOT=/root/tours
-MUSEUS=("$@"); [ ${#MUSEUS[@]} -eq 0 ] && MUSEUS=(mnt mnsr mnaz mj cmag)
+MUSEUS=("$@"); [ ${#MUSEUS[@]} -eq 0 ] && MUSEUS=(mnt mnsr mnaz mj cmag mnaa)
 V=$(date +%s)
-scp -q -i "$K" "$HERE/tour-focus-artifact.js" "$H:$ROOT/tour-focus-artifact.js"
+
+# A cópia oficial do tour-focus-artifact.js está no repositório do frontend
+# (tour-scripts/). O ficheiro no VPS é partilhado por todas as visitas: instalar
+# uma cópia desatualizada daqui muda o aspeto de todas (aconteceu a 2026-09-28,
+# em que a cópia de 18/09, com o ícone pintado de verde, substituiu a de 28/09).
+# Por isso vai-se buscar a versão do frontend; a cópia local só serve se o
+# GitHub não responder, e nesse caso avisa-se.
+FOCUS_JS="$HERE/tour-focus-artifact.js"
+TMP_FOCUS=$(mktemp)
+if gh api repos/tjfernandes/patrimonio360-frontend/contents/tour-scripts/tour-focus-artifact.js \
+     -H "Accept: application/vnd.github.raw" > "$TMP_FOCUS" 2>/dev/null && grep -q 'var VERSION' "$TMP_FOCUS"; then
+  FOCUS_JS="$TMP_FOCUS"
+  if ! cmp -s "$TMP_FOCUS" "$HERE/tour-focus-artifact.js"; then
+    echo "aviso: deploy/tours/tour-focus-artifact.js está diferente do frontend; instalo a do frontend ($(grep -o 'VERSION = "[^"]*"' "$TMP_FOCUS"))"
+    echo "       para atualizar a cópia daqui: cp $TMP_FOCUS $HERE/tour-focus-artifact.js"
+  fi
+else
+  echo "aviso: não consegui ler o script do repositório do frontend (gh api); instalo a cópia local ($(grep -o 'VERSION = "[^"]*"' "$HERE/tour-focus-artifact.js"))"
+fi
+scp -q -i "$K" "$FOCUS_JS" "$H:$ROOT/tour-focus-artifact.js"
 scp -q -i "$K" "$HERE/tour-embed-handler.html" "$H:$ROOT/tour-embed-handler.html"
 
 # Mapa dos números de inventário corrigidos (validar_inventarios_poi.py guarda o
