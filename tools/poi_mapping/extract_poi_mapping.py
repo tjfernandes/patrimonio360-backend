@@ -10,6 +10,14 @@ Le script_general.js (fallback script_mobile.js), encontra os hotspots cujo clic
 emite postMessage({type:"openedInfoWindow", inventoryIds:[...]}) e resolve a
 cadeia  area -> overlay -> panorama/model,  produzindo o mesmo formato que o
 overlay-inventory-mapper.js gerava a partir do browser.
+
+O nome da zona («location») de cada POI vem, por ordem, do subtitle do panorama
+onde esta (locale/<lingua>.txt do export, com pt antes de en), e so na falta
+dele do `location` escrito no bloco JS do hotspot. No MNAA os blocos dizem
+«Sala 37», «Sala 64», … (25 zonas), e os subtitles dizem a coleccao («Pintura
+Europeia», «Ourivesaria», …), que e o que o visitante procura. O valor do bloco
+fica em `locationOriginal` quando e diferente. --location-from js repoe o
+comportamento antigo; --location-from label usa o label do panorama.
 """
 from __future__ import annotations
 
@@ -84,6 +92,45 @@ def innermost(spans, starts, pos):
 def own_id(obj_text: str) -> str | None:
     m = ID_RE.search(obj_text)
     return m.group(1) if m else None
+
+
+LOCALE_LINE_RE = re.compile(r"^((?:panorama|model)_[0-9A-F_]+)\.(label|subtitle) = (.*?)\s*$", re.M)
+
+
+def load_locale(tour_dir: Path) -> tuple[dict[str, dict[str, str]], str | None]:
+    """{chave do panorama: {"label": …, "subtitle": …}} do locale/<lingua>.txt; pt antes de en."""
+    folder = tour_dir / "locale"
+    if not folder.is_dir():
+        return {}, None
+    candidates = sorted(folder.glob("*.txt"), key=lambda p: {"pt": 0, "en": 1}.get(p.stem, 2))
+    for path in candidates:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        names: dict[str, dict[str, str]] = {}
+        for key, field, value in LOCALE_LINE_RE.findall(text):
+            if value.strip():
+                names.setdefault(key, {})[field] = value.strip()
+        if names:
+            return names, path.name
+    return {}, None
+
+
+def is_human_name(value: str) -> bool:
+    """«Pintura Europeia» sim; nomes de ficheiro de captura («E01_Terreo_32») nao."""
+    return bool(value) and "_" not in value and not re.search(r"\d{2}\.\d{2}\.\d{4}", value)
+
+
+def apply_locations(results: list, names: dict[str, dict[str, str]], source: str) -> int:
+    """location <- subtitle (ou label) do panorama; o valor do bloco JS fica em locationOriginal."""
+    changed = 0
+    for entry in results:
+        wanted = (names.get(entry["panoramaKey"], {}).get(source) or "").strip()
+        if not is_human_name(wanted) or wanted == entry["location"]:
+            continue
+        if entry["location"]:
+            entry["locationOriginal"] = entry["location"]
+        entry["location"] = wanted
+        changed += 1
+    return changed
 
 
 def extract(tour_dir: Path):
@@ -229,6 +276,8 @@ def main() -> None:
     ap.add_argument("-o", "--out", help="ficheiro de saida (default: <tour_dir>/panorama-overlays-inventory.json)")
     ap.add_argument("--compare", help="mapeamento actual, para mostrar o que mudou")
     ap.add_argument("--keep-better", help="mapeamento actual: preserva listas de inventario que o novo export colapsou")
+    ap.add_argument("--location-from", choices=["subtitle", "label", "js"], default="subtitle",
+                    help="nome da zona: subtitle (default) ou label do panorama, em locale/*.txt; js = o location do bloco JS")
     args = ap.parse_args()
 
     tour_dir = Path(args.tour_dir)
@@ -236,6 +285,15 @@ def main() -> None:
 
     if args.keep_better:
         results = keep_better(results, Path(args.keep_better))
+
+    if args.location_from != "js":
+        names, locale_name = load_locale(tour_dir)
+        if names:
+            changed = apply_locations(results, names, args.location_from)
+            print("zonas             : {} do {} de {} ({} POIs; os restantes ficam com o location do bloco JS)".format(
+                len({e["location"] for e in results if e.get("location")}), args.location_from, locale_name, changed))
+        else:
+            print("zonas             : sem locale/*.txt em " + str(tour_dir) + "; fica o location do bloco JS")
 
     out = Path(args.out) if args.out else tour_dir / "panorama-overlays-inventory.json"
     out.parent.mkdir(parents=True, exist_ok=True)

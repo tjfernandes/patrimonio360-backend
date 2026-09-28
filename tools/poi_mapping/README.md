@@ -13,6 +13,8 @@ tools/poi_mapping/obter_poi_mapping.sh mnaa
 ```
 
 - Escreve em `poi_tours/panorama-overlays-inventory-<museu>.json`. Como é um ficheiro versionado, faz-se num ramo próprio e entra por PR.
+- O nome da zona de cada POI é o `subtitle` do panorama onde está, lido dos `locale/*.txt` da visita. No MNAA os blocos de JS dizem «Sala 37», «Sala 64», e os `subtitle` dizem a coleção. O valor do bloco fica em `locationOriginal`. Para manter o valor do bloco, passa-se `--location-from js` ao `extract_poi_mapping.py`.
+- Os lugares da visita para o «onde estou?» e para a lista de zonas vêm de `scripts/build_tour_locations.py`, que se corre outra vez sempre que uma visita é republicada. No CMAG e no MNAA também usa o `subtitle`.
 - Com `--so-comparar`, escreve só em `tmp/visitas/<museu>/` e mostra o que mudaria.
 - Se já houver um mapa, mostra os POIs novos, os que desapareceram e os inventários alterados, e mantém as listas de números que o export novo colapsou numa só string.
 

@@ -32,8 +32,9 @@
     "inventoryIds": [
       "CMAG 801"
     ],
-    "location": "Sala do Barganho",
-    "title": "Barganho, contador espanhol"
+    "location": "Sala do Bargueño",
+    "title": "Barganho, contador espanhol",
+    "locationOriginal": "Sala do Barganho"
   },
   {
     "overlayId": "overlay_66212981_3FA6_8002_41C5_8D6580DF9D07",
@@ -41,8 +42,9 @@
     "inventoryIds": [
       "CMAG 1008"
     ],
-    "location": "Sala do Barganho",
-    "title": "Alegoria dos 4 elementos"
+    "location": "Sala do Bargueño",
+    "title": "Alegoria dos 4 elementos",
+    "locationOriginal": "Sala do Barganho"
   },
   {
     "overlayId": "overlay_1F6E7258_3E6A_8101_41C8_EBC8CFE34372",
@@ -87,8 +89,9 @@
     "inventoryIds": [
       "CMAG 797"
     ],
-    "location": "Salas das exposições temporárias",
-    "title": "Móvel de aparato"
+    "location": "Exposição Temporária",
+    "title": "Móvel de aparato",
+    "locationOriginal": "Salas das exposições temporárias"
   },
   {
     "overlayId": "overlay_5CEB5B84_3FBE_80DA_41B6_0D93C504CFFA",
@@ -268,8 +271,9 @@
     "inventoryIds": [
       "CMAG 1029"
     ],
-    "location": "Entrada da Casa Malhoa",
-    "title": "Paisagem com barcos"
+    "location": "Entrada Casa Malhoa",
+    "title": "Paisagem com barcos",
+    "locationOriginal": "Entrada da Casa Malhoa"
   },
   {
     "overlayId": "overlay_787EAA79_3FFA_80C7_41C5_CC0A1150F476",

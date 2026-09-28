@@ -6,7 +6,14 @@ mainPlayList de script_general.js. Os nomes «humanos» são os lugares da visit
 (Pátio, Salão Nobre, Túmulo de L. de Camões…); os nomes de ficheiro de captura
 (`E06_P1_A_AlaEste_043`, `02_Igreja_003_09.09.2024_…`) ficam de fora.
 
-    python scripts/build_tour_locations.py [--base https://…:5500] [--museus mnt mnsr mnaz mj]
+No CMAG e no MNAA os labels são nomes de ficheiro e o nome do lugar vem do
+`subtitle` do panorama, que nessas visitas diz a sala ou a coleção («Sala
+Wucai», «Pintura Europeia», «Ourivesaria»). A fonte é fixa por visita
+(`--pelo-subtitle`): nas quatro visitas do estudo mantém-se o label, porque
+os nomes dos lugares foram afinados com ele e as descrições curadas em
+tour_rooms.json dependem deles.
+
+    python scripts/build_tour_locations.py [--base https://…:5500] [--museus mnt mnsr mnaz mj cmag mnaa] [--pelo-subtitle cmag mnaa]
 
 Correr outra vez sempre que uma visita for republicada.
 """
@@ -101,17 +108,21 @@ def playlist_order(general: str) -> list[str]:
     return []
 
 
-def build_museum(base: str, slug: str) -> list[dict]:
+def build_museum(base: str, slug: str, source: str = "label") -> list[dict]:
+    """Lugares da visita; `source` diz de onde vem o nome de cada panorama («label» ou «subtitle»)."""
     html = fetch(f"{base}/{slug}/")
     locales = re.findall(r"locale/([\w-]+)\.txt", html)
     locale = "pt" if "pt" in locales else (locales[0] if locales else "en")
-    labels = dict(re.findall(r"^(" + PANORAMA_ID + r")\.label = (.+?)\s*$", fetch(f"{base}/{slug}/locale/{locale}.txt"), re.M))
+    text = fetch(f"{base}/{slug}/locale/{locale}.txt")
+    labels = dict(re.findall(r"^(" + PANORAMA_ID + r")\.label = (.+?)\s*$", text, re.M))
+    subtitles = dict(re.findall(r"^(" + PANORAMA_ID + r")\.subtitle = (.+?)\s*$", text, re.M))
+    names = labels if source == "label" else {key: subtitles.get(key, "") for key in labels}
     order = playlist_order(fetch(f"{base}/{slug}/script_general.js"))
     ranked = {key: index for index, key in enumerate(order)}
-    keys = sorted(labels, key=lambda key: (ranked.get(key, len(ranked)), labels[key]))
+    keys = sorted(names, key=lambda key: (ranked.get(key, len(ranked)), names[key]))
     places: dict[str, dict] = {}
     for key in keys:
-        label = labels[key]
+        label = names[key]
         if not is_human_label(label):
             continue
         name = place_name(label)
@@ -126,18 +137,22 @@ def build_museum(base: str, slug: str) -> list[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="https://patrimonio360.webredirect.org:5500")
-    parser.add_argument("--museus", nargs="+", default=["mnt", "mnsr", "mnaz", "mj"])
+    parser.add_argument("--museus", nargs="+", default=["mnt", "mnsr", "mnaz", "mj", "cmag", "mnaa"])
+    parser.add_argument("--pelo-subtitle", nargs="*", default=["cmag", "mnaa"], metavar="MUSEU",
+                        help="visitas em que o nome do lugar é o subtitle do panorama, não o label")
     args = parser.parse_args()
     payload: dict = {
         "_descricao": (
             "Lugares das visitas 3DVista (nome humano do panorama sem os números, agrupado, pela ordem da "
-            "mainPlayList). Gerado por scripts/build_tour_locations.py; não editar à mão."
+            "mainPlayList; o nome vem do label ou, nas visitas com labels de ficheiro, do subtitle). "
+            "Gerado por scripts/build_tour_locations.py; não editar à mão."
         ),
         "_gerado": {"em": dt.date.today().isoformat(), "base": args.base},
     }
     for slug in args.museus:
-        payload[slug] = build_museum(args.base.rstrip("/"), slug)
-        print(slug, len(payload[slug]), "lugares:", ", ".join(p["room"] for p in payload[slug]))
+        source = "subtitle" if slug in args.pelo_subtitle else "label"
+        payload[slug] = build_museum(args.base.rstrip("/"), slug, source)
+        print(slug, len(payload[slug]), f"lugares (pelo {source}):", ", ".join(p["room"] for p in payload[slug]))
     OUT.write_text(json.dumps(payload, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print("escrito", OUT)
 

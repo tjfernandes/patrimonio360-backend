@@ -1,0 +1,644 @@
+[
+  {
+    "overlayId": "overlay_E3873296_CE36_E276_41E5_9D338574DD58",
+    "panoramaKey": "panorama_4AF3383D_C72B_1F20_41E6_0DA70775F77A",
+    "inventoryIds": [
+      "297 Mov"
+    ],
+    "location": "Mobiliário Português",
+    "title": "Mesa-escritório de estrado",
+    "locationOriginal": "Sala 37"
+  },
+  {
+    "overlayId": "overlay_DF89F735_A15E_69EE_41D2_6EEC2947D179",
+    "panoramaKey": "panorama_9E9BD21D_916F_0B67_41E1_C227C966E3A8",
+    "inventoryIds": [
+      "1459 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "São Lucas retratando a Virgem",
+    "locationOriginal": "Sala 64"
+  },
+  {
+    "overlayId": "overlay_B9B46096_81B3_C40B_41C7_63748D0CABCD",
+    "panoramaKey": "panorama_0BCB28B6_1BA4_CA01_4199_9277DAAD5A82",
+    "inventoryIds": [
+      "297 Mov"
+    ],
+    "location": "Mobiliário Português",
+    "title": "Mesa-escritório de estrado",
+    "locationOriginal": "Sala 37"
+  },
+  {
+    "overlayId": "overlay_E31B5FA4_CE66_33FB_41E0_14B5BD7BA98E",
+    "panoramaKey": "panorama_0BC8D5B3_1BA4_DA07_41B3_F6A41A62FDC2",
+    "inventoryIds": [
+      "54 Mov"
+    ],
+    "location": "Mobiliário Português",
+    "title": "Contador",
+    "locationOriginal": "Sala 39"
+  },
+  {
+    "overlayId": "overlay_DB901B96_CE22_3306_4184_959A101EB52B",
+    "panoramaKey": "panorama_9AA88F04_9175_7966_41DB_1E7ADBDE1BA5",
+    "inventoryIds": [
+      "1226 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Tríptico do Descimento da Cruz (com as santas Catarina e Madalena e os santos Cristóvão e Antão)",
+    "locationOriginal": "Sala 65"
+  },
+  {
+    "overlayId": "overlay_C738D8E1_A4B6_8351_41CE_45A9F9BB935F",
+    "panoramaKey": "panorama_B005C65C_A04F_6681_41BB_7171DFE76385",
+    "inventoryIds": [
+      "93 Our"
+    ],
+    "location": "Ourivesaria",
+    "title": "Porta-Paz",
+    "locationOriginal": "Sala 29"
+  },
+  {
+    "overlayId": "overlay_E390B556_CE31_66C8_41C5_4DF57FE54DF6",
+    "panoramaKey": "panorama_0BC8EFBD_1BA5_C603_41B7_3DF33DFED3FE",
+    "inventoryIds": [
+      "1433 Mov"
+    ],
+    "location": "Mobiliário Português",
+    "title": "Xiloteca (mostruário de madeiras)",
+    "locationOriginal": "Sala 42"
+  },
+  {
+    "overlayId": "overlay_BA5FC686_9FD6_69DF_41DE_5F46A4DEABA7",
+    "panoramaKey": "panorama_B5B9480A_A1C2_AA86_41CF_3B26D7B64EEB",
+    "inventoryIds": [
+      "2096 Pint"
+    ],
+    "location": "Pintura e Escultura Portuguesas",
+    "title": "Adoração dos Pastores",
+    "locationOriginal": "Sala 3"
+  },
+  {
+    "overlayId": "overlay_AA456C3A_9FBE_18C9_41A3_148FC9B55B0E",
+    "panoramaKey": "panorama_83D9D389_91ED_096F_41B6_D4890339D7BE",
+    "inventoryIds": [
+      "576 Our"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Cofre",
+    "locationOriginal": "Sala 49"
+  },
+  {
+    "overlayId": "overlay_AB179975_9FBE_1B5B_41DC_0A4BD80F4655",
+    "panoramaKey": "panorama_83D9D389_91ED_096F_41B6_D4890339D7BE",
+    "inventoryIds": [
+      "47 tp"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Tapete",
+    "locationOriginal": "Sala 49"
+  },
+  {
+    "overlayId": "overlay_AAABE713_9FBE_28DD_41BA_358899189FAE",
+    "panoramaKey": "panorama_83D9CDEE_91ED_18A2_41C9_2B25A90B8D4C",
+    "inventoryIds": [
+      "47 tp"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Tapete",
+    "locationOriginal": "Sala 49"
+  },
+  {
+    "overlayId": "overlay_AAB374A2_9FBE_29FF_41C9_016BBF05C03C",
+    "panoramaKey": "panorama_83D9CDEE_91ED_18A2_41C9_2B25A90B8D4C",
+    "inventoryIds": [
+      "5896 cer",
+      "5897 cer"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Bacia e gomil",
+    "locationOriginal": "Sala 49"
+  },
+  {
+    "overlayId": "overlay_AAB2C971_9FBF_FB5D_41DB_7B1662D429D7",
+    "panoramaKey": "panorama_83D9CDEE_91ED_18A2_41C9_2B25A90B8D4C",
+    "inventoryIds": [
+      "576 Our"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Cofre",
+    "locationOriginal": "Sala 49"
+  },
+  {
+    "overlayId": "overlay_AA30B673_9FB2_E942_41DB_32A221D2B37B",
+    "panoramaKey": "panorama_83D99835_91ED_07A7_41C9_23390E1D1F67",
+    "inventoryIds": [
+      "5896 cer",
+      "5897 cer"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Bacia e gomil",
+    "locationOriginal": "Sala 49"
+  },
+  {
+    "overlayId": "overlay_A9CD0BD7_9FBE_3F45_41D9_04A4D1261ABF",
+    "panoramaKey": "panorama_83D99835_91ED_07A7_41C9_23390E1D1F67",
+    "inventoryIds": [
+      "47 tp"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Tapete",
+    "locationOriginal": "Sala 49"
+  },
+  {
+    "overlayId": "overlay_B9AF5FC4_81B2_7C0D_41C4_EC6355471A2D",
+    "panoramaKey": "panorama_0BC755BB_1BA5_DA07_41BA_AB6A7E090003",
+    "inventoryIds": [
+      "1433 Mov"
+    ],
+    "location": "Mobiliário Português",
+    "title": "Xiloteca (mostruário de madeiras)",
+    "locationOriginal": "Sala 42"
+  },
+  {
+    "overlayId": "overlay_A6DA9D1A_CE11_262F_41E6_ED66DF817A1A",
+    "panoramaKey": "panorama_B0055D26_A04F_6A8E_41C5_B3CFAAD9814D",
+    "inventoryIds": [
+      "740 Our"
+    ],
+    "location": "Ourivesaria",
+    "title": "Custódia de Belém",
+    "locationOriginal": "Sala 29"
+  },
+  {
+    "overlayId": "overlay_D3730661_9F56_2964_41E1_A1D88A05F0F1",
+    "panoramaKey": "panorama_B5B88E8F_A1C2_E79D_41DD_0DC4063BAD76",
+    "inventoryIds": [
+      "432 Pint"
+    ],
+    "location": "Pintura e Escultura Portuguesas",
+    "title": "Inferno",
+    "locationOriginal": "Sala 5"
+  },
+  {
+    "overlayId": "overlay_2210300D_A1D3_E78E_41E1_D2B0EE87DAE5",
+    "panoramaKey": "panorama_30F17972_3DFA_22A0_41BF_49EFBF0A3945",
+    "inventoryIds": [
+      "1918 Tec"
+    ],
+    "location": "Têxteis",
+    "title": "Estola",
+    "locationOriginal": "Sala J"
+  },
+  {
+    "overlayId": "overlay_DF6D14B6_A1D7_E899_41C7_39150F6C31E4",
+    "panoramaKey": "panorama_30F17972_3DFA_22A0_41BF_49EFBF0A3945",
+    "inventoryIds": [
+      "1917 Tec"
+    ],
+    "location": "Têxteis",
+    "title": "Casula",
+    "locationOriginal": "Sala J"
+  },
+  {
+    "overlayId": "overlay_DF6B6831_A1B2_2782_41D8_37123CDA672E",
+    "panoramaKey": "panorama_30F12F72_3DFA_3EA0_41A8_F038943DD30F",
+    "inventoryIds": [
+      "1915 Tec"
+    ],
+    "location": "Têxteis",
+    "title": "Pluvial",
+    "locationOriginal": "Sala J"
+  },
+  {
+    "overlayId": "overlay_DF1262AB_A1D2_288A_41D7_1CED0D562620",
+    "panoramaKey": "panorama_30F12F72_3DFA_3EA0_41A8_F038943DD30F",
+    "inventoryIds": [
+      "1917 Tec"
+    ],
+    "location": "Têxteis",
+    "title": "Casula",
+    "locationOriginal": "Sala J"
+  },
+  {
+    "overlayId": "overlay_C29262E1_9F52_29DC_41CB_60D97463C7D0",
+    "panoramaKey": "panorama_83D8666B_91ED_0BA2_41D9_9A5E8973B146",
+    "inventoryIds": [
+      "1874 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Fuga para o Egipto",
+    "locationOriginal": "Sala 52"
+  },
+  {
+    "overlayId": "overlay_C748452F_A4B1_82D2_41A4_ABB9C2019640",
+    "panoramaKey": "panorama_B00502C0_A04F_5F82_4175_D212FA815E80",
+    "inventoryIds": [
+      "740 Our"
+    ],
+    "location": "Ourivesaria",
+    "title": "Custódia de Belém",
+    "locationOriginal": "Sala 29"
+  },
+  {
+    "overlayId": "overlay_CA32E58F_9FB2_6BB2_41E2_AAEC0ED60C39",
+    "panoramaKey": "panorama_B5A8D221_A1CD_5E83_41DF_2C5393F13C0C",
+    "inventoryIds": [
+      "2 Pint"
+    ],
+    "location": "Pintura e Escultura Portuguesas",
+    "title": "Aparição de Cristo à Virgem",
+    "locationOriginal": "Sala 5"
+  },
+  {
+    "overlayId": "overlay_D85C3BB8_CE62_1309_41CF_6B1ADB832E41",
+    "panoramaKey": "panorama_83D8545E_91ED_0FE2_41D6_AAAA8DBAC7C9",
+    "inventoryIds": [
+      "1576 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "O Arrependimento de São Pedro",
+    "locationOriginal": "Sala 53"
+  },
+  {
+    "overlayId": "overlay_FE07407E_A0AE_28A8_41C2_CA66CA94F23F",
+    "panoramaKey": "panorama_83D8545E_91ED_0FE2_41D6_AAAA8DBAC7C9",
+    "inventoryIds": [
+      "1641 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Deposição de Cristo da Cruz",
+    "locationOriginal": "Sala 53"
+  },
+  {
+    "overlayId": "overlay_A6854B66_CE1F_E21B_41E4_37D916F5926D",
+    "panoramaKey": "panorama_B004360F_A04E_A69E_41D4_93032BC415D5",
+    "inventoryIds": [
+      "1 Our"
+    ],
+    "location": "Ourivesaria",
+    "title": "Custódia da Bemposta",
+    "locationOriginal": "Sala 27"
+  },
+  {
+    "overlayId": "overlay_BBB37669_9FD2_6957_41D8_69D1DC21F673",
+    "panoramaKey": "panorama_B0057857_A04E_AA8E_41DB_8156074F2BAD",
+    "inventoryIds": [
+      "740 Our"
+    ],
+    "location": "Ourivesaria",
+    "title": "Custódia de Belém",
+    "locationOriginal": "Sala 29"
+  },
+  {
+    "overlayId": "overlay_DF54BE10_A1B2_1B83_41E1_756C9FECFD82",
+    "panoramaKey": "panorama_330F6669_3E05_EEA0_41A0_D7B607D11355",
+    "inventoryIds": [
+      "1920 Tec"
+    ],
+    "location": "Piso 1",
+    "title": "Dalmática",
+    "locationOriginal": "Sala J"
+  },
+  {
+    "overlayId": "overlay_3B72245D_A1B2_6FC9_41C6_4C75507F3771",
+    "panoramaKey": "panorama_330F6669_3E05_EEA0_41A0_D7B607D11355",
+    "inventoryIds": [
+      "1915 Tec"
+    ],
+    "location": "Piso 1",
+    "title": "Pluvial",
+    "locationOriginal": "Sala J"
+  },
+  {
+    "overlayId": "overlay_FD60DC1C_A0B6_3873_41C3_6CCF81D5F855",
+    "panoramaKey": "panorama_83D8190C_91ED_3966_41DA_A32563AA10E9",
+    "inventoryIds": [
+      "1620 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Conversação",
+    "locationOriginal": "Sala 54"
+  },
+  {
+    "overlayId": "overlay_C705035A_A4B6_8572_41D2_71FA8D06D568",
+    "panoramaKey": "panorama_B0057DF1_A04E_A582_41B1_82FDC4CCCBCA",
+    "inventoryIds": [
+      "106 Our"
+    ],
+    "location": "Ourivesaria",
+    "title": "Relicário de D. Leonor",
+    "locationOriginal": "Sala 29"
+  },
+  {
+    "overlayId": "overlay_A9EB97A1_CE11_221A_41E1_DC697B7237D5",
+    "panoramaKey": "panorama_B0057DF1_A04E_A582_41B1_82FDC4CCCBCA",
+    "inventoryIds": [
+      "740 Our"
+    ],
+    "location": "Ourivesaria",
+    "title": "Custódia de Belém",
+    "locationOriginal": "Sala 29"
+  },
+  {
+    "overlayId": "overlay_C73F04A3_81B5_CC34_41D4_D3B338D708D8",
+    "panoramaKey": "panorama_83DBB7FA_91ED_08A2_41D7_9D513B902B6C",
+    "inventoryIds": [
+      "1301 Mov"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Mesa de centro",
+    "locationOriginal": "Sala 55"
+  },
+  {
+    "overlayId": "overlay_F3174128_A492_8528_41BD_24016B88132C",
+    "panoramaKey": "panorama_83DBB7FA_91ED_08A2_41D7_9D513B902B6C",
+    "inventoryIds": [
+      "73 Tap"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Combate de Hércules contra os Centauros",
+    "locationOriginal": "Sala 55"
+  },
+  {
+    "overlayId": "overlay_F790B01C_CE33_5E4D_41E8_9E38F5CC9D9E",
+    "panoramaKey": "panorama_83DB9D75_91ED_19A6_41DD_CA171CFB2106",
+    "inventoryIds": [
+      "1301 Mov"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Mesa de centro",
+    "locationOriginal": "Sala 55"
+  },
+  {
+    "overlayId": "overlay_A8E01892_BEE7_34EE_41C0_B32BFED4F028",
+    "panoramaKey": "panorama_83DBFCC9_91ED_78EF_41BF_93A1915CE79F",
+    "inventoryIds": [
+      "MNAA, Inv, 73 Tap"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Combate de Hércules contra os Centauros",
+    "locationOriginal": "Sala 55"
+  },
+  {
+    "overlayId": "overlay_F6CF8B7E_CE33_22CD_41E9_4C509F84FC19",
+    "panoramaKey": "panorama_83DBFCC9_91ED_78EF_41BF_93A1915CE79F",
+    "inventoryIds": [
+      "1301 Mov"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Mesa de centro",
+    "locationOriginal": "Sala 55"
+  },
+  {
+    "overlayId": "overlay_F6DB9B82_CE31_6234_41BA_AD5DDEBA7D39",
+    "panoramaKey": "panorama_83DBFCC9_91ED_78EF_41BF_93A1915CE79F",
+    "inventoryIds": [
+      "505 Esc"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "São Leonardo",
+    "locationOriginal": "Sala 55"
+  },
+  {
+    "overlayId": "overlay_F6D28C9C_CE31_E653_41B8_EB20377D9CC9",
+    "panoramaKey": "panorama_83DBF196_91ED_0965_41C6_6D11B7054281",
+    "inventoryIds": [
+      "505 Esc"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "São Leonardo",
+    "locationOriginal": "Sala 55"
+  },
+  {
+    "overlayId": "overlay_C840EFBA_A0B2_17B0_41E1_283C17BB9099",
+    "panoramaKey": "panorama_83DB4C2F_91ED_1FA2_41B4_6C7F7C4A7422",
+    "inventoryIds": [
+      "505 Esc"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "São Leonardo",
+    "locationOriginal": "Sala 55"
+  },
+  {
+    "overlayId": "overlay_F30A613B_A492_8528_41D6_885CCF3B9C99",
+    "panoramaKey": "panorama_83DB4C2F_91ED_1FA2_41B4_6C7F7C4A7422",
+    "inventoryIds": [
+      "73 Tap"
+    ],
+    "location": "Artes Decorativas Europeias",
+    "title": "Combate de Hércules contra os Centauros",
+    "locationOriginal": "Sala 55"
+  },
+  {
+    "overlayId": "overlay_D83FB75C_CE1E_330A_41DC_52D2BBB4DCA8",
+    "panoramaKey": "panorama_B5AC1E08_A1CF_6682_41D9_B30FAE2D7FCA",
+    "inventoryIds": [
+      "128 Pint"
+    ],
+    "location": "Pintura e Escultura Portuguesas",
+    "title": "Adoração dos Pastores",
+    "locationOriginal": "Sala 12"
+  },
+  {
+    "overlayId": "overlay_CB4EDF9E_A0B2_787C_41D2_6B5E9B886A92",
+    "panoramaKey": "panorama_C7237B4D_8196_4479_41D0_20FD902CD585",
+    "inventoryIds": [
+      "470 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Natureza-morta com legumes e aprestos de cozinha",
+    "locationOriginal": "Sala 57"
+  },
+  {
+    "overlayId": "overlay_D9FE4CA8_CEE2_150A_41E4_8D714A2187F2",
+    "panoramaKey": "panorama_C7237B4D_8196_4479_41D0_20FD902CD585",
+    "inventoryIds": [
+      "1608 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Casamento Místico de Santa Catarina",
+    "locationOriginal": "Sala 57"
+  },
+  {
+    "overlayId": "overlay_C9454EE8_A0B6_19C7_41D9_C62B2F8CD3AB",
+    "panoramaKey": "panorama_83DAD52E_91ED_09A2_41D5_427DA2BD094C",
+    "inventoryIds": [
+      "469 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Natureza-morta com cesto de frutos",
+    "locationOriginal": "Sala 57"
+  },
+  {
+    "overlayId": "overlay_20C370C1_A156_28A1_419F_6CECAABDA814",
+    "panoramaKey": "panorama_B5AC65EC_A1CE_A582_41E3_C4944F50DE8F",
+    "inventoryIds": [
+      "30 Pint"
+    ],
+    "location": "Pintura e Escultura Portuguesas",
+    "title": "Virgem com o Menino e Anjos",
+    "locationOriginal": "Sala 9"
+  },
+  {
+    "overlayId": "overlay_C927B17A_A0AE_28C1_41CD_E026989CD25F",
+    "panoramaKey": "panorama_83D93453_91EF_0FE2_41DF_C79AEF674B36",
+    "inventoryIds": [
+      "1379 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "S. Pedro (Apostolado)",
+    "locationOriginal": "Sala 58"
+  },
+  {
+    "overlayId": "overlay_D81AF3CD_CE26_F30A_41CF_4B4F56355AC5",
+    "panoramaKey": "panorama_83D9BD67_91EF_39A2_41D4_F6A56C060D11",
+    "inventoryIds": [
+      "1662 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Morte de S. Francisco",
+    "locationOriginal": "Sala 59"
+  },
+  {
+    "overlayId": "overlay_D5328D13_A0D6_1857_41CF_94B22106529B",
+    "panoramaKey": "panorama_9E96FE85_916D_3B66_41E1_B4A6930B9B8A",
+    "inventoryIds": [
+      "738 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Salomé com a cabeça de São João Baptista",
+    "locationOriginal": "Sala 61"
+  },
+  {
+    "overlayId": "overlay_DF7DF49C_A0D2_2854_41A1_B8F622A250F2",
+    "panoramaKey": "panorama_9E96FE85_916D_3B66_41E1_B4A6930B9B8A",
+    "inventoryIds": [
+      "828 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "São Jerónimo",
+    "locationOriginal": "Sala 61"
+  },
+  {
+    "overlayId": "overlay_C93BEF72_A0D2_18D9_41BE_CA94A66086A9",
+    "panoramaKey": "panorama_9E968866_916D_07A2_41E0_C63BFC94ADCB",
+    "inventoryIds": [
+      "1466 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Virgem com o Menino, Sagrada Família e Santas, dito “A Fonte da Vida”",
+    "locationOriginal": "Sala 61"
+  },
+  {
+    "overlayId": "overlay_D42FE1DA_A0DE_EBD5_41A0_148475A1B6DB",
+    "panoramaKey": "panorama_9E9642FE_916D_08A5_41E1_580EB09B6BB2",
+    "inventoryIds": [
+      "1498 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Tentações de Santo Antão",
+    "locationOriginal": "Sala 61"
+  },
+  {
+    "overlayId": "overlay_DF9A1A5E_A0EE_38D6_41CD_DEA9DCD4F3EB",
+    "panoramaKey": "panorama_9E95C0D4_916F_08E6_41B2_E82BD0A5080A",
+    "inventoryIds": [
+      "1275 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Retábulo das Dores da Virgem: Virgem das Dores",
+    "locationOriginal": "Sala 62"
+  },
+  {
+    "overlayId": "overlay_DFBA004A_A0F2_683B_41C9_3C9F7217633D",
+    "panoramaKey": "panorama_9E952D87_916E_F963_41AC_1097A28B222D",
+    "inventoryIds": [
+      "28 tap"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Baptismo de Cristo",
+    "locationOriginal": "Sala 62"
+  },
+  {
+    "overlayId": "overlay_D83D733A_CE62_130E_41E1_9FD646117E46",
+    "panoramaKey": "panorama_B5AEB1A1_A1CF_5D82_41DA_B9C2C5840771",
+    "inventoryIds": [
+      "2204 Pint"
+    ],
+    "location": "Pintura e Escultura Portuguesas",
+    "title": "Adoração dos Magos",
+    "locationOriginal": "Sala 1"
+  },
+  {
+    "overlayId": "overlay_20B84185_A175_E8BA_41E0_B6E9825D72E8",
+    "panoramaKey": "panorama_9E9BC3B2_916F_08A2_4165_DB7CA7F27E25",
+    "inventoryIds": [
+      "1785 Pint"
+    ],
+    "location": "Pintura Europeia",
+    "title": "Santo Agostinho",
+    "locationOriginal": "Sala 63"
+  },
+  {
+    "overlayId": "overlay_21C9C977_A176_3858_41CC_0C7641B85F90",
+    "panoramaKey": "panorama_9E9B0DB2_916F_18A2_41D3_7249128B3026",
+    "inventoryIds": [
+      "568 Pint"
+    ],
+    "location": "Piso 1",
+    "title": "Eusébio de Cremona ressuscitando três jovens com a capa de S. Jerónimo",
+    "locationOriginal": "Sala 63"
+  },
+  {
+    "overlayId": "overlay_3BE9EBA6_A1D2_1944_41B3_042CA4341D4F",
+    "panoramaKey": "panorama_9AA8444F_9175_0FE3_41D4_C9AEC5669790",
+    "inventoryIds": [
+      "1226 Pint"
+    ],
+    "location": "Piso 1",
+    "title": "Tríptico do Descimento da Cruz (com as santas Catarina e Madalena e os santos Cristóvão e Antão)",
+    "locationOriginal": "Sala 65"
+  },
+  {
+    "overlayId": "overlay_D80B3AE8_CE2E_1D0A_41E6_EC29C02455FB",
+    "panoramaKey": "panorama_B5B8DDA5_A1C2_A582_41E2_2011BF64F259",
+    "inventoryIds": [
+      "2096 Pint"
+    ],
+    "location": "Pintura e Escultura Portuguesas",
+    "title": "Adoração dos Pastores",
+    "locationOriginal": "Sala 3"
+  },
+  {
+    "overlayId": "overlay_C7168FC4_A4B1_9D57_41DD_04E253473CE5",
+    "panoramaKey": "panorama_B00299D5_A04F_ED82_41D0_E9D4DBAD3B47",
+    "inventoryIds": [
+      "540 Our"
+    ],
+    "location": "Ourivesaria",
+    "title": "Cruz de D. Sancho I",
+    "locationOriginal": "Sala 29"
+  },
+  {
+    "overlayId": "overlay_BB3A0EEF_9FD6_192D_4188_9C883DDDBD9C",
+    "panoramaKey": "panorama_B5B96654_A1C2_A681_41D8_C37BD13BEB03",
+    "inventoryIds": [
+      "94 pint"
+    ],
+    "location": "Pintura e Escultura Portuguesas",
+    "title": "Encontro de Abraão e Melquisedeque",
+    "locationOriginal": "Sala 3"
+  },
+  {
+    "overlayId": "overlay_B04C5924_9FAE_18D5_41CF_C0216334F760",
+    "panoramaKey": "panorama_0BCB5115_1BA4_BA03_41AD_837BF3D89DFF",
+    "inventoryIds": [
+      "51 Mov"
+    ],
+    "location": "Mobiliário Português",
+    "title": "Cadeira de braços (estadela), dita de D. Afonso V",
+    "locationOriginal": "Sala 36"
+  }
+]
