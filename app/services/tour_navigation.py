@@ -68,6 +68,8 @@ class TourNavigationService:
         self._places: dict[str, list[dict[str, Any]]] = {}
         self._panorama_place: dict[str, dict[str, int]] = {}
         self._tour_locations: dict[str, Any] | None = None
+        # número como a visita o anuncia (normalizado) -> números do catálogo
+        self._corrected_index: dict[str, dict[str, list[str]]] = {}
         self._loaded_museums: set[str] = set()
 
     @staticmethod
@@ -130,6 +132,7 @@ class TourNavigationService:
         panorama_index: dict[str, list[_TourNavigationEntry]] = {}
         room_index: dict[str, list[_TourNavigationEntry]] = {}
         rooms: dict[str, dict[str, Any]] = {}
+        corrected: dict[str, list[str]] = {}
         loaded_any = False
 
         for file_path in self._mapping_file_candidates(museum_slug=museum_slug, museum_id=museum_id):
@@ -171,6 +174,16 @@ class TourNavigationService:
                 if not inventory_list:
                     continue
 
+                # `inventoryIdsOriginal`: o que a visita anuncia quando não é o
+                # número do catálogo (só com um original: vários não se sabe a
+                # que peça corresponde cada um)
+                originals = item.get("inventoryIdsOriginal")
+                if isinstance(originals, list) and len(originals) == 1:
+                    original_key = self._normalize_inventory(str(originals[0]))
+                    catalogue_keys = {self._normalize_inventory(value) for value in inventory_list}
+                    if original_key and original_key not in catalogue_keys:
+                        corrected.setdefault(original_key, list(inventory_list))
+
                 for inventory_id in inventory_list:
                     entry = _TourNavigationEntry(
                         overlay_id=overlay_id,
@@ -193,6 +206,7 @@ class TourNavigationService:
             self._panorama_index[museum_key] = panorama_index
             self._room_index[museum_key] = room_index
             self._rooms[museum_key] = rooms
+            self._corrected_index[museum_key] = corrected
         else:
             self._inventory_index[museum_key] = {}
             self._panorama_index[museum_key] = {}
@@ -200,6 +214,16 @@ class TourNavigationService:
             self._rooms[museum_key] = {}
         self._build_places(museum_key=museum_key, museum_id=museum_id, poi_rooms=rooms)
         self._loaded_museums.add(museum_key)
+
+    def corrected_inventories(self, *, museum_slug: str, museum_id: str | None, inventory: str) -> list[str]:
+        """Números do catálogo para um número tal como a visita o anuncia.
+
+        Vazio quando o mapa dos POIs não tem correspondência: o número da
+        visita já é o do catálogo, ou não se conhece.
+        """
+        self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
+        museum_key = (museum_slug or "").strip().lower()
+        return list(self._corrected_index.get(museum_key, {}).get(self._normalize_inventory(inventory), []))
 
     def _tour_places_for(self, museum_key: str, museum_id: str | None) -> list[dict[str, Any]]:
         if self._tour_locations is None:

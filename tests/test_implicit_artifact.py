@@ -64,6 +64,25 @@ class TestImplicitArtifact(_Base):
         # uma referência explícita a um cartão continua a mandar
         self.assertEqual(self._resolve("E o segundo?", context=HOTSPOT), ("a2", "ordinal"))
 
+    def test_generic_noun_is_not_a_subject(self) -> None:
+        # «peça», «objeto», «obra» são a peça em foco, não um assunto próprio
+        for message in ("O que é esta peça?", "Que peça é?", "What is this object?", "Fala-me desta obra"):
+            self.assertEqual(self._resolve(message), ("a1", "context"), message)
+            self.assertEqual(self._resolve(message, visible=[], context=HOTSPOT), ("h1", "context"), message)
+        # no plural é uma pesquisa
+        self.assertEqual(self._resolve("Peças de 1850", context=HOTSPOT), (None, None))
+
+    def test_open_hotspot_has_priority(self) -> None:
+        # com um hotspot aberto, a pergunta é sobre essa peça mesmo quando traz
+        # palavras que não são do título dela
+        for message in ("Quem foi o marquês de Angeja?", "Qual é a técnica do azulejo?", "De que século é o painel?"):
+            self.assertEqual(self._resolve(message, context=HOTSPOT), ("h1", "context"), message)
+        # o primeiro resultado não tem essa prioridade
+        self.assertEqual(self._resolve("Quem foi o marquês de Angeja?", context=FIRST), (None, None))
+        # pedidos independentes largam a peça do hotspot
+        for message in ("Encontra chapéus de mulher", "Onde estou?", "Que salas existem?", "Olá", "Procura leques"):
+            self.assertEqual(self._resolve(message, context=HOTSPOT), (None, None), message)
+
     def test_without_cards_or_context_nothing_is_resolved(self) -> None:
         self.assertEqual(self._resolve("De que é feito?", visible=[], context=None), (None, None))
 

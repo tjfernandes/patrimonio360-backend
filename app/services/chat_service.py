@@ -150,6 +150,13 @@ _SELECTED_ATTRIBUTE_STEMS: tuple[str, ...] = (
     "size", "technique", "tell", "describ", "explain", "detail", "meaning", "color", "colour", "condition",
     "story", "purpose", "name", "style",
 )
+# «peça», «objeto», «obra»: nomes genéricos para a peça em foco. Não são um
+# assunto próprio («O que é esta peça?» é sobre a peça aberta, não uma pesquisa
+# por «peça»). Só no singular: «peças de 1850» é uma pesquisa.
+_SELECTED_GENERIC_NOUNS = frozenset(
+    "peca objeto objecto obra artefacto artefato item "
+    "piece object artifact artefact artwork".split()
+)
 _SELECTED_SEARCH_VERBS = frozenset(
     "encontra encontrar encontre encontras procura procurar procure procuro pesquisa pesquisar pesquise mostra "
     "mostrar mostre lista listar listas liste quero queria gostava gostaria ver apresenta sugere recomenda "
@@ -3033,6 +3040,11 @@ class ChatService:
             return pick(context, "context")
         if decision != "about":
             return None
+        # Hotspot aberto na visita: o visitante está a olhar para a peça, e ela
+        # tem prioridade. Vale a regra da peça escolhida à mão: só um pedido
+        # independente (nova pesquisa, «onde estou?», zonas, saudação) a larga.
+        if (context.get("source") or "") == "tour_hotspot":
+            return pick(context, "context")
         first_raw = (message or "").strip().split(" ", 1)[0].strip("¿¡\"'«").casefold()
         if first_raw in {"é", "era", "foi", "será", "está", "estava", "is", "was", "does", "did"}:
             return pick(context, "context")
@@ -3043,6 +3055,7 @@ class ChatService:
             if t not in _SELECTED_FILLER_WORDS and t not in _SELECTED_SEARCH_VERBS
             and t not in _SELECTED_INTERROGATIVES and t not in _SELECTED_REFERENCE_WORDS
             and t not in _REFERENCE_DETERMINERS and t not in context_title and not is_attribute(t)
+            and t not in _SELECTED_GENERIC_NOUNS
         ]
         return None if content else pick(context, "context")
 
@@ -3076,6 +3089,7 @@ class ChatService:
             t for t in tokens
             if t not in _SELECTED_FILLER_WORDS and t not in _SELECTED_SEARCH_VERBS
             and t not in _SELECTED_INTERROGATIVES and not is_attribute(t)
+            and t not in _SELECTED_GENERIC_NOUNS
         ]
         has_attribute = any(is_attribute(t) for t in tokens)
         has_search_verb = any(t in _SELECTED_SEARCH_VERBS for t in tokens)
@@ -8115,6 +8129,19 @@ class ChatService:
         inventory_number = (inventory_number or "").strip()
         if not inventory_number:
             return None
+        # A visita anuncia o número que lá está escrito, que pode não ser o do
+        # catálogo («MNAz 6991 Az» na visita, «MNAz 6991/2 Az» no catálogo). Os
+        # ficheiros da visita não se podem corrigir (o player passa a mostrar a
+        # marca de água do 3DVista), por isso a correspondência está no mapa
+        # dos POIs (`inventoryIdsOriginal` -> `inventoryIds`) e aplica-se aqui.
+        try:
+            corrected = self.tour_navigation_service.corrected_inventories(
+                museum_slug=museum_slug, museum_id=museum_id, inventory=inventory_number
+            )
+        except Exception:  # pragma: no cover - tradução auxiliar; nunca bloqueia
+            corrected = []
+        if corrected:
+            inventory_number = corrected[0]
         docs = await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
             museum_slug=museum_slug,
             museum_id=museum_id,
