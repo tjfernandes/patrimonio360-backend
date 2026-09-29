@@ -14,11 +14,12 @@
 #   3. </body> bloco inline (tour-embed-handler.html): navigateToArtifact
 #              «clássico» (muda de panorama e abre a ficha) e o aviso de fecho.
 #
-# Repara ainda o script_general.js: no MNAz o `location` dentro do eval de cada
-# hotspot foi escrito com aspas curvas («location: “20_Expo_Temp_P3”»), o eval
-# rebenta com «Invalid or unexpected token», o try/catch da própria visita
-# engole o erro e o assistente nunca fica a saber que peça foi aberta. Só se
-# trocam as aspas desse campo (45 ocorrências no MNAz, 0 nas outras visitas).
+# Só mexe no index.html. O script_general.js e o script_mobile.js NUNCA se
+# editam: o player do 3DVista verifica a integridade deles e qualquer alteração
+# faz aparecer a marca de água «3DVista Academic» em toda a visita (visto a
+# 2026-09-18 e a 2026-09-29). As aspas curvas que partem o aviso de alguns
+# hotspots são contornadas pelo tour-focus-artifact.js, e os números de
+# inventário errados corrigem-se no mapa dos POIs (ver tools/poi_mapping).
 #
 # Idempotente: se já lá estiverem, só atualiza o ?v=. Faz cópia de segurança do
 # index.html na primeira alteração de cada dia. Um bloco inline antigo (sem a

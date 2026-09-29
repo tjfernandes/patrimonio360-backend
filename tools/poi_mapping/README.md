@@ -43,6 +43,24 @@ Outras verificações:
 - `validar_inventarios_poi.py <museu>` confirma no índice os números do ficheiro de `poi_tours/` e corrige os que resolve, como `MNAz_185_Az` para `MNAz 185 Az`. Tem `--simular`.
 - `validate_poi_mapping.py poi_tours/panorama-overlays-inventory-<museu>.json --museum <museu>` só lista os números que não existem no catálogo, e sai com código 1.
 
+## Número errado na visita: corrige-se no mapa, nunca nos ficheiros da visita
+
+Não se editam o `script_general.js` nem o `script_mobile.js` de uma visita publicada. O player do 3DVista verifica a integridade desses ficheiros, e qualquer alteração faz aparecer a marca de água «3DVista Academic» em toda a visita. Aconteceu a 18/09 e a 29/09/2026. Por isso, não se usa o `--fix` do `validate_tour.py` nem o `fix_smart_quotes.py` numa visita publicada.
+
+Quando a visita anuncia um número que não é o do catálogo, a correspondência escreve-se no mapa dos POIs:
+
+```json
+{
+  "inventoryIds": ["MNAz 6991/2 Az"],
+  "inventoryIdsOriginal": ["MNAz 6991 Az"],
+  "inventoryIdsNota": "na visita está «MNAz 6991 Az», que não existe no catálogo"
+}
+```
+
+O backend traduz o número quando a visita avisa que um hotspot foi aberto. A correção definitiva faz-se no projeto do 3DVista, antes de exportar.
+
+O `obter_poi_mapping.sh` gera o mapa a partir da visita e não conhece estas correspondências. Depois de o correr, comparam-se as entradas com `inventoryIdsOriginal` do mapa anterior e repõem-se as que ainda fizerem falta.
+
 ## Depois de o mapa entrar no `main`
 
 ```bash
