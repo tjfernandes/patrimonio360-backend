@@ -30,6 +30,9 @@
 # 2026-09-20 o «Ver na tour» não fazia nada e os hotspots não avisavam a app,
 # por não ter os três scripts. Museu novo no VPS => correr isto para ele.
 set -euo pipefail
+# Corre com o utilizador normal: a chave do VPS e a sessão do gh são dele. Com
+# sudo o ssh não encontra a chave e pede a password do root do VPS.
+if [ "$(id -u)" = "0" ]; then echo "não corras isto com sudo: a chave do VPS e a sessão do gh são do teu utilizador"; exit 1; fi
 HERE="$(cd "$(dirname "$0")" && pwd)"
 K="$HOME/.ssh/id_ed25519_vps"; H="root@patrimonio360.webredirect.org"; ROOT=/root/tours
 MUSEUS=("$@"); [ ${#MUSEUS[@]} -eq 0 ] && MUSEUS=(mnt mnsr mnaz mj cmag mnaa)
@@ -59,12 +62,18 @@ scp -q -i "$K" "$HERE/tour-embed-handler.html" "$H:$ROOT/tour-embed-handler.html
 # Mapa dos números de inventário corrigidos (validar_inventarios_poi.py guarda o
 # original em `inventoryIdsOriginal`): a visita tem de anunciar o número que o
 # catálogo usa, senão a peça aberta não é reconhecida.
-python3 - "$HERE" "${MUSEUS[@]}" > /tmp/p360_inv_map.json <<'PY'
+# O ficheiro no VPS é um só para todas as visitas: constrói-se sempre com todos
+# os museus que têm POIs, e não só com os desta corrida (instalar só o mnaa a
+# 2026-09-28 deixou-o vazio e apagou as correções do MNAz).
+# Ficheiro temporário próprio: um nome fixo em /tmp fica preso ao utilizador que
+# o criou (uma corrida com sudo deixou-o do root e as seguintes falhavam).
+MAPA=$(mktemp)
+trap 'rm -f "$MAPA" "$TMP_FOCUS"' EXIT
+python3 - "$HERE" > "$MAPA" <<'PY'
 import json, pathlib, sys
 here = pathlib.Path(sys.argv[1]); mapa = {}
-for museu in sys.argv[2:]:
-    ficheiro = here.parents[1] / "poi_tours" / f"panorama-overlays-inventory-{museu}.json"
-    if not ficheiro.exists(): continue
+for ficheiro in sorted((here.parents[1] / "poi_tours").glob("panorama-overlays-inventory-*.json")):
+    museu = ficheiro.stem.replace("panorama-overlays-inventory-", "")
     por_museu = {}
     for poi in json.loads(ficheiro.read_text(encoding="utf-8")):
         antigos, novos = poi.get("inventoryIdsOriginal"), poi.get("inventoryIds")
@@ -73,7 +82,7 @@ for museu in sys.argv[2:]:
     if por_museu: mapa[museu] = por_museu
 json.dump(mapa, sys.stdout, ensure_ascii=False)
 PY
-scp -q -i "$K" /tmp/p360_inv_map.json "$H:$ROOT/inventarios-corrigidos.json"
+scp -q -i "$K" "$MAPA" "$H:$ROOT/inventarios-corrigidos.json"
 ssh -i "$K" -o BatchMode=yes "$H" "export V=$V; cd $ROOT && python3 - ${MUSEUS[*]}" <<'PY'
 import datetime, json, os, re, shutil, sys
 
