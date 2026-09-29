@@ -59,15 +59,10 @@
     "overlayId": "overlay_A026AED3_9B4A_B329_41CC_5DE41CCF413A",
     "panoramaKey": "panorama_775FD81F_636E_E39E_41A3_575D6B8B5643",
     "inventoryIds": [
-      "MNAz 6991/1 Az",
       "MNAz 6991/2 Az"
     ],
     "location": "Exposição - Séc XVIII",
-    "title": "Balaustrada com meninos",
-    "inventoryIdsOriginal": [
-      "MNAz 6991 Az"
-    ],
-    "inventoryIdsNota": "corrigido à mão a 2026-09-24: no catálogo são dois painéis, confirmados pelo título"
+    "title": "Balaustrada com meninos"
   },
   {
     "overlayId": "overlay_B9B074C5_AA15_AC35_4186_B44B48ADE97E",
