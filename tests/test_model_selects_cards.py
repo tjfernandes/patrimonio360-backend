@@ -131,12 +131,53 @@ class TestSelectCards(unittest.TestCase):
     def setUp(self) -> None:
         self.service = object.__new__(ChatService)
 
-    def select(self, message: str, indices, *, total=20, has_more=True, request=None):
+    def select(self, message: str, indices, *, total=20, has_more=True, request=None, reply="", docs=MNAZ_DOCS):
         return self.service._select_cards(
             user_message=message, retrieval_request=request or {"kind": "text"},
-            artifact_results=_cards(), image_matches=_images(), navigation_targets=_targets(),
-            model_indices=indices, results_total=total, results_has_more=has_more,
+            artifact_results=_cards(docs), image_matches=_images(docs), navigation_targets=_targets(),
+            model_indices=indices, results_total=total, results_has_more=has_more, reply_text=reply,
         )
+
+    # medido em produção a 2026-09-30: «encontra botões com aranhas», bloco [2, 5],
+    # texto a descrever o doc_2 (11472) e o doc_6 (13913)
+    BOTOES = [
+        {"artifact_id": f"b{i}", "inventory_number": inv, "title": title, "museum_id": "mnt", "in_tour": False, "image_count": 1}
+        for i, (inv, title) in enumerate([
+            ("1704", "Botão"), ("11472", "Botões (dois)"), ("21429", "Botão"), ("14988", "Botões (três)"),
+            ("13682", "Cartela com botões"), ("13913", "Botões (oito)"), ("10288", "Botão"), ("8250", "Botão"),
+        ], start=1)
+    ]
+    BOTOES_REPLY = (
+        "Encontrei dois botões.\n1. Botões (dois) – Inventário: 11472. Dois botões facetados de tartaruga.\n"
+        "2. Botões (oito) – Inventário: 13913. Oito botões de plástico transparente."
+    )
+
+    def test_pieces_cited_in_the_text_win_over_a_wrong_block(self) -> None:
+        artifacts, images, _t, total, has_more, report = self.select(
+            "encontra botões com aranhas", [2, 5], reply=self.BOTOES_REPLY, docs=self.BOTOES,
+        )
+        self.assertEqual([a.inventory_number for a in artifacts], ["11472", "13913"])
+        self.assertEqual([m.inventory for m in images], ["11472", "13913"])
+        self.assertEqual((total, has_more, report["rule"]), (20, True, "cited"))
+        self.assertEqual((report["cited_artifacts"], report["block_only_dropped"]), (2, 1))
+
+    def test_citation_by_title_and_mention_order(self) -> None:
+        reply = "Destaco a Cena de Caça (MNAz 730 Az) e ainda o Martírio de São Lourenço."
+        artifacts, _i, _t, _total, _more, report = self.select("Mostra-me painéis", [1, 8], reply=reply)
+        self.assertEqual([a.artifact_id for a in artifacts], ["d8", "d1"])
+        self.assertEqual(report["rule"], "cited")
+
+    def test_single_word_title_is_not_a_citation(self) -> None:
+        # «Martírio» (d4) aparece em qualquer resposta sobre martírios; só conta pelo n.º
+        reply = "O martírio aparece em duas peças: MNAz 593 Proj e MNAz 1025/12 Cer."
+        artifacts, *_rest, report = self.select("Mostra-me martírios", None, reply=reply)
+        self.assertEqual([a.artifact_id for a in artifacts], ["d2", "d4"])
+        self.assertEqual(report["rule"], "cited")
+
+    def test_block_decides_only_without_citations(self) -> None:
+        artifacts, *_rest, report = self.select("Mostra-me painéis", [8, 5], reply="Há cenas de caça em duas peças.")
+        self.assertEqual([a.artifact_id for a in artifacts], ["d8", "d5"])
+        self.assertEqual(report["rule"], "model")
 
     def test_model_order_and_paging_kept(self) -> None:
         artifacts, images, targets, total, has_more, report = self.select("Mostra-me painéis com cenas de caça", [8, 5, 8, 99])

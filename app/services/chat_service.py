@@ -4301,6 +4301,7 @@ class ChatService:
                 model_indices=model_cards,
                 results_total=results_total,
                 results_has_more=results_has_more,
+                reply_text=final_reply_text,
             )
             log_event(
                 logger,
@@ -9325,6 +9326,28 @@ class ChatService:
                 by_title.append(artifact.artifact_id)
         return by_title
 
+    def _cards_cited_in_reply(self, reply: str, artifact_results: list[ArtifactResult]) -> list[str]:
+        """Cartões cujo n.º de inventário ou título aparece na resposta, pela
+        ordem da primeira menção. Títulos só com duas ou mais palavras: «Botão»
+        aparece em qualquer resposta sobre botões."""
+        folded_reply = f" {self._fold_query_text(reply)} "
+        if not folded_reply.strip():
+            return []
+        positions: dict[str, int] = {}
+        for artifact in artifact_results:
+            candidates: list[str] = []
+            inventory = self._fold_query_text(str(artifact.inventory_number or ""))
+            if inventory and any(ch.isdigit() for ch in inventory):
+                candidates.append(inventory)
+            title = self._fold_query_text(str(artifact.title or ""))
+            if len(title.split()) >= 2:
+                candidates.append(title)
+            found = [folded_reply.find(f" {c} ") for c in candidates]
+            found = [p for p in found if p >= 0]
+            if found and artifact.artifact_id not in positions:
+                positions[artifact.artifact_id] = min(found)
+        return sorted(positions, key=positions.get)
+
     def _select_cards(
         self,
         *,
@@ -9336,12 +9359,17 @@ class ChatService:
         model_indices: list[int] | None,
         results_total: int,
         results_has_more: bool,
+        reply_text: str = "",
     ) -> tuple[list[ArtifactResult], list[ImageMatchResult], list[TourNavigationTarget], int, bool, dict[str, Any]]:
-        """Reduz os cartões aos que o modelo usou ou recomendou (ordem dele).
+        """Reduz os cartões aos que o modelo usou ou recomendou.
 
-        Um pedido de uma peça concreta (nome ou n.º) mostra só as peças que
-        correspondem, as citadas pelo modelo primeiro, e fecha o «ver mais».
-        Sem bloco do modelo e sem peça nomeada, fica tudo como estava.
+        As peças citadas no texto (n.º de inventário ou título) mandam, pela
+        ordem em que aparecem: o 9B engana-se nos rótulos do bloco («doc_5»
+        quando descreveu o doc_6, medido em produção a 2026-09-30). O bloco
+        só decide quando o texto não cita nenhuma peça. Um pedido de uma peça
+        concreta (nome ou n.º) mostra só as peças que correspondem, as citadas
+        primeiro, e fecha o «ver mais». Sem citações, sem bloco e sem peça
+        nomeada, fica tudo como estava.
         """
         chosen: list[str] = []
         for index in model_indices or []:
@@ -9349,22 +9377,26 @@ class ChatService:
                 artifact_id = artifact_results[index - 1].artifact_id
                 if artifact_id not in chosen:
                     chosen.append(artifact_id)
+        cited = self._cards_cited_in_reply(reply_text, artifact_results)
         named = self._artifacts_named_in_query(
             user_message=user_message, artifact_results=artifact_results, retrieval_request=retrieval_request,
         )
         report: dict[str, Any] = {
             "model_cards": list(model_indices) if model_indices is not None else None,
             "model_artifacts": len(chosen),
+            "cited_artifacts": len(cited),
+            "block_only_dropped": len([a for a in chosen if a not in cited]) if cited else 0,
             "named_artifacts": len(named),
             "shown_before": len(artifact_results),
         }
+        used = cited or chosen
         if named:
-            ordered = [a for a in chosen if a in named] + [a for a in named if a not in chosen]
+            ordered = [a for a in used if a in named] + [a for a in named if a not in used]
             total, has_more = len(ordered), False
             report["rule"] = "named"
-        elif chosen:
-            ordered, total, has_more = chosen, results_total, results_has_more
-            report["rule"] = "model"
+        elif used:
+            ordered, total, has_more = used, results_total, results_has_more
+            report["rule"] = "cited" if cited else "model"
         else:
             report["rule"] = "unchanged"
             report["shown_after"] = len(artifact_results)
