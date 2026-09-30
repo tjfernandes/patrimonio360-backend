@@ -1804,19 +1804,28 @@ class ChatService:
             fallback_museum_slug=request_museum_slug,
             fallback_museum_id=request_museum_id,
         )
+        # Com fichas iguais juntas, a página N não pode ser um `from` no
+        # OpenSearch (as fichas juntas na página 1 voltariam na 2): pede-se
+        # desde o início até ao fim da página pedida, junta-se e corta-se.
+        collapse = self._collapse_enabled()
+        fetch_from = 0 if collapse else from_offset
+        fetch_size = self._collapse_fetch_size(from_offset + page_size) if collapse else page_size
+        window = self._retrieval_window_from_request(request)
         page_result = await self.opensearch_gateway.search_relevant_context_page(
             museum_slug=request_museum_slug,
             museum_id=request_museum_id,
             query_text=str(request.get("query_text") or ""),
             lexical_query=str(request.get("lexical_query") or "") or None,
             query_embedding=list(request.get("query_embedding") or []),
-            from_offset=from_offset,
-            page_size=page_size,
+            from_offset=fetch_from,
+            page_size=fetch_size,
             filters=dict(request.get("filters") or {}),
             sort=dict(request.get("sort") or {}),
-            retrieval_window_size=self._retrieval_window_from_request(request),
+            retrieval_window_size=max(window, fetch_size) if window is not None else None,
         )
-        docs = page_result.results
+        docs = list(page_result.results)
+        if collapse:
+            docs = self._collapse_identical_set_members(docs)[from_offset: from_offset + page_size]
         image_matches: list[ImageMatchResult] = []
         image_hits: list[dict[str, Any]] = []
         artifact_ids = [
@@ -1910,33 +1919,43 @@ class ChatService:
             fallback_museum_slug=request_museum_slug,
             fallback_museum_id=museum_id,
         )
+        # Fichas iguais juntas: como na página de texto, desde o início.
+        collapse = self._collapse_enabled()
+        fetch_from = 0 if collapse else from_offset
+        fetch_size = self._collapse_fetch_size(from_offset + page_size) if collapse else page_size
+        window = self._retrieval_window_from_request(request)
+        window = max(window, fetch_size) if window is not None else None
         if kind == "model":
             page_result = await self.opensearch_gateway.search_similar_images_multi_page(
                 museum_slug=request_museum_slug,
                 museum_id=museum_id,
                 image_embeddings=list(request.get("image_embeddings") or []),
-                from_offset=from_offset,
-                page_size=page_size,
-                retrieval_window_size=self._retrieval_window_from_request(request),
+                from_offset=fetch_from,
+                page_size=fetch_size,
+                retrieval_window_size=window,
             )
         else:
             page_result = await self.opensearch_gateway.search_similar_images_page(
                 museum_slug=request_museum_slug,
                 museum_id=museum_id,
                 image_embedding=list(request.get("image_embedding") or []),
-                from_offset=from_offset,
-                page_size=page_size,
-                retrieval_window_size=self._retrieval_window_from_request(request),
+                from_offset=fetch_from,
+                page_size=fetch_size,
+                retrieval_window_size=window,
             )
 
-        image_hits = page_result.results
+        image_hits = list(page_result.results)
         artifact_docs = await self._fetch_artifact_docs_for_image_hits(
             museum_slug=request_museum_slug,
             museum_id=museum_id,
             artifact_museum_id=str(request.get("artifact_museum_id") or "").strip() or None,
             image_hits=image_hits,
-            top_k=page_size,
+            top_k=fetch_size,
         )
+        if collapse:
+            artifact_docs = self._collapse_identical_set_members(artifact_docs)[from_offset: from_offset + page_size]
+            kept = {str(doc.get("artifact_id") or "").strip() for doc in artifact_docs}
+            image_hits = [hit for hit in image_hits if str(hit.get("artifact_id") or "").strip() in kept]
         image_matches = self._build_image_matches(
             image_hits=image_hits,
             artifact_docs=artifact_docs,
@@ -2608,15 +2627,17 @@ class ChatService:
             artifact_id = str(doc.get("artifact_id") or "").strip()
             if not artifact_id:
                 continue
-            entries.append(
-                {
-                    "artifact_id": artifact_id,
-                    "inventory_number": doc.get("inventory_number") or None,
-                    "title": doc.get("title") or None,
-                    "score": doc.get("score"),
-                    "source": source,
-                }
-            )
+            entry = {
+                "artifact_id": artifact_id,
+                "inventory_number": doc.get("inventory_number") or None,
+                "title": doc.get("title") or None,
+                "score": doc.get("score"),
+                "source": source,
+            }
+            group_size = doc.get("group_size")
+            if isinstance(group_size, int) and group_size > 1:
+                entry["group_size"] = group_size
+            entries.append(entry)
         return entries
 
     def _log_shown_artifact_entries(
@@ -3874,7 +3895,9 @@ class ChatService:
                     query_id=query_id,
                 )
             if multimodal_outcome is not None:
-                retrieved_docs = multimodal_outcome.docs
+                # A fusão pode voltar a trazer membros do mesmo conjunto (pelas
+                # legendas ou pelas imagens): junta-se outra vez.
+                retrieved_docs = self._collapse_identical_set_members(list(multimodal_outcome.docs))
                 retrieved_docs_count = multimodal_outcome.total
                 context_top_k = max(self.settings.CHAT_RETRIEVAL_TOP_K, 1)
                 retrieval_context = self._format_docs_for_prompt(
@@ -4695,7 +4718,9 @@ class ChatService:
         retrieval_mode_used = ("image_text_joint" if image_text_outcome is not None
                                else "image_similarity")
         if image_text_outcome is not None:
-            artifact_docs = image_text_outcome.docs
+            # Fichas iguais do mesmo conjunto: só se juntam (o pool i2i não é
+            # alargado, pelo que a página pode ficar com menos cartões).
+            artifact_docs = self._collapse_identical_set_members(list(image_text_outcome.docs))
             image_results_total = image_text_outcome.total
             image_matches = self._build_image_matches(
                 image_hits=image_text_outcome.matched_image_hits,
@@ -4728,6 +4753,7 @@ class ChatService:
                 )
                 artifact_docs = []
 
+            artifact_docs = self._collapse_identical_set_members(artifact_docs)
             image_matches = self._build_image_matches(image_hits=image_hits, artifact_docs=artifact_docs)
             await self._emit_status(
                 status_cb,
@@ -5170,7 +5196,7 @@ class ChatService:
                     **fields,
                 ),
             )
-            artifact_docs = retrieval_result.artifact_docs
+            artifact_docs = self._collapse_identical_set_members(list(retrieval_result.artifact_docs))
             model_results_total = retrieval_result.image_hits_total
             model_image_embeddings = retrieval_result.image_embeddings
             model_opensearch_query = retrieval_result.opensearch_query
@@ -7105,6 +7131,10 @@ class ChatService:
             },
         )
 
+        # Fichas iguais do mesmo conjunto: pede-se mais para, depois de as
+        # juntar, a página continuar cheia (o corte a retrieval_page_size é
+        # feito em _maybe_rerank_text_docs).
+        fetch_size = self._collapse_fetch_size(rerank_pool_size)
         try:
             page_result = await self.opensearch_gateway.search_relevant_context_page(
                 museum_slug=museum_slug,
@@ -7113,10 +7143,10 @@ class ChatService:
                 lexical_query=lexical_query,
                 query_embedding=query_embedding,
                 from_offset=0,
-                page_size=rerank_pool_size,
+                page_size=fetch_size,
                 filters=retrieval_filters,
                 sort=sort,
-                retrieval_window_size=retrieval_window_size,
+                retrieval_window_size=max(retrieval_window_size, fetch_size),
             )
         except Exception as exc:
             log_event(
@@ -7131,7 +7161,7 @@ class ChatService:
             )
             return "", 0, [], {}
 
-        docs = page_result.results
+        docs = self._collapse_identical_set_members(list(page_result.results))
         results_total = self._bounded_retrieval_total(page_result.total, retrieval_window_size)
         retrieval_request = {
             "kind": "text",
@@ -8125,6 +8155,7 @@ class ChatService:
             "exhibition_ids",
             "exhibition_types",
             "bibliography",
+            "group_artifact_ids",
         }
         if not self.settings.CHAT_INCLUDE_ORIGIN_HISTORY_IN_LLM_CONTEXT:
             excluded_keys.update({"origin_history", "historical_origin"})
@@ -8134,6 +8165,9 @@ class ChatService:
                 for key, value in doc.items()
                 if key not in excluded_keys and value not in (None, "")
             }
+            if not isinstance(prompt_doc.get("group_size"), int) or prompt_doc["group_size"] <= 1:
+                prompt_doc.pop("group_size", None)
+                prompt_doc.pop("group_inventory_numbers", None)
             snippet = json.dumps(prompt_doc, ensure_ascii=True)
             snippets.append(f"[doc_{index}] {snippet}")
         return "\n".join(snippets)
@@ -8212,6 +8246,13 @@ class ChatService:
                 lines.append(f"    Descrição: {description}")
             if isinstance(in_tour, bool):
                 lines.append(f"    Na visita virtual: {'sim' if in_tour else 'não'}")
+            group_size = doc.get("group_size")
+            if isinstance(group_size, int) and group_size > 1:
+                numbers = self._as_string_list(doc.get("group_inventory_numbers"))
+                span = f" ({numbers[0]} a {numbers[-1]})" if len(numbers) >= 2 else ""
+                lines.append(
+                    f"    Conjunto de {group_size} peças iguais, uma ficha cada{span}; este cartão representa todas"
+                )
             cards.append("\n".join(lines))
         return "\n".join(cards)
 
@@ -8459,6 +8500,9 @@ class ChatService:
                     bibliography_count=_as_int(doc.get("bibliography_count")),
                     image_count=image_count_value,
                     images=images,
+                    group_size=max(_as_int(doc.get("group_size")) or 1, 1),
+                    group_inventory_numbers=_as_str_list(doc.get("group_inventory_numbers")),
+                    group_artifact_ids=_as_str_list(doc.get("group_artifact_ids")),
                 )
             )
 
@@ -9932,6 +9976,93 @@ class ChatService:
             seen.add(artifact_id)
             ids.append(artifact_id)
         return ids
+
+    # ----- Fichas iguais do mesmo conjunto (CHAT_COLLAPSE_SET_DUPLICATES) ----- #
+
+    def _collapse_enabled(self) -> bool:
+        return bool(getattr(self.settings, "CHAT_COLLAPSE_SET_DUPLICATES", False))
+
+    def _collapse_fetch_size(self, size: int, *, cap: int = 200) -> int:
+        """Quantos candidatos pedir para, depois de juntar, sobrarem `size`."""
+        if not self._collapse_enabled():
+            return max(int(size), 1)
+        factor = max(int(getattr(self.settings, "CHAT_COLLAPSE_FETCH_FACTOR", 3) or 1), 1)
+        return min(max(int(size), 1) * factor, max(cap, int(size)))
+
+    @staticmethod
+    def _inventory_sort_key(inventory: str) -> tuple[str, int, str]:
+        """«38195/2» antes de «38195/10»."""
+        root, sep, suffix = str(inventory or "").partition("/")
+        digits = re.match(r"\s*(\d+)", suffix) if sep else None
+        return (root.strip().casefold(), int(digits.group(1)) if digits else -1, suffix.strip().casefold())
+
+    def _collapse_identical_set_members(self, docs: list[dict[str, object]]) -> list[dict[str, object]]:
+        """Junta num só cartão as fichas do mesmo conjunto com título e descrição
+        iguais («Botões (dez)», 38195/1 a 38195/10). Conjuntos com peças
+        diferentes (casaco + saia + colete) ficam como estão: o texto difere.
+
+        O cartão é a ficha mais bem posicionada, ou a primeira que está na
+        visita (para o «Ver na tour» ter alvo), com `group_size`,
+        `group_inventory_numbers` e `group_artifact_ids` de todas. Ocupa o
+        lugar do primeiro membro; a ordem dos restantes cartões não muda.
+        Sem conjunto e sem raiz de inventário («N/M»), nunca junta.
+        """
+        if not self._collapse_enabled() or len(docs) < 2:
+            return docs
+
+        def key_of(doc: dict[str, object]) -> tuple[str, str] | None:
+            set_ids = doc.get("set_ids")
+            set_key = ""
+            if isinstance(set_ids, list) and set_ids:
+                set_key = f"set:{str(set_ids[0] or '').strip()}"
+            elif isinstance(set_ids, str) and set_ids.strip():
+                set_key = f"set:{set_ids.strip()}"
+            if not set_key:
+                inventory = self._doc_inventory(doc)
+                root, sep, _ = inventory.partition("/")
+                if not sep or not root.strip():
+                    return None
+                set_key = f"inv:{self._fold_query_text(root)}"
+            text_key = self._fold_query_text(str(doc.get("title") or "")) + "|" + self._fold_query_text(
+                str(doc.get("description") or "")
+            )
+            return set_key, text_key
+
+        groups: dict[tuple[str, str], list[dict[str, object]]] = {}
+        order: list[tuple[str, str] | int] = []
+        for position, doc in enumerate(docs):
+            key = key_of(doc)
+            if key is None:
+                order.append(position)
+                continue
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(doc)
+
+        def is_in_tour(doc: dict[str, object]) -> bool:
+            raw = doc.get("in_tour")
+            return raw.strip().lower() in {"true", "1", "yes"} if isinstance(raw, str) else bool(raw)
+
+        collapsed: list[dict[str, object]] = []
+        for item in order:
+            if isinstance(item, int):
+                collapsed.append(docs[item])
+                continue
+            members = groups[item]
+            if len(members) == 1:
+                collapsed.append(members[0])
+                continue
+            representative = next((m for m in members if is_in_tour(m)), members[0])
+            inventories = sorted(
+                {self._doc_inventory(m) for m in members if self._doc_inventory(m)}, key=self._inventory_sort_key
+            )
+            merged = dict(representative)
+            merged["group_size"] = len(members)
+            merged["group_inventory_numbers"] = inventories
+            merged["group_artifact_ids"] = self._extract_artifact_ids_from_docs(members)
+            collapsed.append(merged)
+        return collapsed
 
     def _update_last_result_ids(
         self,
