@@ -181,6 +181,10 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "Esta zona da visita não tem peças assinaladas. Diga-me o que procura e pesquiso no acervo do museu.",
         "en": "This area of the tour has no highlighted objects. Tell me what you are looking for and I will search the museum's collection.",
     },
+    "message.describe_artifact_not_found": {
+        "pt": "Não encontrei a ficha desta peça no acervo, por isso não a consigo apresentar. Pergunte-me por outra peça ou diga-me o que procura.",
+        "en": "I could not find this object's record in the collection, so I cannot present it. Ask me about another object or tell me what you are looking for.",
+    },
     "message.results_page_template": {
         "pt": {
             "one": "Página {page}: mais 1 peça desta pesquisa ({total} no total). Abra o cartão para ver a ficha ou peça-me detalhes.",

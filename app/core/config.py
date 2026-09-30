@@ -55,6 +55,17 @@ class Settings(BaseSettings):
     # Com o anterior: a frase é redigida pelo LLM a partir dos factos da
     # visita (sala e peças fixas; cartões trancados); template se falhar.
     CHAT_TOUR_CONTEXT_LLM_WORDING: bool = False
+    # Intenção explícita do frontend: ao carregar em «Ver na tour» num cartão, o
+    # pedido traz metadata.intent = "describe_artifact" e a peça em
+    # metadata.selected_artifact. Sem pesquisa: a ficha vai buscar-se pelo
+    # artifact_id e a resposta é uma apresentação curta da peça, só dela.
+    CHAT_DESCRIBE_ARTIFACT_INTENT: bool = False
+    # O modelo escolhe os cartões: termina a resposta com «[[cartões: doc_1, doc_3]]»
+    # (retirado do texto) e só essas peças, pela ordem dele, ficam em
+    # artifact_results, image_matches e navigation_targets. Um pedido por nome
+    # ou n.º de inventário mostra só as peças que correspondem («egito» ≈
+    # «Egipto»), sem «ver mais». Sem bloco, os cartões ficam como hoje.
+    CHAT_MODEL_SELECTS_CARDS: bool = False
     # EXPERIMENTAL, manter desligado: medido em 2026-09-15 sem ganho de tempo
     # (o 9B enche filters_delta com filtros inventados). Ver PLANO_MELHORIAS §3.
     CHAT_ROUTER_COMPACT_SCHEMA: bool = False        # router pede 5 campos em vez de 12

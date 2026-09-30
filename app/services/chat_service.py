@@ -1,6 +1,7 @@
 ﻿from functools import lru_cache
 import asyncio
 from dataclasses import dataclass
+import difflib
 import json
 import logging
 from pathlib import Path
@@ -18,7 +19,12 @@ from app.prompts import (
     build_router_user_prompt,
     get_router_system_prompt,
 )
-from app.prompts.chat_prompts import build_final_answer_prompt_v2, build_tour_context_prompt
+from app.prompts.chat_prompts import (
+    build_describe_artifact_prompt,
+    build_final_answer_prompt_v2,
+    build_tour_context_prompt,
+    card_selection_instruction,
+)
 from app.prompts.query_planner_prompts import (
     FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
     RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
@@ -207,6 +213,25 @@ _REFERENCE_SEARCH_VERBS = frozenset(
     "encontra encontrar encontre procura procurar procure procuro pesquisa pesquisar pesquise lista listar liste "
     "mostra mostrar mostre ha existe existem find search show list any".split()
 )
+
+# O modelo escolhe os cartões (CHAT_MODEL_SELECTS_CARDS): bloco final
+# «[[cartões: doc_1, doc_3]]» / «[[cards: …]]», fechado ou cortado no fim.
+_CARD_SELECTION_BLOCK = re.compile(r"\[\[\s*(?:cart[oõ]es|cards)\s*:\s*([^\[\]]*?)\s*\]\]", re.IGNORECASE)
+_CARD_SELECTION_OPEN_TAIL = re.compile(r"\[\[\s*(?:cart[oõ]es|cards)\s*:\s*([^\[\]]*)$", re.IGNORECASE)
+# Pedido de uma peça pelo nome: «encontra a fuga para o egito nesta visita» →
+# o nome é o que sobra depois dos verbos de pesquisa, do âmbito da visita e
+# das palavras de ligação; começa por um determinante no singular.
+_NAME_QUERY_STOPWORDS = (
+    _SELECTED_SEARCH_VERBS
+    | _SELECTED_FILLER_WORDS
+    | _SELECTED_INTERROGATIVES
+    | _REFERENCE_DETERMINERS
+    | frozenset("visita virtual tour museu museum aqui here amalia".split())
+)
+_NAME_QUERY_SINGULAR_DETERMINERS = frozenset(
+    "o a este esta esse essa aquele aquela the this that".split()
+)
+_TITLE_STOPWORDS = _SELECTED_FILLER_WORDS | _REFERENCE_DETERMINERS
 
 _SMALLTALK_THANKS_WORDS = frozenset("obrigado obrigada obrigadinho obrigadinha agradecido agradecida valeu brigado thanks thank thx ty cheers".split())
 _SMALLTALK_BYE_WORDS = frozenset("adeus tchau xau bye goodbye".split())
@@ -2859,6 +2884,15 @@ class ChatService:
         um pedido independente segue sem ela e a resposta avisa o widget."""
         metadata = payload.metadata if isinstance(payload.metadata, dict) else None
         selected = self._selected_artifact_from_metadata(metadata)
+        # «Ver na tour»: o frontend diz a intenção e a peça; não há nada a
+        # decidir nem a pesquisar. Antes da libertação automática, que veria
+        # «Sapatos (par)/Feminino (4270)» como uma pesquisa nova.
+        if (
+            selected
+            and bool(getattr(self.settings, "CHAT_DESCRIBE_ARTIFACT_INTENT", False))
+            and self._metadata_intent(metadata) == "describe_artifact"
+        ):
+            return await self._answer_describe_artifact(payload, selected=selected, status_cb=status_cb)
         status: str | None = None
         subject: dict[str, Any] | None = None
         if not selected and bool(getattr(self.settings, "CHAT_IMPLICIT_ARTIFACT_CONTEXT", False)):
@@ -2924,6 +2958,289 @@ class ChatService:
                 context_source=subject.get("context_source"),
             )
         return response
+
+    _OPENING_GREETING = re.compile(
+        r"^\s*(?:ol[áa]|boas|bom dia|boa tarde|boa noite|hello|hi)"
+        r"(?:[,!.:]\s*(?:(?:veja|repare|observe|olhe|look at|look|see)\s+)?|\s+(?:veja|repare|observe|olhe|look at|look|see)\s+)",
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def _strip_opening_greeting(cls, text: str) -> str:
+        """«Olá, veja a Fuga…» → «A Fuga…»: a apresentação de uma peça começa
+        pela peça, mesmo quando o modelo cumprimenta por hábito."""
+        stripped = cls._OPENING_GREETING.sub("", text or "", count=1)
+        if stripped == (text or "") or not stripped:
+            return text or ""
+        return stripped[0].upper() + stripped[1:]
+
+    @staticmethod
+    def _metadata_intent(metadata: dict[str, Any] | None) -> str | None:
+        """Intenção explícita enviada pelo frontend (metadata.intent), se houver."""
+        if not isinstance(metadata, dict):
+            return None
+        intent = str(metadata.get("intent") or "").strip().lower()
+        return intent or None
+
+    async def _answer_describe_artifact(
+        self,
+        payload: ChatMessageRequest,
+        *,
+        selected: dict[str, str | None],
+        status_cb: StatusCallback | None = None,
+    ) -> ChatMessageResponse:
+        """Intenção «describe_artifact» (CHAT_DESCRIBE_ARTIFACT_INTENT).
+
+        O visitante carregou em «Ver na tour» e está a olhar para a peça: a
+        ficha vai buscar-se pelo artifact_id (pelo n.º de inventário se o id
+        já não existir) e o LLM apresenta-a com um prompt próprio. Só essa
+        peça sai nos cartões; nunca há pesquisa.
+        """
+        conversation_id = payload.conversation_id or str(uuid4())
+        requested_format = payload.response_format or ResponseFormatObject(type="text")
+        query_id = str(uuid4())
+        request_started_at = time.monotonic()
+        state = self.session_store.load_or_create(
+            conversation_id=conversation_id,
+            museum_slug=payload.museum_slug,
+        )
+        language = self._sync_state_language(state, payload.language)
+        self.session_store.append_turn(state, role="user", text=payload.message)
+        await self._emit_status(status_cb, "status.analyzing_request", language=language)
+
+        artifact_id = str(selected.get("artifact_id") or "").strip()
+        inventory_number = str(selected.get("inventory_number") or "").strip()
+        museum_slug = str(selected.get("museum_slug") or payload.museum_slug).strip() or payload.museum_slug
+        museum_id = str(selected.get("museum_id") or self._resolve_museum_id(payload) or "").strip() or None
+        museum_name = str(selected.get("museum_name") or payload.museum_name or "").strip() or payload.museum_name
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.message.route",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            mode="rag",
+            intent="describe_artifact",
+            fast_path="describe_artifact",
+            selected_artifact_id=artifact_id,
+        )
+
+        retrieval_started_at = time.monotonic()
+        docs: list[dict[str, object]] = []
+        try:
+            docs = await self.opensearch_gateway.fetch_artifacts_by_ids(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                artifact_ids=[artifact_id],
+                top_k=1,
+            )
+        except Exception as exc:
+            log_event(logger, logging.WARNING, "chat.describe_artifact.fetch.error", error=exc)
+        if not docs and inventory_number:
+            try:
+                docs = await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
+                    museum_slug=museum_slug,
+                    museum_id=museum_id,
+                    inventory_numbers=[inventory_number],
+                    top_k=1,
+                )
+            except Exception as exc:
+                log_event(logger, logging.WARNING, "chat.describe_artifact.fetch.error", error=exc)
+        docs = docs[:1]
+        retrieval_latency_ms = (time.monotonic() - retrieval_started_at) * 1000
+
+        reply = ""
+        status = "ok"
+        error: str | None = None
+        llm_response = None
+        llm_latency_ms: float | None = None
+        grounding_report = None
+        if not docs:
+            reply = translate("message.describe_artifact_not_found", language)
+        else:
+            prompt = build_describe_artifact_prompt(
+                museum_name=museum_name,
+                user_message=payload.message,
+                card_context=self._format_docs_compact(docs=docs, description_chars=900),
+                language=language,
+            )
+            self._rag_debug_json(
+                "rag.final_prompt",
+                {
+                    "conversation_id": conversation_id,
+                    "query_id": query_id,
+                    "intent": "describe_artifact",
+                    "final_prompt_chars": len(prompt),
+                },
+            )
+            await self._emit_status(status_cb, "status.generating_final_answer", language=language)
+            llm_started_at = time.monotonic()
+            try:
+                llm_response = await self._generate_final_answer_with_context_retries(
+                    initial_message=prompt,
+                    response_format=requested_format,
+                    system_prompt=self._final_system_prompt(payload.system_prompt, language),
+                    model_override=payload.model_override,
+                    visible_result_count=0,
+                    build_message_for_result_count=lambda _n: prompt,
+                    stream_cb_factory=self._final_answer_stream_factory(
+                        status_cb, requested_format, query_id=query_id
+                    ),
+                )
+                reply = self._strip_opening_greeting(
+                    self._sanitize_assistant_reply(llm_response.text, docs=docs, language=language)
+                )
+            except LLMServiceError as exc:
+                log_event(
+                    logger, logging.ERROR, "chat.message.llm.error",
+                    conversation_id=conversation_id, query_id=query_id, error=exc,
+                )
+                reply = translate("error.llm_unavailable", language, error=str(exc))
+                status, error = "error", str(exc)
+            llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
+            if llm_response is not None:
+                grounding_report = self._grounding_report(
+                    reply=reply, docs=docs, conversation_id=conversation_id, query_id=query_id,
+                    user_message=payload.message,
+                )
+
+        artifact_results = await self._build_artifact_results(
+            museum_slug=museum_slug, museum_id=museum_id, artifact_docs=docs,
+        ) if docs else []
+        image_matches: list[ImageMatchResult] = []
+        navigation_targets: list[TourNavigationTarget] = []
+        if docs:
+            try:
+                image_hits = await self.opensearch_gateway.fetch_images_by_artifact_ids(
+                    museum_slug=museum_slug,
+                    museum_id=museum_id,
+                    artifact_ids=[str(docs[0].get("artifact_id") or artifact_id)],
+                    per_artifact=1,
+                    max_total=1,
+                )
+            except Exception as exc:
+                log_event(logger, logging.WARNING, "chat.message.thumbnail_fetch.error", error=exc)
+                image_hits = []
+            image_matches = self._build_image_matches(image_hits=image_hits, artifact_docs=docs)
+            navigation_targets = self._resolve_navigation_targets(
+                museum_slug=museum_slug, museum_id=museum_id, docs=docs,
+            )
+            image_matches = self._enrich_image_matches(
+                context="text",
+                conversation_id=conversation_id,
+                museum_slug=museum_slug,
+                image_matches=image_matches,
+                artifact_results=artifact_results,
+                navigation_targets=navigation_targets,
+            )
+
+        router_decision: dict[str, object] = {
+            "mode": "rag",
+            "intent": "describe_artifact",
+            "rewritten_query": payload.message,
+            "needs_retrieval": False,
+            "reason": "frontend_intent_describe_artifact",
+            "is_follow_up": False,
+            "use_history_for_query": False,
+            "use_history_for_answer": False,
+            "carry_filters": False,
+            "carry_sort": False,
+            "filters_delta": {},
+            "sort_delta": {},
+        }
+        state.filters = {}
+        state.sort = {}
+        self._apply_router_decision_to_state(state=state, router_decision=router_decision)
+        self._update_last_result_ids(state=state, artifact_docs=docs, preserve_existing_when_empty=False)
+        self.session_store.append_turn(state, role="assistant", text=reply)
+        self._update_rolling_summary(
+            state=state,
+            latest_user_message=payload.message,
+            latest_assistant_message=reply,
+            router_decision=router_decision,
+        )
+        self.session_store.save(state)
+        await self._emit_status(status_cb, "status.answer_ready", language=language)
+
+        total_ms = (time.monotonic() - request_started_at) * 1000
+        search_scope = self._build_search_scope(
+            current_museum_slug=payload.museum_slug,
+            current_museum_id=self._resolve_museum_id(payload),
+            current_museum_name=payload.museum_name,
+            search_museum_slug=museum_slug,
+            search_museum_id=museum_id,
+            search_museum_name=museum_name,
+        )
+        await self._emit_query_log(
+            payload=payload,
+            conversation_id=conversation_id,
+            query_id=query_id,
+            language=language,
+            raw_query=(payload.message or "").strip(),
+            resolved_query=(payload.message or "").strip(),
+            lexical_query=None,
+            embedding_query=None,
+            route="rag",
+            retrieval_mode="describe_artifact",
+            filters_applied={
+                "filters": {"artifact_id": artifact_id} if artifact_id else {},
+                "sort": {},
+                "selected_artifact": dict(selected),
+                "selected_context_mode": "describe_artifact",
+                "target_museum": search_scope.model_dump(mode="json"),
+            },
+            boosts_applied={},
+            retrieved_artifacts=self._log_retrieved_artifact_entries(docs, source="describe_artifact"),
+            shown_artifacts=self._log_shown_artifact_entries(artifact_results),
+            navigation_targets=self._log_navigation_target_entries(
+                navigation_targets=navigation_targets,
+                artifact_results=artifact_results,
+            ),
+            latency_retrieval_ms=retrieval_latency_ms,
+            latency_llm_ms=llm_latency_ms,
+            latency_total_ms=total_ms,
+            status=status,
+            error=error,
+            opensearch_query=None,
+            extra={
+                "fast_path": "describe_artifact",
+                "artifact_found": bool(docs),
+                "llm_finish_reason": getattr(llm_response, "finish_reason", None),
+                "llm_usage": getattr(llm_response, "usage", None),
+                "llm_endpoint": getattr(llm_response, "endpoint", None),
+                "grounding": grounding_report,
+            },
+        )
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.message.finish",
+            conversation_id=conversation_id,
+            query_id=query_id,
+            status=status,
+            fast_path="describe_artifact",
+            shown_artifacts=len(artifact_results),
+            duration_ms=round(total_ms, 1),
+        )
+        return ChatMessageResponse(
+            conversation_id=conversation_id,
+            query_id=query_id,
+            response_format=requested_format,
+            reply=reply,
+            model_hint=(
+                getattr(llm_response, "model", None) or "deterministic:describe_artifact"
+            ),
+            image_matches=image_matches,
+            artifact_results=artifact_results,
+            navigation_targets=navigation_targets,
+            selected_artifact_status="used",
+            results_page=1,
+            results_page_size=max(len(artifact_results), 1),
+            results_total=len(artifact_results),
+            results_has_more=False,
+            results_request_id=None,
+            search_scope=search_scope,
+        )
 
     @staticmethod
     def _artifact_refs(raw: Any, limit: int = 60) -> list[dict[str, str | None]]:
@@ -3776,6 +4093,16 @@ class ChatService:
             },
         )
 
+        # O modelo escolhe os cartões: só com mais do que um cartão visível
+        # (com um só, nada há a escolher) e nunca na semelhança ancorada,
+        # cujo contexto repete os rótulos [doc_N] da peça de referência.
+        select_cards = (
+            bool(getattr(self.settings, "CHAT_MODEL_SELECTS_CARDS", False))
+            and requested_format.type == "text"
+            and retrieval_kind_for_log != "anchored_similarity"
+            and len(paged_artifact_results) > 1
+        )
+
         def build_text_final_message_for_result_count(result_count: int) -> str:
             limited_visible_retrieval_context = self._build_visible_results_retrieval_context(
                 artifact_results=paged_artifact_results[: max(result_count, 0)],
@@ -3801,6 +4128,7 @@ class ChatService:
                 use_history_for_answer=use_history_for_answer,
                 museum_slug=search_museum_slug,
                 museum_name=search_museum_name,
+                select_cards=select_cards,
             )
 
         final_message = self._build_final_prompt(
@@ -3813,6 +4141,7 @@ class ChatService:
             use_history_for_answer=use_history_for_answer,
             museum_slug=search_museum_slug,
             museum_name=search_museum_name,
+            select_cards=select_cards,
         )
         self._rag_debug_json(
             "rag.final_prompt",
@@ -3841,6 +4170,8 @@ class ChatService:
             and requested_format.type == "text"
         ):
             stream_cb_factory = self._make_token_emitter(status_cb, query_id=query_id)
+            if select_cards:
+                stream_cb_factory = self._card_selection_stream_factory(stream_cb_factory)
 
         llm_started_at = time.monotonic()
         try:
@@ -3933,8 +4264,13 @@ class ChatService:
         )
 
         reply_docs = self._artifact_results_as_prompt_docs(paged_artifact_results) or retrieved_docs
+        # O bloco «[[cartões: …]]» sai antes da sanitização, que trocaria os
+        # rótulos [doc_N] pelos títulos.
+        llm_text, model_cards = (
+            self._split_card_selection(llm_response.text) if select_cards else (llm_response.text, None)
+        )
         final_reply_text = self._sanitize_assistant_reply(
-            llm_response.text,
+            llm_text,
             docs=reply_docs,
             language=language,
         )
@@ -3947,6 +4283,33 @@ class ChatService:
             query_id=query_id,
             user_message=original_message,
         )
+        card_selection: dict[str, Any] | None = None
+        if select_cards:
+            (
+                paged_artifact_results,
+                paged_image_matches,
+                paged_navigation_targets,
+                results_total,
+                results_has_more,
+                card_selection,
+            ) = self._select_cards(
+                user_message=original_message,
+                retrieval_request=retrieval_request,
+                artifact_results=paged_artifact_results,
+                image_matches=paged_image_matches,
+                navigation_targets=paged_navigation_targets,
+                model_indices=model_cards,
+                results_total=results_total,
+                results_has_more=results_has_more,
+            )
+            log_event(
+                logger,
+                logging.INFO,
+                "chat.card_selection",
+                conversation_id=conversation_id,
+                query_id=query_id,
+                **card_selection,
+            )
 
         if not carry_filters:
             state.filters = {}
@@ -4010,6 +4373,7 @@ class ChatService:
                 "llm_usage": getattr(llm_response, "usage", None),
                 "llm_endpoint": getattr(llm_response, "endpoint", None),
                 "grounding": grounding_report,
+                "card_selection": card_selection,
             },
         )
 
@@ -7775,15 +8139,22 @@ class ChatService:
 
     _COMPACT_CARD_DESCRIPTION_CHARS = 280
 
-    def _format_docs_compact(self, *, docs: list[dict[str, object]]) -> str:
+    def _format_docs_compact(
+        self,
+        *,
+        docs: list[dict[str, object]],
+        description_chars: int | None = None,
+    ) -> str:
         """Cartões compactos para o prompt final (quick win PR-01).
 
         Um bloco por cartão, rotulado [doc_N] como o formato histórico, com os
         campos que um visitante pergunta: título, inventário, categoria, data,
         materiais/técnica, autor, descrição truncada e se está na visita.
         Nada de artifact_id, image_paths, sets/exhibitions ids ou search_text.
+        `description_chars` alarga a descrição quando o cartão é um só
+        (apresentação de uma peça).
         """
-        limit = self._COMPACT_CARD_DESCRIPTION_CHARS
+        limit = max(int(description_chars), 1) if description_chars else self._COMPACT_CARD_DESCRIPTION_CHARS
 
         def text(value: object) -> str:
             if isinstance(value, list):
@@ -8812,6 +9183,220 @@ class ChatService:
             )
         return targets
 
+    # ----- O modelo escolhe os cartões (CHAT_MODEL_SELECTS_CARDS) ----- #
+
+    @staticmethod
+    def _split_card_selection(text: str) -> tuple[str, list[int] | None]:
+        """Retira o bloco «[[cartões: …]]» da resposta.
+
+        Devolve o texto sem o bloco e os rótulos dos cartões (1-based, pela
+        ordem do modelo, sem repetidos); `None` quando não há bloco e `[]`
+        quando o modelo diz «nenhum». Um bloco cortado pelo limite de tokens
+        («[[cartões: doc_1, doc_» no fim) também conta.
+        """
+        raw = text or ""
+        bodies = [match.group(1) for match in _CARD_SELECTION_BLOCK.finditer(raw)]
+        cleaned = _CARD_SELECTION_BLOCK.sub("", raw)
+        tail = _CARD_SELECTION_OPEN_TAIL.search(cleaned)
+        if tail is not None:
+            bodies.append(tail.group(1))
+            cleaned = cleaned[: tail.start()]
+        if not bodies:
+            return raw, None
+        indices: list[int] = []
+        body = " ".join(bodies)
+        # Só os rótulos «doc_N»; números soltos apenas se não houver rótulos
+        # (um inventário citado no bloco, «MNAz 12 Az», não é um cartão).
+        labelled = re.findall(r"doc[_\s-]*(\d{1,3})", body, flags=re.IGNORECASE)
+        for number in labelled or re.findall(r"(?<![\w/.-])(\d{1,3})(?![\w/.-])", body):
+            index = int(number)
+            if index > 0 and index not in indices:
+                indices.append(index)
+        cleaned = re.sub(r"[ \t]+\n", "\n", cleaned).rstrip()
+        return cleaned, indices
+
+    @staticmethod
+    def _card_selection_stream_factory(
+        factory: Callable[[], Callable[[str], Awaitable[None]]],
+    ) -> Callable[[], Callable[[str], Awaitable[None]]]:
+        """Envolve o emissor de tokens para o bloco «[[cartões: …]]» não chegar
+        ao visitante a meio da resposta: a partir de «[[» tudo fica retido (o
+        `result` final traz o texto já limpo). Se o que ficou retido crescer
+        sem ser o bloco, é libertado."""
+
+        def wrapped() -> Callable[[str], Awaitable[None]]:
+            emit = factory()
+            held = ""
+
+            async def filtered(delta: str) -> None:
+                nonlocal held
+                buffer = held + (delta or "")
+                start = buffer.find("[[")
+                if start == -1:
+                    if buffer.endswith("["):
+                        out, held = buffer[:-1], "["
+                    else:
+                        out, held = buffer, ""
+                else:
+                    out, held = buffer[:start], buffer[start:]
+                    if len(held) > 200 and not re.match(r"\[\[\s*(?:cart|card)", held, flags=re.IGNORECASE):
+                        out, held = out + held, ""
+                if out:
+                    await emit(out)
+
+            return filtered
+
+        return wrapped
+
+    def _name_tokens(self, text: str, *, stopwords: frozenset[str]) -> list[str]:
+        return [token for token in self._fold_query_text(text).split() if token not in stopwords]
+
+    @staticmethod
+    def _tokens_alike(left: str, right: str) -> bool:
+        """«egito» ≈ «egipto», «cenas» ≈ «cena»; nunca palavras curtas diferentes."""
+        if left == right:
+            return True
+        if len(left) < 4 or len(right) < 4:
+            return False
+        return difflib.SequenceMatcher(None, left, right).ratio() >= 0.8
+
+    def _artifacts_named_in_query(
+        self,
+        *,
+        user_message: str,
+        artifact_results: list[ArtifactResult],
+        retrieval_request: dict[str, Any],
+    ) -> list[str]:
+        """Peças que o pedido nomeia, pelo n.º de inventário ou pelo título.
+
+        Pelo n.º: os candidatos do fast-path de inventário, ou um inventário
+        de um cartão escrito na pergunta. Pelo título: o que sobra da pergunta
+        sem verbos de pesquisa, âmbito da visita e palavras de ligação começa
+        por um determinante no singular e cobre o título do cartão (e o
+        título cobre-o), com tolerância a gralhas. Lista de artifact_id pela
+        ordem dos cartões; vazia quando não é um pedido de uma peça concreta.
+        """
+        raw = (user_message or "").strip()
+        if not raw or not artifact_results:
+            return []
+
+        def alnum(value: str) -> str:
+            return re.sub(r"[^a-z0-9]+", "", self._fold_query_text(value))
+
+        wanted = {alnum(str(c)) for c in (retrieval_request.get("inventory_candidates") or []) if str(c).strip()}
+        wanted.discard("")
+        query_alnum = alnum(raw)
+        by_inventory: list[str] = []
+        for artifact in artifact_results:
+            inventory = alnum(str(artifact.inventory_number or ""))
+            if not inventory:
+                continue
+            if inventory in wanted or (
+                len(inventory) >= 3 and any(ch.isdigit() for ch in inventory) and inventory in query_alnum
+            ):
+                by_inventory.append(artifact.artifact_id)
+        if by_inventory:
+            return by_inventory
+
+        scope = self._extract_tour_scope_expression(raw)
+        without_scope = self._strip_tour_scope_expression_from_query(raw, scope) if scope else raw
+        folded = self._fold_query_text(without_scope).split()
+        # descarta a cabeça («encontra», «mostra-me», «onde está») até ao determinante
+        head = 0
+        while head < len(folded) and folded[head] not in _NAME_QUERY_SINGULAR_DETERMINERS:
+            if folded[head] not in _NAME_QUERY_STOPWORDS:
+                return []
+            head += 1
+        if head >= len(folded):
+            return []
+        query_tokens = [token for token in folded[head:] if token not in _NAME_QUERY_STOPWORDS]
+        if len(query_tokens) < 2:
+            return []
+
+        by_title: list[str] = []
+        for artifact in artifact_results:
+            title = re.sub(r"\([^)]*\)", " ", str(artifact.title or "")).split("/", 1)[0]
+            title_tokens = self._name_tokens(title, stopwords=_TITLE_STOPWORDS)
+            if not title_tokens:
+                continue
+            query_covered = all(any(self._tokens_alike(q, t) for t in title_tokens) for q in query_tokens)
+            title_covered = all(any(self._tokens_alike(q, t) for q in query_tokens) for t in title_tokens)
+            if query_covered and title_covered:
+                by_title.append(artifact.artifact_id)
+        return by_title
+
+    def _select_cards(
+        self,
+        *,
+        user_message: str,
+        retrieval_request: dict[str, Any],
+        artifact_results: list[ArtifactResult],
+        image_matches: list[ImageMatchResult],
+        navigation_targets: list[TourNavigationTarget],
+        model_indices: list[int] | None,
+        results_total: int,
+        results_has_more: bool,
+    ) -> tuple[list[ArtifactResult], list[ImageMatchResult], list[TourNavigationTarget], int, bool, dict[str, Any]]:
+        """Reduz os cartões aos que o modelo usou ou recomendou (ordem dele).
+
+        Um pedido de uma peça concreta (nome ou n.º) mostra só as peças que
+        correspondem, as citadas pelo modelo primeiro, e fecha o «ver mais».
+        Sem bloco do modelo e sem peça nomeada, fica tudo como estava.
+        """
+        chosen: list[str] = []
+        for index in model_indices or []:
+            if 1 <= index <= len(artifact_results):
+                artifact_id = artifact_results[index - 1].artifact_id
+                if artifact_id not in chosen:
+                    chosen.append(artifact_id)
+        named = self._artifacts_named_in_query(
+            user_message=user_message, artifact_results=artifact_results, retrieval_request=retrieval_request,
+        )
+        report: dict[str, Any] = {
+            "model_cards": list(model_indices) if model_indices is not None else None,
+            "model_artifacts": len(chosen),
+            "named_artifacts": len(named),
+            "shown_before": len(artifact_results),
+        }
+        if named:
+            ordered = [a for a in chosen if a in named] + [a for a in named if a not in chosen]
+            total, has_more = len(ordered), False
+            report["rule"] = "named"
+        elif chosen:
+            ordered, total, has_more = chosen, results_total, results_has_more
+            report["rule"] = "model"
+        else:
+            report["rule"] = "unchanged"
+            report["shown_after"] = len(artifact_results)
+            return artifact_results, image_matches, navigation_targets, results_total, results_has_more, report
+
+        def norm(value: str | None) -> str:
+            return str(value or "").strip().casefold()
+
+        by_id = {artifact.artifact_id: artifact for artifact in artifact_results}
+        artifacts = [by_id[a] for a in ordered if a in by_id]
+        rank = {artifact.artifact_id: position for position, artifact in enumerate(artifacts)}
+        rank_by_inventory = {
+            norm(artifact.inventory_number): position
+            for position, artifact in enumerate(artifacts)
+            if norm(artifact.inventory_number)
+        }
+
+        def image_rank(match: ImageMatchResult) -> int | None:
+            position = rank.get(str(match.artifact_id or "").strip())
+            return position if position is not None else rank_by_inventory.get(norm(match.inventory))
+
+        images = sorted(
+            (match for match in image_matches if image_rank(match) is not None),
+            key=lambda match: image_rank(match) or 0,
+        )
+        targets = sorted(
+            (target for target in navigation_targets if norm(target.inventory_id) in rank_by_inventory),
+            key=lambda target: rank_by_inventory[norm(target.inventory_id)],
+        )
+        report["shown_after"] = len(artifacts)
+        return artifacts, images, targets, total, has_more, report
+
     def _sanitize_assistant_reply(
         self,
         text: str,
@@ -9217,6 +9802,7 @@ class ChatService:
         use_history_for_answer: bool,
         museum_slug: str | None = None,
         museum_name: str | None = None,
+        select_cards: bool = False,
     ) -> str:
         mode = str(router_decision.get("mode", "llm_only"))
         rewritten_query = str(router_decision.get("rewritten_query", payload.message))
@@ -9234,6 +9820,19 @@ class ChatService:
                 retrieval_context=retrieval_context,
                 use_history_for_answer=use_history_for_answer,
                 language=state.language,
+                select_cards=select_cards,
+            )
+        if select_cards:
+            return "\n".join(
+                [
+                    self._build_final_prompt(
+                        payload=payload, state=state, router_decision=router_decision,
+                        retrieval_context=retrieval_context, effective_filters=effective_filters,
+                        effective_sort=effective_sort, use_history_for_answer=use_history_for_answer,
+                        museum_slug=museum_slug, museum_name=museum_name,
+                    ),
+                    card_selection_instruction(state.language),
+                ]
             )
         return build_final_answer_prompt(
             museum_slug=museum_slug or payload.museum_slug,
