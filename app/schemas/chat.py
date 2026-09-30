@@ -309,6 +309,11 @@ class ArtifactResult(BaseModel):
     bibliography_count: int | None = None
     image_count: int | None = None
     images: list[ArtifactImageResult] = Field(default_factory=list)
+    # Fichas iguais do mesmo conjunto juntas neste cartão (CHAT_COLLAPSE_SET_DUPLICATES):
+    # quantas são, e os n.ºs e ids de todas, incluindo esta. 1 = cartão normal.
+    group_size: int = 1
+    group_inventory_numbers: list[str] = Field(default_factory=list)
+    group_artifact_ids: list[str] = Field(default_factory=list)
 
 
 # ----- Schemas de entidades para o modal de detalhe ----- #

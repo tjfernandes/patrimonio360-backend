@@ -66,6 +66,13 @@ class Settings(BaseSettings):
     # ou n.º de inventário mostra só as peças que correspondem («egito» ≈
     # «Egipto»), sem «ver mais». Sem bloco, os cartões ficam como hoje.
     CHAT_MODEL_SELECTS_CARDS: bool = False
+    # Fichas iguais do mesmo conjunto («Botões (dez)», 38195/1 a 38195/10: título e
+    # descrição iguais, só o n.º muda) juntam-se num cartão, o da ficha mais bem
+    # posicionada (ou a que está na visita), com group_size e os n.ºs das outras.
+    # A pesquisa pede FETCH_FACTOR vezes mais candidatos para a página continuar
+    # cheia; o «ver mais» pede desde o início e corta depois de juntar.
+    CHAT_COLLAPSE_SET_DUPLICATES: bool = False
+    CHAT_COLLAPSE_FETCH_FACTOR: int = 3
     # EXPERIMENTAL, manter desligado: medido em 2026-09-15 sem ganho de tempo
     # (o 9B enche filters_delta com filtros inventados). Ver PLANO_MELHORIAS §3.
     CHAT_ROUTER_COMPACT_SCHEMA: bool = False        # router pede 5 campos em vez de 12
