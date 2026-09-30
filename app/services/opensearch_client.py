@@ -1743,6 +1743,36 @@ class OpenSearchGateway:
         response = client.search(**search_kwargs)
         return self.parse_similar_images_page_response(response, request=search_kwargs)
 
+    def _search_caption_knn_sync(
+        self,
+        *,
+        index: str,
+        museum_id: str | None,
+        embedding: list[float],
+        size: int,
+        knn_k: int,
+    ) -> list[dict[str, Any]]:
+        client = self._ensure_client()
+        knn = {"knn": {"caption_embedding": {"vector": embedding, "k": max(int(knn_k), int(size), 1)}}}
+        filters = [{"term": {"museum_id": museum_id}}] if museum_id else []
+        body = {
+            "size": max(int(size), 1),
+            "_source": ["artifact_id", "museum_id"],
+            "query": {"bool": {"must": [knn], "filter": filters}},
+        }
+        response = client.search(index=index, body=body)
+        hits = []
+        for hit in (response.get("hits") or {}).get("hits") or []:
+            source = hit.get("_source") or {}
+            hits.append(
+                {
+                    "artifact_id": str(source.get("artifact_id") or hit.get("_id") or ""),
+                    "museum_id": source.get("museum_id"),
+                    "score": hit.get("_score"),
+                }
+            )
+        return hits
+
     def _search_similar_images_multi_sync(
         self,
         *,
@@ -1959,6 +1989,34 @@ class OpenSearchGateway:
             from_offset=from_offset,
             page_size=page_size,
             retrieval_window_size=retrieval_window_size,
+        )
+
+    async def search_caption_knn(
+        self,
+        *,
+        index: str,
+        museum_id: str | None,
+        embedding: list[float],
+        size: int,
+        knn_k: int,
+    ) -> list[dict[str, Any]]:
+        """kNN sobre as legendas geradas (um documento por peça; _id = artifact_id)."""
+        return await self._to_thread_logged(
+            "opensearch.search_caption_knn",
+            self._search_caption_knn_sync,
+            log_fields={
+                "index": index,
+                "museum_id": museum_id,
+                "size": size,
+                "knn_k": knn_k,
+                "embedding_dim": len(embedding),
+            },
+            result_size=len,
+            index=index,
+            museum_id=museum_id,
+            embedding=embedding,
+            size=size,
+            knn_k=knn_k,
         )
 
     async def search_similar_images_multi(
