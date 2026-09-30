@@ -42,6 +42,8 @@ IMAGE_TO_IMAGE_BRANCH = "image_to_image"
 # Ramo conjunto: (imagem carregada + texto) num ÚNICO embedding Qwen3-VL,
 # pesquisado contra o MESMO campo visual_embedding das imagens da coleção.
 JOINT_IMAGE_TEXT_BRANCH = "joint_image_text"
+# Experiência das legendas: texto da pergunta → legendas geradas por um VLM.
+TEXT_TO_CAPTION_BRANCH = "text_to_caption"
 GLOBAL_VL_RERANK_DIAG_KEY = "global_vl_rerank"
 
 
@@ -86,27 +88,49 @@ class MultimodalTextRetrieval:
             "branches": [ARTIFACT_BRANCH, TEXT_TO_IMAGE_BRANCH],
         }
 
-        # --- ramo texto→imagem -------------------------------------------------
-        t2i_hits, t2i_diag = await self._run_text_to_image(
-            query_text=query_text,
-            museum_slug=museum_slug,
-            museum_id=museum_id,
-            trace_id=trace_id,
-        )
-        diagnostics[TEXT_TO_IMAGE_BRANCH] = t2i_diag
-        if t2i_hits is None:
-            # Falha do ramo visual: o chamador mantém a baseline intacta.
-            return None
+        # --- ramo texto→legendas (experiência; desligado sem CAPTION_TEXT_INDEX)
+        caption_hits: list[BranchHit] | None = None
+        caption_index = str(getattr(self.settings, "CAPTION_TEXT_INDEX", "") or "").strip()
+        if caption_index:
+            caption_hits, caption_diag = await self._run_text_to_captions(
+                query_text=query_text,
+                museum_id=museum_id,
+                index=caption_index,
+                trace_id=trace_id,
+            )
+            diagnostics[TEXT_TO_CAPTION_BRANCH] = caption_diag
+        caption_mode = str(getattr(self.settings, "CAPTION_TEXT_MODE", "replace") or "replace").strip().lower()
+        # Em replace o texto→imagem só corre se as legendas falharem.
+        run_t2i = caption_hits is None or caption_mode == "add"
+        diagnostics["branches"] = [ARTIFACT_BRANCH] + (
+            [TEXT_TO_IMAGE_BRANCH] if run_t2i else []
+        ) + ([TEXT_TO_CAPTION_BRANCH] if caption_hits is not None else [])
 
-        grouped = group_image_hits_by_artifact(t2i_hits)
-        min_score = float(self.settings.MULTIMODAL_MIN_IMAGE_SCORE)
-        kept, dropped = apply_score_floor(grouped, min_score=min_score)
-        t2i_diag["grouped_artifacts"] = len(grouped)
-        t2i_diag["kept_after_floor"] = len(kept)
-        t2i_diag["dropped_by_floor"] = [
-            {"artifact_id": h.artifact_id, "score": h.score} for h in dropped
-        ]
-        if not kept:
+        # --- ramo texto→imagem -------------------------------------------------
+        kept: list[BranchHit] = []
+        t2i_hits: list[dict[str, Any]] = []
+        if run_t2i:
+            t2i_result, t2i_diag = await self._run_text_to_image(
+                query_text=query_text,
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                trace_id=trace_id,
+            )
+            diagnostics[TEXT_TO_IMAGE_BRANCH] = t2i_diag
+            if t2i_result is None and not caption_hits:
+                # Falha do ramo visual: o chamador mantém a baseline intacta.
+                return None
+            t2i_hits = t2i_result or []
+
+            grouped = group_image_hits_by_artifact(t2i_hits)
+            min_score = float(self.settings.MULTIMODAL_MIN_IMAGE_SCORE)
+            kept, dropped = apply_score_floor(grouped, min_score=min_score)
+            t2i_diag["grouped_artifacts"] = len(grouped)
+            t2i_diag["kept_after_floor"] = len(kept)
+            t2i_diag["dropped_by_floor"] = [
+                {"artifact_id": h.artifact_id, "score": h.score} for h in dropped
+            ]
+        if not kept and not caption_hits:
             # Sem evidência visual acima do floor: manter baseline (não é erro).
             diagnostics["outcome"] = "no_visual_evidence_above_floor"
             self._log(trace_id, "multimodal.t2i.empty", diagnostics)
@@ -130,14 +154,15 @@ class MultimodalTextRetrieval:
             )
 
         # --- fusão --------------------------------------------------------------
-        fused = weighted_rrf(
-            {ARTIFACT_BRANCH: artifact_hits, TEXT_TO_IMAGE_BRANCH: kept},
-            weights={
-                ARTIFACT_BRANCH: float(self.settings.MULTIMODAL_ARTIFACT_WEIGHT),
-                TEXT_TO_IMAGE_BRANCH: float(self.settings.MULTIMODAL_IMAGE_WEIGHT),
-            },
-            rrf_k=int(self.settings.MULTIMODAL_RRF_K),
-        )
+        branches: dict[str, list[BranchHit]] = {ARTIFACT_BRANCH: artifact_hits}
+        weights = {ARTIFACT_BRANCH: float(self.settings.MULTIMODAL_ARTIFACT_WEIGHT)}
+        if run_t2i:
+            branches[TEXT_TO_IMAGE_BRANCH] = kept
+            weights[TEXT_TO_IMAGE_BRANCH] = float(self.settings.MULTIMODAL_IMAGE_WEIGHT)
+        if caption_hits is not None:
+            branches[TEXT_TO_CAPTION_BRANCH] = caption_hits
+            weights[TEXT_TO_CAPTION_BRANCH] = float(getattr(self.settings, "CAPTION_TEXT_WEIGHT", 0.7))
+        fused = weighted_rrf(branches, weights=weights, rrf_k=int(self.settings.MULTIMODAL_RRF_K))
 
         return await self._assemble_outcome(
             fused=fused,
@@ -150,10 +175,7 @@ class MultimodalTextRetrieval:
             diagnostics=diagnostics,
             trace_id=trace_id,
             started=started,
-            branch_sizes={
-                ARTIFACT_BRANCH: len(artifact_hits),
-                TEXT_TO_IMAGE_BRANCH: len(kept),
-            },
+            branch_sizes={name: len(hits) for name, hits in branches.items()},
         )
 
     async def fuse_image_text_search(
@@ -632,6 +654,54 @@ class MultimodalTextRetrieval:
             if isinstance(h.get("score"), (int, float))
         ]
         return hits, diag
+
+    async def _run_text_to_captions(
+        self,
+        *,
+        query_text: str,
+        museum_id: str | None,
+        index: str,
+        trace_id: str,
+    ) -> tuple[list[BranchHit] | None, dict[str, Any]]:
+        """kNN da pergunta contra as legendas. None em falha (o t2i fica)."""
+        size = int(getattr(self.settings, "CAPTION_TEXT_TOP_K", 30))
+        knn_k = int(getattr(self.settings, "CAPTION_TEXT_KNN_K", 1000))
+        diag: dict[str, Any] = {"index": index, "size": size, "knn_k": knn_k}
+        started = time.monotonic()
+        try:
+            embedding = await self.embeddings.embed_text(query_text)
+            hits = await self.gateway.search_caption_knn(
+                index=index,
+                museum_id=museum_id,
+                embedding=embedding,
+                size=size,
+                knn_k=knn_k,
+            )
+        except Exception as exc:
+            diag["error"] = str(exc)
+            self._log(trace_id, "multimodal.t2c.error", diag, level=logging.WARNING)
+            return None, diag
+        branch: list[BranchHit] = []
+        seen: set[str] = set()
+        for hit in hits:
+            artifact_id = str(hit.get("artifact_id") or "").strip()
+            if not artifact_id or artifact_id in seen:
+                continue
+            if museum_id and str(hit.get("museum_id") or "").strip() != museum_id:
+                continue
+            seen.add(artifact_id)
+            score = hit.get("score")
+            branch.append(
+                BranchHit(
+                    artifact_id=artifact_id,
+                    rank=len(branch) + 1,
+                    score=float(score) if isinstance(score, (int, float)) else None,
+                )
+            )
+        diag["latency_ms"] = round((time.monotonic() - started) * 1000, 1)
+        diag["hits"] = len(branch)
+        diag["top_artifact_ids"] = [h.artifact_id for h in branch[:5]]
+        return branch, diag
 
     def _log(
         self,

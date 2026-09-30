@@ -215,6 +215,27 @@ class Settings(BaseSettings):
     # CHAT_ENABLE_VL_RERANKING=false continua a desligar tudo (master switch).
     MULTIMODAL_VL_RERANK_STAGE: str = "local"
     MULTIMODAL_GLOBAL_VL_RERANK_TOP_N: int = 16
+    # Experiência das legendas (../patrimonio360_caption_indexer): nas perguntas
+    # escritas com intenção visual, um ramo texto→legendas (kNN no campo
+    # caption_embedding, o mesmo Qwen3-Embedding-8B do ramo de texto). Vazio
+    # desliga. replace -> as legendas ocupam o lugar do ramo texto→imagem (a
+    # variante A medida a 2026-09-30); add -> correm os dois. Se o ramo das
+    # legendas falhar, fica o texto→imagem. As fotografias não mudam.
+    CAPTION_TEXT_INDEX: str = ""
+    CAPTION_TEXT_MODE: str = "replace"
+    CAPTION_TEXT_WEIGHT: float = 0.7
+    CAPTION_TEXT_TOP_K: int = 30
+    # O índice das legendas tem todos os museus e o filtro de museu vem depois
+    # do kNN, por isso o k é largo (como na avaliação: --k 1000).
+    CAPTION_TEXT_KNN_K: int = 1000
+
+    @field_validator("CAPTION_TEXT_MODE")
+    @classmethod
+    def _validate_caption_text_mode(cls, value: str) -> str:
+        normalized = (value or "").strip().lower() or "replace"
+        if normalized not in {"replace", "add"}:
+            raise ValueError(f"CAPTION_TEXT_MODE must be one of ['add', 'replace']; got {value!r}")
+        return normalized
 
     @field_validator("CHAT_ROUTER_MODE")
     @classmethod
