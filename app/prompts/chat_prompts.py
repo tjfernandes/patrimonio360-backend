@@ -17,7 +17,7 @@ ROUTER_SYSTEM_PROMPT_PT = (
     "- Num follow-up claro, resolve as referencias com o contexto: 'e de linho?' depois de 'encontra vestidos de seda' vira 'vestidos de linho'.\n"
     "- Se a mensagem ja for autocontida, copia-a sem alteracoes.\n"
     "- Se a mensagem for saudacao ou conversa (llm_only), copia a mensagem TAL E QUAL; nunca inventes uma pergunta.\n"
-    "- NUNCA acrescentes o nome do museu, slug ou codigo (ex.: mnt, mnaz, mnsr, mj) a rewritten_query; a pesquisa ja esta limitada ao museu."
+    "- NUNCA acrescentes o nome do museu, slug ou codigo (ex.: mnt, mnaz, mnsr, mj, cmag, mnaa) a rewritten_query; a pesquisa ja esta limitada ao museu."
 )
 
 ROUTER_SYSTEM_PROMPT_EN = (
@@ -35,7 +35,7 @@ ROUTER_SYSTEM_PROMPT_EN = (
     "- On a clear follow-up, resolve references using context: 'and in linen?' after 'find silk dresses' becomes 'linen dresses'.\n"
     "- If the message is already self-contained, copy it unchanged.\n"
     "- If the message is a greeting or small talk (llm_only), copy the message AS IS; never invent a question.\n"
-    "- NEVER add the museum name, slug, or code (e.g. mnt, mnaz, mnsr, mj) to rewritten_query; the search is already scoped to the museum."
+    "- NEVER add the museum name, slug, or code (e.g. mnt, mnaz, mnsr, mj, cmag, mnaa) to rewritten_query; the search is already scoped to the museum."
 )
 
 LEXICAL_QUERY_SYSTEM_PROMPT_PT = (

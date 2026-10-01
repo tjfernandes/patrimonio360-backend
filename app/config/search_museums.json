@@ -44,5 +44,32 @@
       "soares dos resi",
       "mnsr"
     ]
+  },
+  {
+    "museum_id": "cmag",
+    "museum_slug": "cmag",
+    "museum_name": "Casa-Museu Dr. Anastácio Gonçalves",
+    "aliases": [
+      "casa museu dr anastacio goncalves",
+      "casa museu doutor anastacio goncalves",
+      "casa museu anastacio goncalves",
+      "casa-museu anastacio goncalves",
+      "anastacio goncalves",
+      "anastasio goncalves",
+      "cmag"
+    ]
+  },
+  {
+    "museum_id": "mnaa",
+    "museum_slug": "mnaa",
+    "museum_name": "Museu Nacional de Arte Antiga",
+    "aliases": [
+      "museu nacional de arte antiga",
+      "museu de arte antiga",
+      "nacional de arte antiga",
+      "arte antiga",
+      "janelas verdes",
+      "mnaa"
+    ]
   }
 ]

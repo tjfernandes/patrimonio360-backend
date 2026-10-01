@@ -54,5 +54,25 @@
       "source": "https://maislisboa.fcsh.unl.pt/percurso-rocambulesco-do-grande-panorama-lisboa/"
     }
   },
-  "mnsr": {}
+  "mnsr": {},
+  "cmag": {
+    "Atelier": {
+      "description": "O antigo atelier do pintor José Malhoa, no segundo piso da casa que Norte Júnior lhe projetou em 1904-1905, com uma janela de decoração vegetal Arte Nova, com orquídeas e beija-flores.",
+      "source": "https://en.wikipedia.org/wiki/Casa-Museu_Dr._Anast%C3%A1cio_Gon%C3%A7alves"
+    }
+  },
+  "mnaa": {
+    "Capela das Albertas": {
+      "description": "A única estrutura que resta do antigo convento de Santo Alberto, de freiras carmelitas, onde hoje está o anexo do museu: uma obra de arte total onde a talha, o azulejo, a escultura e a pintura se conjugam.",
+      "source": "https://observador.pt/2018/12/14/o-presepio-dos-marqueses-de-belas-ja-foi-restaurado-agora-so-falta-a-capela-das-albertas/"
+    },
+    "Sala dos Presépios": {
+      "description": "Sala do Presépio Português, aberta em dezembro de 2018 na ala norte do primeiro piso, dedicada à história do presépio em Portugal. A peça central é o Presépio dos Marqueses de Belas, concluído em 1822 sob a direção de Barros Laborão: com cerca de quatro metros de altura e de largura e 351 figuras, é o maior do género em Portugal. Daqui vê-se a Capela das Albertas.",
+      "source": "https://observador.pt/2018/12/14/o-presepio-dos-marqueses-de-belas-ja-foi-restaurado-agora-so-falta-a-capela-das-albertas/"
+    },
+    "Ourivesaria": {
+      "description": "Sala da ourivesaria, onde se destaca a Custódia de Belém, de Gil Vicente, encomendada por D. Manuel I e datada de 1506.",
+      "source": "https://www.museusemonumentos.pt/pt/museus-e-monumentos/museu-nacional-de-arte-antiga"
+    }
+  }
 }

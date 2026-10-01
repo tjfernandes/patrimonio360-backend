@@ -85,9 +85,9 @@ class TestMuseumOverviewDetection(unittest.TestCase):
 
 
 class TestMuseumOverviewOverrideAndContext(unittest.TestCase):
-    def test_profiles_load_for_all_four_museums(self) -> None:
+    def test_profiles_load_for_all_museums(self) -> None:
         profiles = _load_museum_profiles()
-        self.assertEqual(set(profiles.keys()), {"mnt", "mnaz", "mnsr", "mj"})
+        self.assertEqual(set(profiles.keys()), {"mnt", "mnaz", "mnsr", "mj", "cmag", "mnaa"})
         for key, profile in profiles.items():
             self.assertTrue(profile.get("name"), key)
             self.assertTrue(profile.get("description"), key)
