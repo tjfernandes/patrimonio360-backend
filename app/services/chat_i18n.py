@@ -181,6 +181,20 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "Esta zona da visita não tem peças assinaladas. Diga-me o que procura e pesquiso no acervo do museu.",
         "en": "This area of the tour has no highlighted objects. Tell me what you are looking for and I will search the museum's collection.",
     },
+    "message.tour_pieces_list": {
+        "pt": {
+            "one": "A visita virtual tem 1 peça assinalada. O cartão está abaixo: abra-o para ver a ficha ou pergunte-me por ela.",
+            "other": "A visita virtual tem {count} peças assinaladas, em {rooms} zonas. Os cartões estão abaixo, pela ordem da visita: abra um para ver a ficha ou pergunte-me por uma delas.",
+        },
+        "en": {
+            "one": "The virtual tour has 1 highlighted object. Its card is below: open it to see the record or ask me about it.",
+            "other": "The virtual tour has {count} highlighted objects, in {rooms} areas. The cards are below, in tour order: open one to see the record or ask me about it.",
+        },
+    },
+    "message.tour_pieces_none": {
+        "pt": "Esta visita virtual não tem peças assinaladas. Diga-me o que procura e pesquiso no acervo do museu.",
+        "en": "This virtual tour has no highlighted objects. Tell me what you are looking for and I will search the museum's collection.",
+    },
     "message.describe_artifact_not_found": {
         "pt": "Não encontrei a ficha desta peça no acervo, por isso não a consigo apresentar. Pergunte-me por outra peça ou diga-me o que procura.",
         "en": "I could not find this object's record in the collection, so I cannot present it. Ask me about another object or tell me what you are looking for.",

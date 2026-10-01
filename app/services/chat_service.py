@@ -135,6 +135,21 @@ _TOUR_LIST_TAIL_WORDS = _TOUR_ROOM_QUESTION_WORDS | frozenset(
     "lista listas listar listagem enumera enumerar indica indicar list quantas quantos how many "
     "other all available this museum building palace visit explore walk around next inside here of does do have has any".split()
 )
+# Todas as peças da visita («que peças posso ver nesta visita?»): tem de nomear
+# a visita, pedir peças em geral (ou «o que posso ver»), e nada mais — qualquer
+# outra palavra («vestidos», «azuis», «1850») faz dela uma pesquisa.
+_TOUR_SCOPE_WORDS = frozenset("visita visitas tour percurso visit".split())
+_TOUR_PIECES_LIST_WORDS = (
+    _TOUR_ROOM_QUESTION_WORDS
+    | _TOUR_PIECES_WORDS
+    | _TOUR_LIST_TAIL_WORDS
+    | _TOUR_SCOPE_WORDS
+    | frozenset(
+        "consigo conseguimos observar assinaladas assinalados destacadas destacados marcadas marcados incluidas "
+        "incluidos fazem parte expostas expostos aparecem apresenta apresentadas apresentados ola bom dia boa tarde "
+        "noite todas todos pecas peças pieces available included highlighted shown displayed featured can see".split()
+    )
+)
 # Peça selecionada: o que faz de uma mensagem um pedido SOBRE ela. Tudo por
 # regras (o LLM local não é fiável a decidir intenções — medição de 2026-09-17).
 _SELECTED_REFERENCE_WORDS = frozenset(
@@ -3508,6 +3523,8 @@ class ChatService:
             )
             if room_query is not None:
                 return await self._answer_tour_room_fast_path(room_query=room_query, **tour_kwargs)
+            if self._is_tour_pieces_list_query(payload.message):
+                return await self._answer_tour_pieces_fast_path(**tour_kwargs)
 
         if (
             self.settings.CHAT_DETERMINISTIC_SMALLTALK
@@ -5559,6 +5576,80 @@ class ChatService:
             search_scope=search_scope,
         )
 
+    def _is_tour_pieces_list_query(self, message: str) -> bool:
+        """«Que peças posso ver nesta visita?», «o que há para ver na visita?»,
+        «lista as peças da visita», «what can I see in this tour?».
+
+        Nomeia a visita, pede peças em geral (ou «o que ver»), e não traz
+        mais nada: «que vestidos há nesta visita» é uma pesquisa com âmbito."""
+        tokens = self._fold_query_text(message).split()
+        if not tokens or not any(t in _TOUR_SCOPE_WORDS for t in tokens):
+            return False
+        asks_pieces = any(t in _TOUR_PIECES_WORDS for t in tokens)
+        asks_what_to_see = ("que" in tokens or "what" in tokens) and any(
+            t in {"ver", "visitar", "observar", "conhecer", "see", "visit"} for t in tokens
+        )
+        if not (asks_pieces or asks_what_to_see):
+            return False
+        return all(t in _TOUR_PIECES_LIST_WORDS for t in tokens)
+
+    async def _answer_tour_pieces_fast_path(
+        self,
+        *,
+        payload: ChatMessageRequest,
+        state: ChatSessionState,
+        conversation_id: str,
+        query_id: str,
+        language: str,
+        requested_format: ResponseFormatObject,
+        request_started_at: float,
+        status_cb: StatusCallback | None,
+    ) -> ChatMessageResponse:
+        """Todas as peças assinaladas na visita, pela ordem da visita, sem
+        pesquisa nem LLM: as fichas vêm do índice numa só chamada e os cartões
+        saem paginados («ver mais» pela cache da sessão)."""
+        museum_slug = payload.museum_slug
+        museum_id = self._resolve_museum_id(payload)
+        await self._emit_status(status_cb, "status.analyzing_request", language=language)
+        rooms = self.tour_navigation_service.list_rooms(museum_slug=museum_slug, museum_id=museum_id)
+        inventories: list[str] = []
+        targets: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        rooms_with_pieces = 0
+        for room in rooms:
+            if room.get("inventories"):
+                rooms_with_pieces += 1
+            room_inventories = [i for i in (room.get("inventories") or []) if self._normalize_inventory_key(i) not in seen]
+            for inventory in room_inventories:
+                seen.add(self._normalize_inventory_key(inventory))
+                inventories.append(inventory)
+            targets.extend(room.get("targets") or [])
+        described = {"known": bool(inventories), "scope": "tour", "room": None, "inventories": inventories, "targets": targets}
+
+        def intro(docs: list[dict[str, object]]) -> str:
+            if not docs:
+                return translate("message.tour_pieces_none", language)
+            return translate("message.tour_pieces_list", language, count=len(docs), rooms=rooms_with_pieces)
+
+        return await self._finish_tour_context_answer(
+            payload=payload,
+            state=state,
+            conversation_id=conversation_id,
+            query_id=query_id,
+            language=language,
+            requested_format=requested_format,
+            request_started_at=request_started_at,
+            status_cb=status_cb,
+            described=described,
+            room_name=None,
+            intro=intro,
+            pieces_key=None,
+            facts=None,
+            fast_path="tour_pieces",
+            tour_room=None,
+            log_extra={"tour_pieces": {"inventories": len(inventories), "rooms": rooms_with_pieces}},
+        )
+
     def _is_tour_location_query(self, message: str) -> bool:
         folded = self._fold_query_text(message)
         if not folded:
@@ -5903,7 +5994,7 @@ class ChatService:
         status_cb: StatusCallback | None,
         described: dict[str, Any],
         room_name: str | None,
-        intro: str,
+        intro: str | Callable[[list[dict[str, object]]], str],
         pieces_key: str | None,
         facts: list[str] | None,
         fast_path: str,
@@ -5943,7 +6034,8 @@ class ChatService:
             )
         retrieval_latency_ms = (time.monotonic() - retrieval_started_at) * 1000
 
-        parts = [intro]
+        # A lista de todas as peças só sabe quantas tem depois de ir ao índice.
+        parts = [intro(docs) if callable(intro) else intro]
         if pieces_key is not None:
             if docs:
                 pieces = "; ".join(self._tour_location_piece_label(doc) for doc in docs)
