@@ -22,5 +22,17 @@
     "description": "O mais antigo museu público de arte em Portugal, fundado em 1833, reúne obras de pintura, escultura, gravura, cerâmica, ourivesaria, têxteis e joalharia dos séculos XIX e XX, destacando-se o núcleo dedicado ao escultor Soares dos Reis.",
     "address": "Rua D. Manuel II, 44, 4050-522 Porto, Portugal",
     "inauguration_year": 1833
+  },
+  "cmag": {
+    "name": "Casa-Museu Dr. Anastácio Gonçalves",
+    "description": "A Casa-Museu ocupa a Casa Malhoa, nas Avenidas Novas, projetada pelo arquiteto Norte Júnior em 1904-1905 para residência e atelier do pintor José Malhoa e distinguida com o Prémio Valmor em 1905; está classificada como Imóvel de Interesse Público desde 1982. Em 1932 foi comprada em hasta pública pelo médico oftalmologista e colecionador Anastácio Gonçalves, que aí viveu e reuniu a sua coleção até morrer, em 1965. Por sua vontade expressa, a casa passou para o Estado em 1969 e abriu ao público como museu em 1980; em 1996-1997 foi ampliada, por Frederico e Pedro George, com um edifício vizinho também de Norte Júnior. Reúne cerca de 3000 obras em três grandes núcleos: pintura portuguesa dos séculos XIX e XX, porcelana chinesa e mobiliário português e estrangeiro. Conta ainda com ourivesaria civil e religiosa, pintura europeia, escultura portuguesa, cerâmica europeia, têxteis, numismática, medalhística, vidros e relógios de bolso suíços e franceses, além de desenhos, aguarelas e objetos do espólio do pintor Silva Porto.",
+    "address": "Avenida 5 de Outubro, 6-8, 1050-055 Lisboa, Portugal",
+    "inauguration_year": 1980
+  },
+  "mnaa": {
+    "name": "Museu Nacional de Arte Antiga",
+    "description": "Criado em 1884, o Museu Nacional de Arte Antiga ocupa o Palácio Alvor, na Rua das Janelas Verdes, mandado construir no final do século XVII por D. Francisco de Távora, 1.º conde de Alvor. No lugar do antigo convento carmelita de Santo Alberto ergueu-se o anexo projetado por Guilherme Rebelo de Andrade, inaugurado em 1940 com a exposição dos Primitivos Portugueses; do convento resta a Capela das Albertas, integrada no percurso. Guarda a mais relevante coleção pública portuguesa, com mais de 40 000 peças de pintura, escultura, ourivesaria e artes decorativas europeias, africanas e orientais, da Idade Média ao início da época moderna. Entre as obras mais conhecidas estão os Painéis de São Vicente, de Nuno Gonçalves; a Custódia de Belém, de Gil Vicente, encomendada por D. Manuel I e datada de 1506; As Tentações de Santo Antão, de Hieronymus Bosch; e os biombos Namban do final do século XVI, que documentam a presença portuguesa no Japão. Tem ainda obras de Dürer, Memling, Rafael, Cranach e Piero della Francesca.",
+    "address": "Rua das Janelas Verdes, 1249-017 Lisboa, Portugal",
+    "inauguration_year": 1884
   }
 }
