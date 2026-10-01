@@ -2907,13 +2907,15 @@ class ChatService:
         selected = self._selected_artifact_from_metadata(metadata)
         # «Ver na tour»: o frontend diz a intenção e a peça; não há nada a
         # decidir nem a pesquisar. Antes da libertação automática, que veria
-        # «Sapatos (par)/Feminino (4270)» como uma pesquisa nova.
+        # «Sapatos (par)/Feminino (4270)» como uma pesquisa nova. Na lista das
+        # salas a peça pode vir só com o n.º de inventário: também serve.
         if (
-            selected
-            and bool(getattr(self.settings, "CHAT_DESCRIBE_ARTIFACT_INTENT", False))
+            bool(getattr(self.settings, "CHAT_DESCRIBE_ARTIFACT_INTENT", False))
             and self._metadata_intent(metadata) == "describe_artifact"
         ):
-            return await self._answer_describe_artifact(payload, selected=selected, status_cb=status_cb)
+            describe_target = selected or self._selected_inventory_from_metadata(metadata)
+            if describe_target:
+                return await self._answer_describe_artifact(payload, selected=describe_target, status_cb=status_cb)
         status: str | None = None
         subject: dict[str, Any] | None = None
         if not selected and bool(getattr(self.settings, "CHAT_IMPLICIT_ARTIFACT_CONTEXT", False)):
@@ -2996,6 +2998,68 @@ class ChatService:
         return stripped[0].upper() + stripped[1:]
 
     @staticmethod
+    def _selected_inventory_from_metadata(metadata: dict[str, Any] | None) -> dict[str, str | None] | None:
+        """Peça selecionada só pelo n.º de inventário (sem artifact_id), como a
+        lista das salas a envia: {artifact_id: "", inventory_number, title, …}."""
+        if not isinstance(metadata, dict):
+            return None
+        raw = metadata.get("selected_artifact")
+        if not isinstance(raw, dict):
+            raw = {
+                "inventory_number": metadata.get("selected_inventory_number") or metadata.get("selected_inventory_id"),
+                "title": metadata.get("selected_artifact_title"),
+                "source": metadata.get("selected_artifact_source"),
+            }
+        inventory = str(raw.get("inventory_number") or raw.get("inventory_id") or raw.get("inventory") or "").strip()
+        if not inventory:
+            return None
+        return {
+            "artifact_id": "",
+            "inventory_number": inventory,
+            "title": str(raw.get("title") or "").strip() or None,
+            "source": str(raw.get("source") or "").strip() or None,
+            "museum_slug": str(raw.get("museum_slug") or "").strip() or None,
+            "museum_id": str(raw.get("museum_id") or "").strip() or None,
+            "museum_name": str(raw.get("museum_name") or "").strip() or None,
+        }
+
+    async def _fetch_artifact_docs_by_inventory(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        inventory_number: str,
+    ) -> list[dict[str, object]]:
+        """A ficha de um n.º de inventário, com a tradução do mapa dos POIs
+        («MNAz 6991 Az» na visita → «MNAz 6991/2 Az» no catálogo) e o recurso
+        à pesquisa por candidatos quando a correspondência exata falha."""
+        inventory_number = (inventory_number or "").strip()
+        if not inventory_number:
+            return []
+        try:
+            corrected = self.tour_navigation_service.corrected_inventories(
+                museum_slug=museum_slug, museum_id=museum_id, inventory=inventory_number
+            )
+        except Exception:  # pragma: no cover - tradução auxiliar; nunca bloqueia
+            corrected = []
+        if corrected:
+            inventory_number = corrected[0]
+        docs = await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            inventory_numbers=[inventory_number],
+            top_k=1,
+        )
+        if not docs:
+            docs = await self.opensearch_gateway.search_artifacts_by_inventory_candidates(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                inventory_numbers=[inventory_number],
+                top_k=1,
+            )
+        return list(docs or [])[:1]
+
+    @staticmethod
     def _metadata_intent(metadata: dict[str, Any] | None) -> str | None:
         """Intenção explícita enviada pelo frontend (metadata.intent), se houver."""
         if not isinstance(metadata, dict):
@@ -3048,26 +3112,27 @@ class ChatService:
 
         retrieval_started_at = time.monotonic()
         docs: list[dict[str, object]] = []
-        try:
-            docs = await self.opensearch_gateway.fetch_artifacts_by_ids(
-                museum_slug=museum_slug,
-                museum_id=museum_id,
-                artifact_ids=[artifact_id],
-                top_k=1,
-            )
-        except Exception as exc:
-            log_event(logger, logging.WARNING, "chat.describe_artifact.fetch.error", error=exc)
-        if not docs and inventory_number:
+        if artifact_id:
             try:
-                docs = await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
+                docs = await self.opensearch_gateway.fetch_artifacts_by_ids(
                     museum_slug=museum_slug,
                     museum_id=museum_id,
-                    inventory_numbers=[inventory_number],
+                    artifact_ids=[artifact_id],
                     top_k=1,
                 )
             except Exception as exc:
                 log_event(logger, logging.WARNING, "chat.describe_artifact.fetch.error", error=exc)
+        if not docs and inventory_number:
+            # Lista das salas: só o n.º da visita, traduzido pelo mapa dos POIs.
+            try:
+                docs = await self._fetch_artifact_docs_by_inventory(
+                    museum_slug=museum_slug, museum_id=museum_id, inventory_number=inventory_number,
+                )
+            except Exception as exc:
+                log_event(logger, logging.WARNING, "chat.describe_artifact.fetch.error", error=exc)
         docs = docs[:1]
+        if docs and not artifact_id:
+            artifact_id = str(docs[0].get("artifact_id") or "").strip()
         retrieval_latency_ms = (time.monotonic() - retrieval_started_at) * 1000
 
         reply = ""
@@ -5696,6 +5761,46 @@ class ChatService:
             )
         return pieces
 
+    async def _attach_artifact_ids_to_room_pieces(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        rooms: list[TourRoomTarget],
+    ) -> None:
+        """Põe o artifact_id do catálogo em cada peça da lista das salas, numa
+        só ida ao índice. O «Ver na tour» da lista passa a poder pedir
+        describe_artifact como o dos cartões. Nunca bloqueia: sem ficha, ou
+        com o índice em baixo, a peça fica sem id."""
+        inventories: list[str] = []
+        seen: set[str] = set()
+        for room in rooms:
+            for piece in room.pieces:
+                key = self._normalize_inventory_key(piece.inventory_id)
+                if key and key not in seen:
+                    seen.add(key)
+                    inventories.append(piece.inventory_id)
+        if not inventories:
+            return
+        try:
+            docs = await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                inventory_numbers=inventories,
+                top_k=max(len(inventories), 1),
+            )
+        except Exception as exc:
+            log_event(logger, logging.WARNING, "chat.tour_rooms.artifact_ids.error", error=exc)
+            return
+        by_inventory = {
+            self._normalize_inventory_key(self._doc_inventory(doc)): str(doc.get("artifact_id") or "").strip()
+            for doc in docs
+            if self._doc_inventory(doc) and str(doc.get("artifact_id") or "").strip()
+        }
+        for room in rooms:
+            for piece in room.pieces:
+                piece.artifact_id = by_inventory.get(self._normalize_inventory_key(piece.inventory_id)) or None
+
     @staticmethod
     def _asks_for_tour_areas_list(folded: str, tokens: list[str]) -> bool:
         """«Que salas há?», «listas as áreas do museu?», «por onde posso andar?»."""
@@ -5807,6 +5912,12 @@ class ChatService:
             for r in rooms
             if r.get("panorama_keys")
         ]
+        if room_query.get("kind") != "room":
+            # Só quando a lista das salas vai na resposta (lista, escolhas,
+            # zona desconhecida); numa zona só, as peças vão como cartões.
+            await self._attach_artifact_ids_to_room_pieces(
+                museum_slug=museum_slug, museum_id=museum_id, rooms=room_targets,
+            )
         described: dict[str, Any] = {"known": False, "scope": "none", "room": None, "inventories": [], "targets": []}
         tour_room: TourRoomTarget | None = None
         tour_rooms: list[TourRoomTarget] = []
@@ -8549,28 +8660,11 @@ class ChatService:
         # catálogo («MNAz 6991 Az» na visita, «MNAz 6991/2 Az» no catálogo). Os
         # ficheiros da visita não se podem corrigir (o player passa a mostrar a
         # marca de água do 3DVista), por isso a correspondência está no mapa
-        # dos POIs (`inventoryIdsOriginal` -> `inventoryIds`) e aplica-se aqui.
-        try:
-            corrected = self.tour_navigation_service.corrected_inventories(
-                museum_slug=museum_slug, museum_id=museum_id, inventory=inventory_number
-            )
-        except Exception:  # pragma: no cover - tradução auxiliar; nunca bloqueia
-            corrected = []
-        if corrected:
-            inventory_number = corrected[0]
-        docs = await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
-            museum_slug=museum_slug,
-            museum_id=museum_id,
-            inventory_numbers=[inventory_number],
-            top_k=1,
+        # dos POIs (`inventoryIdsOriginal` -> `inventoryIds`) e aplica-se em
+        # _fetch_artifact_docs_by_inventory.
+        docs = await self._fetch_artifact_docs_by_inventory(
+            museum_slug=museum_slug, museum_id=museum_id, inventory_number=inventory_number,
         )
-        if not docs:
-            docs = await self.opensearch_gateway.search_artifacts_by_inventory_candidates(
-                museum_slug=museum_slug,
-                museum_id=museum_id,
-                inventory_numbers=[inventory_number],
-                top_k=1,
-            )
         if not docs:
             return None
         results = await self._build_artifact_results(

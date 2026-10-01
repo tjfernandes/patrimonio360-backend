@@ -412,6 +412,9 @@ class TourRoomPiece(BaseModel):
     title: str | None = None
     overlay_id: str
     panorama_key: str
+    # Ficha no catálogo, para o «Ver na tour» desta lista pedir describe_artifact
+    # como o dos cartões. None quando o n.º da visita não tem ficha.
+    artifact_id: str | None = None
 
 
 class TourRoomTarget(BaseModel):
