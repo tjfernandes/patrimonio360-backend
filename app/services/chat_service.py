@@ -341,6 +341,18 @@ def _load_search_museums() -> tuple[SearchMuseum, ...]:
             "museum_name": "Museu Nacional Soares dos Reis",
             "aliases": ["museu nacional soares dos reis", "museu soares dos reis", "soares dos reis", "soares dos resi", "mnsr"],
         },
+        {
+            "museum_id": "cmag",
+            "museum_slug": "cmag",
+            "museum_name": "Casa-Museu Dr. Anastácio Gonçalves",
+            "aliases": ["casa museu dr anastacio goncalves", "casa museu anastacio goncalves", "anastacio goncalves", "cmag"],
+        },
+        {
+            "museum_id": "mnaa",
+            "museum_slug": "mnaa",
+            "museum_name": "Museu Nacional de Arte Antiga",
+            "aliases": ["museu nacional de arte antiga", "museu de arte antiga", "arte antiga", "janelas verdes", "mnaa"],
+        },
     ]
     try:
         raw = json.loads(_SEARCH_MUSEUMS_CONFIG_PATH.read_text(encoding="utf-8"))
@@ -381,6 +393,7 @@ _TOUR_SCOPE_PATTERNS: tuple[str, ...] = (
 )
 
 _INVENTORY_PREFIXES: tuple[str, ...] = (
+    "cmag",
     "mj",
     "mnaa",
     "mnac",

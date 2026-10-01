@@ -77,7 +77,7 @@ def build_retrieval_query_rewrite_prompt(
         "- Se existir uma expressão específica de objeto, material, tema, autor ou título, usa essa expressão.\n"
         "- Prefere a expressão específica mais longa em vez de uma palavra isolada.\n"
         "- Se não tiveres certeza, copia a expressão mais literal da pergunta; não inventes uma query nova.\n"
-        "- NUNCA acrescentes palavras que não estão na user_query — em particular nomes de museus, slugs ou códigos (mnt, mnaz, mnsr, mj) e localidades.\n"
+        "- NUNCA acrescentes palavras que não estão na user_query — em particular nomes de museus, slugs ou códigos (mnt, mnaz, mnsr, mj, cmag, mnaa) e localidades.\n"
         "- Se a user_query não contém NADA pesquisável (saudação, agradecimento, conversa), devolve {\"lexical_query\":\"\"} — nunca inventes uma pesquisa.\n\n"
         "Exemplos:\n"
         "user_query: Encontra brincos\n"
