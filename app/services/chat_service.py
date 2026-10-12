@@ -8824,7 +8824,25 @@ class ChatService:
                 )
             )
 
+        await self._attach_set_object_counts(results)
         return results
+
+    async def _attach_set_object_counts(self, results: list[ArtifactResult]) -> None:
+        """Preenche set_object_counts (total de peças de cada conjunto, pela
+        ordem de set_ids) numa só ida ao índice para todos os cartões. Todas as
+        respostas com cartões passam por _build_artifact_results: pesquisa,
+        «ver mais», cartões agrupados, visita, analítica e describe. Se o
+        índice falhar, os conjuntos ficam com 0 e a resposta segue."""
+        set_ids = [sid for result in results for sid in result.set_ids]
+        if not set_ids:
+            return
+        try:
+            counts = await self.opensearch_gateway.fetch_set_object_counts(set_ids=set_ids)
+        except Exception as exc:  # nunca bloqueia os cartões
+            log_event(logger, logging.WARNING, "chat.set_object_counts.error", set_ids=len(set_ids), error=exc)
+            counts = {}
+        for result in results:
+            result.set_object_counts = [int(counts.get(sid, 0)) for sid in result.set_ids]
 
     async def get_artifact_full(
         self,

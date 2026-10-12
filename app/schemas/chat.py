@@ -314,6 +314,11 @@ class ArtifactResult(BaseModel):
     group_size: int = 1
     group_inventory_numbers: list[str] = Field(default_factory=list)
     group_artifact_ids: list[str] = Field(default_factory=list)
+    # Número total de peças de cada conjunto, pela ordem de set_ids (0 se o
+    # conjunto não tiver contagem; vazio se a peça não estiver em nenhum). É o
+    # `artifact_count` do índice de conjuntos, que coincide com as fichas do
+    # conjunto no índice de peças (1850/1850 a 2026-10-12).
+    set_object_counts: list[int] = Field(default_factory=list)
 
 
 # ----- Schemas de entidades para o modal de detalhe ----- #
