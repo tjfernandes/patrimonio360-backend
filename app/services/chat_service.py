@@ -19,6 +19,17 @@ from app.prompts import (
     build_router_user_prompt,
     get_router_system_prompt,
 )
+from app.services.catalogue_analytics import (
+    CENTURIES,
+    COUNT,
+    NEWEST,
+    OLDEST,
+    TOP_CREATORS,
+    AnalyticsQuery,
+    century_label,
+    century_of,
+    parse_catalogue_analytics,
+)
 from app.prompts.chat_prompts import (
     build_describe_artifact_prompt,
     build_final_answer_prompt_v2,
@@ -3538,6 +3549,10 @@ class ChatService:
                 return await self._answer_tour_room_fast_path(room_query=room_query, **tour_kwargs)
             if self._is_tour_pieces_list_query(payload.message):
                 return await self._answer_tour_pieces_fast_path(**tour_kwargs)
+            if bool(getattr(self.settings, "CHAT_CATALOGUE_ANALYTICS", False)):
+                analytics = parse_catalogue_analytics(payload.message)
+                if analytics is not None:
+                    return await self._answer_catalogue_analytics_fast_path(analytics=analytics, **tour_kwargs)
 
         if (
             self.settings.CHAT_DETERMINISTIC_SMALLTALK
@@ -5663,6 +5678,195 @@ class ChatService:
             log_extra={"tour_pieces": {"inventories": len(inventories), "rooms": rooms_with_pieces}},
         )
 
+    # ----- Analítica do acervo (CHAT_CATALOGUE_ANALYTICS) ----- #
+
+    def _analytics_date_label(self, doc: dict[str, object], language: str) -> str:
+        """«do século XVIII», «dos séculos XVIII a XIX», «de 1730», «de 1715–1730»."""
+        en = normalize_language(language) == "en"
+        start, end = doc.get("start_year"), doc.get("end_year")
+        if not isinstance(start, int) or isinstance(start, bool):
+            return str(doc.get("date_or_period") or "").strip()
+        end = end if isinstance(end, int) and not isinstance(end, bool) else start
+        a, b = century_of(start), century_of(end)
+
+        def bounds(century: int) -> tuple[int, int]:
+            return ((century - 1) * 100 + 1, century * 100) if century > 0 else (century * 100, century * 100 + 99)
+
+        # datado só por século: o intervalo cobre os séculos inteiros
+        if start == bounds(a)[0] and end == bounds(b)[1]:
+            if a == b:
+                return translate("message.analytics_date_century", language, century=century_label(a, english=en))
+            return translate("message.analytics_date_centuries", language, start=century_label(a, english=en), end=century_label(b, english=en))
+        if start == end:
+            return translate("message.analytics_date_year", language, year=self._analytics_year_text(start, en))
+        return translate("message.analytics_date_years", language, start=self._analytics_year_text(start, en), end=self._analytics_year_text(end, en))
+
+    @staticmethod
+    def _analytics_year_text(year: int, english: bool) -> str:
+        if year < 0:
+            return f"{-year} BC" if english else f"{-year} a.C."
+        return str(year)
+
+    async def _answer_catalogue_analytics_fast_path(
+        self,
+        *,
+        analytics: AnalyticsQuery,
+        payload: ChatMessageRequest,
+        state: ChatSessionState,
+        conversation_id: str,
+        query_id: str,
+        language: str,
+        requested_format: ResponseFormatObject,
+        request_started_at: float,
+        status_cb: StatusCallback | None,
+    ) -> ChatMessageResponse:
+        """«Qual é a peça mais antiga?», «quantas peças há nesta visita?», «de
+        que século é a maioria?», «que autor tem mais obras?»: calculado no
+        OpenSearch, resposta por template com os factos e os cartões (o LLM
+        só redige se CHAT_CATALOGUE_ANALYTICS_LLM_WORDING)."""
+        museum_slug = payload.museum_slug
+        museum_id = self._resolve_museum_id(payload)
+        en = normalize_language(language) == "en"
+        await self._emit_status(status_cb, "status.searching_collection", language=language)
+
+        # período explícito («do século XVIII», «entre 1800 e 1850») como filtro
+        temporal = await self._interpret_temporal_query(payload.message)
+        filters = self._merge_temporal_filter({}, temporal)
+        subject = analytics.subject
+        if temporal.start_year is not None and temporal.end_year is not None:
+            subject = parse_catalogue_analytics(self._strip_temporal_expression_from_query(payload.message, temporal))
+            subject = subject.subject if subject else analytics.subject
+        cards = max(int(getattr(self.settings, "CHAT_CATALOGUE_ANALYTICS_CARDS", 24)), 1)
+        kind = analytics.kind
+        try:
+            result = await self.opensearch_gateway.aggregate_artifacts(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                in_tour=analytics.in_tour,
+                subject=subject,
+                filters=filters,
+                order=("asc" if kind == OLDEST else "desc") if kind in {OLDEST, NEWEST} else None,
+                size=cards if kind in {OLDEST, NEWEST} else (8 if kind == COUNT and subject else 0),
+                centuries=kind == CENTURIES,
+                top_creators=5 if kind == TOP_CREATORS else 0,
+            )
+        except Exception as exc:
+            log_event(logger, logging.WARNING, "chat.catalogue_analytics.error", conversation_id=conversation_id, query_id=query_id, error=exc)
+            result = {"docs": [], "total_all": 0, "total_dated": 0, "centuries": [], "creators": []}
+
+        docs: list[dict[str, object]] = list(result.get("docs") or [])
+        total_all = int(result.get("total_all") or 0)
+        total_dated = int(result.get("total_dated") or 0)
+        scope = translate("message.analytics_scope_tour" if analytics.in_tour else "message.analytics_scope_museum", language)
+        subject_text = translate("message.analytics_subject", language, subject=subject) if subject else ""
+        period_text = ""
+        if temporal.start_year is not None and temporal.end_year is not None:
+            period_text = translate(
+                "message.analytics_period", language,
+                start=self._analytics_year_text(temporal.start_year, en), end=self._analytics_year_text(temporal.end_year, en),
+            )
+        pct = round(100 * total_dated / total_all) if total_all else 0
+        facts: list[str] = []
+        cards_docs: list[dict[str, object]] = []
+
+        if kind in {OLDEST, NEWEST}:
+            if not docs:
+                intro = translate("message.analytics_none", language, scope=scope, subject=subject_text)
+            else:
+                first = docs[0]
+                cards_docs = docs
+                intro = translate(
+                    f"message.analytics_{kind}", language,
+                    dated=total_dated, pct=pct, total=total_all, scope=scope, subject=subject_text,
+                    title=str(first.get("title") or "").strip() or "—",
+                    inventory=self._doc_inventory(first) or "—",
+                    date=self._analytics_date_label(first, language), shown=len(docs),
+                )
+                facts = [
+                    (f"Objects with a date in the record {scope}{subject_text}: {total_dated} of {total_all}" if en
+                     else f"Peças com data na ficha {scope}{subject_text}: {total_dated} de {total_all}"),
+                    (f"The {'oldest' if kind == OLDEST else 'most recent'} is {first.get('title')} ({self._doc_inventory(first)}), {self._analytics_date_label(first, language)}" if en
+                     else f"A mais {'antiga' if kind == OLDEST else 'recente'} é «{first.get('title')}» ({self._doc_inventory(first)}), {self._analytics_date_label(first, language)}"),
+                    ("The cards below are in that order" if en else "Os cartões abaixo estão por essa ordem"),
+                ]
+        elif kind == COUNT:
+            cards_docs = docs if subject else []
+            dated_note = translate("message.analytics_count_dated", language, dated=total_dated)
+            intro = translate(
+                "message.analytics_count", language, count=total_all, scope=scope, subject=subject_text,
+                period=period_text, dated_note=dated_note,
+            )
+            if cards_docs:
+                intro += translate("message.analytics_count_cards", language)
+            facts = [f"{'Objects' if en else 'Peças'} {scope}{subject_text}{period_text}: {total_all}; {dated_note}"]
+        elif kind == CENTURIES:
+            buckets = sorted(((century_of(int(key)), count) for key, count in result.get("centuries") or []), key=lambda b: b[0])
+            if not buckets:
+                intro = translate("message.analytics_none", language, scope=scope, subject=subject_text)
+            else:
+                top_century, top_count = max(buckets, key=lambda b: b[1])
+                listing = ", ".join(f"{century_label(c, english=en)} {n}" for c, n in buckets)
+                intro = translate(
+                    "message.analytics_centuries", language, dated=total_dated, scope=scope, subject=subject_text,
+                    top=century_label(top_century, english=en), top_count=top_count, listing=listing,
+                    undated=max(total_all - total_dated, 0),
+                )
+                facts = [intro]
+        else:  # TOP_CREATORS
+            creators = list(result.get("creators") or [])
+            if not creators:
+                intro = translate("message.analytics_none", language, scope=scope, subject=subject_text)
+            else:
+                listing = ", ".join(f"{name} ({count})" for name, count in creators)
+                intro = translate(
+                    "message.analytics_top_creators", language, scope=scope, subject=subject_text,
+                    listing=listing, total=total_all, attributed=int(result.get("total_attributed") or 0),
+                )
+                facts = [intro]
+
+        targets = self.tour_navigation_service.resolve_targets(
+            museum_slug=museum_slug, museum_id=museum_id,
+            inventories=[self._doc_inventory(d) for d in cards_docs if self._doc_inventory(d)],
+            limit=max(len(cards_docs), 1),
+        ) if cards_docs else []
+        described = {
+            "known": bool(cards_docs) or total_all > 0, "scope": "catalogue", "room": None,
+            "inventories": [self._doc_inventory(d) for d in cards_docs if self._doc_inventory(d)], "targets": targets,
+        }
+        log_event(
+            logger, logging.INFO, "chat.catalogue_analytics",
+            conversation_id=conversation_id, query_id=query_id, kind=kind, subject=subject, in_tour=analytics.in_tour,
+            total_all=total_all, total_dated=total_dated, cards=len(cards_docs),
+        )
+        return await self._finish_tour_context_answer(
+            payload=payload,
+            state=state,
+            conversation_id=conversation_id,
+            query_id=query_id,
+            language=language,
+            requested_format=requested_format,
+            request_started_at=request_started_at,
+            status_cb=status_cb,
+            described=described,
+            room_name=None,
+            intro=intro,
+            pieces_key=None,
+            facts=facts or None,
+            fast_path="catalogue_analytics",
+            tour_room=None,
+            docs=cards_docs,
+            use_llm_wording=bool(getattr(self.settings, "CHAT_CATALOGUE_ANALYTICS_LLM_WORDING", False)),
+            log_extra={
+                "catalogue_analytics": {
+                    "kind": kind, "subject": subject, "in_tour": analytics.in_tour,
+                    "temporal": self._temporal_query_filter_payload(temporal),
+                    "total_all": total_all, "total_dated": total_dated,
+                    "centuries": result.get("centuries"), "creators": result.get("creators"),
+                    "opensearch_query": result.get("query_body"),
+                }
+            },
+        )
+
     def _is_tour_location_query(self, message: str) -> bool:
         folded = self._fold_query_text(message)
         if not folded:
@@ -6014,21 +6218,29 @@ class ChatService:
         tour_room: TourRoomTarget | None,
         log_extra: dict[str, Any],
         tour_rooms: list[TourRoomTarget] | None = None,
+        docs: list[dict[str, object]] | None = None,
+        use_llm_wording: bool | None = None,
     ) -> ChatMessageResponse:
-        """Parte comum das respostas de contexto da visita (posição, zona).
+        """Parte comum das respostas de contexto da visita (posição, zona) e da
+        analítica do acervo.
 
-        Busca as fichas das peças assinaladas (ordem da visita), compõe a
-        resposta — template, ou redação do LLM com os factos e os cartões
-        trancados quando CHAT_TOUR_CONTEXT_LLM_WORDING — e fecha estado, log
-        e resposta como as outras rotas.
+        Busca as fichas das peças assinaladas (ordem da visita) — ou usa as
+        `docs` já vindas da pesquisa —, compõe a resposta — template, ou
+        redação do LLM com os factos e os cartões trancados quando
+        CHAT_TOUR_CONTEXT_LLM_WORDING (ou `use_llm_wording`) — e fecha estado,
+        log e resposta como as outras rotas.
         """
         museum_slug = payload.museum_slug
         museum_id = self._resolve_museum_id(payload)
         inventories: list[str] = list(described.get("inventories") or [])
 
         retrieval_started_at = time.monotonic()
-        docs: list[dict[str, object]] = []
-        if inventories:
+        if docs is not None:
+            docs = list(docs)
+            inventories = inventories or [self._doc_inventory(doc) for doc in docs if self._doc_inventory(doc)]
+        else:
+            docs = []
+        if inventories and not docs:
             try:
                 fetched = await self.opensearch_gateway.fetch_artifacts_by_inventory_numbers(
                     museum_slug=museum_slug,
@@ -6063,7 +6275,8 @@ class ChatService:
         llm_latency_ms = 0.0
         llm_response = None
         wording = "template"
-        if facts is not None and self.settings.CHAT_TOUR_CONTEXT_LLM_WORDING:
+        llm_wording = self.settings.CHAT_TOUR_CONTEXT_LLM_WORDING if use_llm_wording is None else use_llm_wording
+        if facts is not None and llm_wording:
             en = normalize_language(language) == "en"
             llm_facts = list(facts)
             if docs:

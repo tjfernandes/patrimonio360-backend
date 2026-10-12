@@ -2991,6 +2991,146 @@ class OpenSearchGateway:
         results = self._artifact_results_from_hits(hits)
         return results, total_value
 
+    def _aggregate_artifacts_sync(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        in_tour: bool,
+        subject: str,
+        filters: dict[str, Any] | None,
+        order: str | None,
+        size: int,
+        centuries: bool,
+        top_creators: int,
+    ) -> dict[str, Any]:
+        """Analítica do acervo (CHAT_CATALOGUE_ANALYTICS): fichas ordenadas pela
+        data, contagens com e sem data, peças por século e autores com mais obras.
+        `order` asc/desc ordena por data e exige data na ficha."""
+        client = self._ensure_client()
+        base_filters = self._build_filter_clauses(museum_slug=museum_slug, museum_id=museum_id, filters=filters)
+        if in_tour:
+            base_filters.append({"term": {"in_tour": True}})
+        must: list[dict[str, Any]] = []
+        subject_text = (subject or "").strip()
+        if subject_text:
+            must.append(
+                {
+                    "multi_match": {
+                        "query": subject_text,
+                        # sem search_text: traz o nome do museu («azulejo» apanharia o MNAz inteiro)
+                        "fields": ["title^3", "category.text^2", "super_category.text", "technique.text", "support_or_material.text", "description"],
+                        "type": "best_fields",
+                        "minimum_should_match": "75%",
+                    }
+                }
+            )
+        dated_filters = base_filters + [{"exists": {"field": "start_year"}}]
+        body: dict[str, Any] = {
+            "size": max(int(size), 0),
+            "track_total_hits": True,
+            "_source": {"excludes": ["text_embedding", "embedding_meta"]},
+            "query": {"bool": {"filter": dated_filters if (order or centuries) else base_filters, **({"must": must} if must else {})}},
+        }
+        if order:
+            body["sort"] = (
+                [{"start_year": "asc"}, {"end_year": "asc"}, {"_score": "desc"}]
+                if order == "asc"
+                else [{"end_year": "desc"}, {"start_year": "desc"}, {"_score": "desc"}]
+            )
+        aggs: dict[str, Any] = {}
+        if centuries:
+            # séculos como intervalos de 100 anos a começar em 1 (1701–1800)
+            aggs["seculos"] = {"histogram": {"field": "start_year", "interval": 100, "offset": 1, "min_doc_count": 1}}
+        if top_creators:
+            # pelo id (o campo creators tem normalizador e perdia maiúsculas e
+            # acentos); o nome original vem de uma ficha de cada autor
+            aggs["autores"] = {
+                "terms": {"field": "creator_ids", "size": max(int(top_creators), 1)},
+                "aggs": {"ficha": {"top_hits": {"size": 1, "_source": ["creators", "creator_ids"]}}},
+            }
+        if aggs:
+            body["aggs"] = aggs
+        response = client.search(index=self.settings.OPENSEARCH_INDEX_ARTIFACT, body=body)
+        hits = response.get("hits", {}).get("hits", []) or []
+        total = self._total_hits_value(response)
+        count_body = {"query": {"bool": {"filter": base_filters, **({"must": must} if must else {})}}}
+        total_all = int(client.count(index=self.settings.OPENSEARCH_INDEX_ARTIFACT, body=count_body).get("count") or 0)
+        total_attributed = 0
+        if top_creators:
+            attributed_body = {"query": {"bool": {"filter": base_filters + [{"exists": {"field": "creator_ids"}}], **({"must": must} if must else {})}}}
+            total_attributed = int(client.count(index=self.settings.OPENSEARCH_INDEX_ARTIFACT, body=attributed_body).get("count") or 0)
+        if order or centuries:
+            total_dated = total
+        else:
+            dated_body = {"query": {"bool": {"filter": dated_filters, **({"must": must} if must else {})}}}
+            total_dated = int(client.count(index=self.settings.OPENSEARCH_INDEX_ARTIFACT, body=dated_body).get("count") or 0)
+        agg_payload = response.get("aggregations") or {}
+        seculos = [
+            (int(bucket["key"]), int(bucket["doc_count"]))
+            for bucket in (agg_payload.get("seculos", {}).get("buckets") or [])
+        ]
+        autores: list[tuple[str, int]] = []
+        for bucket in agg_payload.get("autores", {}).get("buckets") or []:
+            creator_id = str(bucket["key"])
+            nome = creator_id
+            ficha_hits = ((bucket.get("ficha") or {}).get("hits") or {}).get("hits") or []
+            if ficha_hits:
+                fonte = ficha_hits[0].get("_source") or {}
+                ids = self._as_list_of_strings(fonte.get("creator_ids"))
+                nomes = self._as_list_of_strings(fonte.get("creators"))
+                if creator_id in ids and len(nomes) > ids.index(creator_id):
+                    nome = nomes[ids.index(creator_id)]
+                elif nomes:
+                    nome = nomes[0]
+            autores.append((nome, int(bucket["doc_count"])))
+        return {
+            "docs": self._artifact_results_from_hits(hits),
+            "total_all": total_all,
+            "total_dated": total_dated,
+            "total_attributed": total_attributed,
+            "centuries": seculos,
+            "creators": autores,
+            "query_body": body,
+        }
+
+    async def aggregate_artifacts(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        in_tour: bool = False,
+        subject: str = "",
+        filters: dict[str, Any] | None = None,
+        order: str | None = None,
+        size: int = 0,
+        centuries: bool = False,
+        top_creators: int = 0,
+    ) -> dict[str, Any]:
+        return await self._to_thread_logged(
+            "opensearch.aggregate_artifacts",
+            self._aggregate_artifacts_sync,
+            log_fields={
+                "museum_slug": museum_slug,
+                "museum_id": museum_id,
+                "in_tour": in_tour,
+                "subject": subject,
+                "order": order,
+                "size": size,
+                "centuries": centuries,
+                "top_creators": top_creators,
+            },
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            in_tour=in_tour,
+            subject=subject,
+            filters=filters,
+            order=order,
+            size=size,
+            centuries=centuries,
+            top_creators=top_creators,
+        )
+
     async def fetch_artifacts_by_entity(
         self,
         *,
