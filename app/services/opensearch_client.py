@@ -2991,6 +2991,46 @@ class OpenSearchGateway:
         results = self._artifact_results_from_hits(hits)
         return results, total_value
 
+    def _fetch_set_object_counts_sync(self, *, set_ids: list[str]) -> dict[str, int]:
+        """Número de peças de cada conjunto: `artifact_count` do índice de
+        conjuntos (o _id é o set_id); os que lá não estiverem contam-se no
+        índice de peças. Conjunto desconhecido → 0."""
+        ids = sorted({str(s).strip() for s in set_ids if str(s or "").strip()})
+        if not ids:
+            return {}
+        client = self._ensure_client()
+        counts: dict[str, int] = {}
+        response = client.mget(
+            index=self.settings.OPENSEARCH_INDEX_CONJUNTO,
+            body={"ids": ids},
+            _source=["artifact_count"],
+        )
+        for doc in response.get("docs") or []:
+            value = (doc.get("_source") or {}).get("artifact_count") if doc.get("found") else None
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                counts[str(doc.get("_id"))] = int(value)
+        missing = [i for i in ids if i not in counts]
+        if missing:
+            agg = client.search(
+                index=self.settings.OPENSEARCH_INDEX_ARTIFACT,
+                body={
+                    "size": 0,
+                    "query": {"terms": {"set_ids": missing}},
+                    "aggs": {"g": {"terms": {"field": "set_ids", "include": missing, "size": len(missing)}}},
+                },
+            )
+            for bucket in (agg.get("aggregations") or {}).get("g", {}).get("buckets") or []:
+                counts[str(bucket["key"])] = int(bucket["doc_count"])
+        return {i: counts.get(i, 0) for i in ids}
+
+    async def fetch_set_object_counts(self, *, set_ids: list[str]) -> dict[str, int]:
+        return await self._to_thread_logged(
+            "opensearch.fetch_set_object_counts",
+            self._fetch_set_object_counts_sync,
+            log_fields={"set_ids": len(set_ids)},
+            set_ids=set_ids,
+        )
+
     def _aggregate_artifacts_sync(
         self,
         *,
