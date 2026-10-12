@@ -73,6 +73,14 @@ class Settings(BaseSettings):
     # cheia; o «ver mais» pede desde o início e corta depois de juntar.
     CHAT_COLLAPSE_SET_DUPLICATES: bool = False
     CHAT_COLLAPSE_FETCH_FACTOR: int = 3
+    # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
+    # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
+    # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);
+    # resposta por template com os factos e cartões, sem LLM, salvo com a
+    # segunda flag, que manda o LLM redigir a partir dos mesmos factos.
+    CHAT_CATALOGUE_ANALYTICS: bool = False
+    CHAT_CATALOGUE_ANALYTICS_CARDS: int = 24
+    CHAT_CATALOGUE_ANALYTICS_LLM_WORDING: bool = False
     # EXPERIMENTAL, manter desligado: medido em 2026-09-15 sem ganho de tempo
     # (o 9B enche filters_delta com filtros inventados). Ver PLANO_MELHORIAS §3.
     CHAT_ROUTER_COMPACT_SCHEMA: bool = False        # router pede 5 campos em vez de 12

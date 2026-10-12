@@ -195,6 +195,46 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "Esta visita virtual não tem peças assinaladas. Diga-me o que procura e pesquiso no acervo do museu.",
         "en": "This virtual tour has no highlighted objects. Tell me what you are looking for and I will search the museum's collection.",
     },
+    "message.analytics_scope_museum": {"pt": "do museu", "en": "in the museum"},
+    "message.analytics_scope_tour": {"pt": "desta visita virtual", "en": "in this virtual tour"},
+    "message.analytics_subject": {"pt": " que correspondem a «{subject}»", "en": " matching “{subject}”"},
+    "message.analytics_oldest": {
+        "pt": "Entre as {dated} peças com data na ficha ({pct}% das {total} {scope}{subject}), a mais antiga é «{title}» ({inventory}), {date}. Os cartões abaixo mostram as {shown} mais antigas, por ordem.",
+        "en": "Among the {dated} objects with a date in their record ({pct}% of the {total} {scope}{subject}), the oldest is “{title}” ({inventory}), {date}. The cards below show the {shown} oldest, in order.",
+    },
+    "message.analytics_newest": {
+        "pt": "Entre as {dated} peças com data na ficha ({pct}% das {total} {scope}{subject}), a mais recente é «{title}» ({inventory}), {date}. Os cartões abaixo mostram as {shown} mais recentes, por ordem.",
+        "en": "Among the {dated} objects with a date in their record ({pct}% of the {total} {scope}{subject}), the most recent is “{title}” ({inventory}), {date}. The cards below show the {shown} most recent, in order.",
+    },
+    "message.analytics_count": {
+        "pt": {
+            "one": "Há 1 peça {scope}{subject}{period}; {dated_note}.",
+            "other": "Há {count} peças {scope}{subject}{period}; {dated_note}.",
+        },
+        "en": {
+            "one": "There is 1 object {scope}{subject}{period}; {dated_note}.",
+            "other": "There are {count} objects {scope}{subject}{period}; {dated_note}.",
+        },
+    },
+    "message.analytics_count_dated": {"pt": "{dated} com data na ficha", "en": "{dated} with a date in the record"},
+    "message.analytics_count_cards": {"pt": " Os cartões abaixo mostram as primeiras.", "en": " The cards below show the first ones."},
+    "message.analytics_centuries": {
+        "pt": "Das {dated} peças com data na ficha {scope}{subject}, a maioria é do século {top} ({top_count}). Por século: {listing}. Sem data na ficha: {undated}.",
+        "en": "Of the {dated} objects with a date in their record {scope}{subject}, most are from the {top} century ({top_count}). By century: {listing}. Without a date in the record: {undated}.",
+    },
+    "message.analytics_top_creators": {
+        "pt": "Os autores com mais obras {scope}{subject}: {listing}. Entre {total} peças, {attributed} têm autor na ficha.",
+        "en": "The makers with the most works {scope}{subject}: {listing}. Of {total} objects, {attributed} have a maker in the record.",
+    },
+    "message.analytics_none": {
+        "pt": "Não encontrei peças com data na ficha {scope}{subject} para responder a isso.",
+        "en": "I found no objects with a date in their record {scope}{subject} to answer that.",
+    },
+    "message.analytics_period": {"pt": " entre {start} e {end}", "en": " between {start} and {end}"},
+    "message.analytics_date_century": {"pt": "do século {century}", "en": "from the {century} century"},
+    "message.analytics_date_centuries": {"pt": "dos séculos {start} a {end}", "en": "from the {start} to the {end} century"},
+    "message.analytics_date_year": {"pt": "de {year}", "en": "from {year}"},
+    "message.analytics_date_years": {"pt": "de {start}–{end}", "en": "from {start}–{end}"},
     "message.describe_artifact_not_found": {
         "pt": "Não encontrei a ficha desta peça no acervo, por isso não a consigo apresentar. Pergunte-me por outra peça ou diga-me o que procura.",
         "en": "I could not find this object's record in the collection, so I cannot present it. Ask me about another object or tell me what you are looking for.",
