@@ -8,7 +8,7 @@ import os
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from app.core.config import get_settings
 from app.core.logging import log_event
@@ -29,6 +29,9 @@ from app.schemas.chat import (
 from app.services.chat_service import ChatService, get_chat_service
 from app.services.image_thumbnails import ensure_thumbnail, snap_thumbnail_width
 from app.services.chat_i18n import translate
+from app.services.tour_pois import get_tour_poi_store
+from app.services.tour_pois import normalize_slug as normalize_poi_slug
+from app.services.tour_pois import public_entry as public_poi_entry
 
 router = APIRouter()
 SUPPORTED_MODEL_EXTENSIONS = {".glb", ".gltf", ".obj"}
@@ -243,6 +246,22 @@ async def get_artifact_full_by_inventory(
     if result is None:
         raise HTTPException(status_code=404, detail="Artefacto nao encontrado.")
     return result
+
+
+@router.get("/tour/pois")
+async def get_tour_pois(museum_slug: str) -> JSONResponse:
+    """Os hotspots da visita do museu, do mapa dos POIs (poi_tours/): overlayId,
+    panoramaKey, os n.ºs do catálogo, zona, título e nationalTreasure."""
+    slug = normalize_poi_slug(museum_slug)
+    if slug is None:
+        raise HTTPException(status_code=400, detail="museum_slug invalido.")
+    entries = get_tour_poi_store().entries(slug)
+    if entries is None:
+        raise HTTPException(status_code=404, detail="Museu sem visita.")
+    return JSONResponse(
+        {"museum_slug": slug, "pois": [public_poi_entry(entry) for entry in entries]},
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 @router.get("/artifacts/{artifact_id:path}/full", response_model=ArtifactResult)

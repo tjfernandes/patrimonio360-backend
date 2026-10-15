@@ -81,13 +81,12 @@ class Settings(BaseSettings):
     CHAT_CATALOGUE_ANALYTICS: bool = False
     CHAT_CATALOGUE_ANALYTICS_CARDS: int = 24
     CHAT_CATALOGUE_ANALYTICS_LLM_WORDING: bool = False
-    # Tesouros Nacionais (lista em app/config/national_treasures.json, relida
-    # quando muda). O campo national_treasure dos cartões vai sempre; esta flag
-    # liga os pedidos («tesouros nacionais de pintura» filtra pela lista;
-    # «isto é tesouro nacional?» responde pela lista) e a marca nos cartões
-    # do prompt, com a regra de nunca afirmar um tesouro fora dela.
+    # Tesouros Nacionais (o nationalTreasure dos mapas dos POIs em poi_tours/,
+    # relidos quando mudam). O campo national_treasure dos cartões vai sempre;
+    # esta flag liga os pedidos («tesouros nacionais de pintura» filtra pela
+    # lista; «isto é tesouro nacional?» responde pela lista) e a marca nos
+    # cartões do prompt, com a regra de nunca afirmar um tesouro fora dela.
     CHAT_NATIONAL_TREASURES: bool = False
-    CHAT_NATIONAL_TREASURES_PATH: str | None = None
     # EXPERIMENTAL, manter desligado: medido em 2026-09-15 sem ganho de tempo
     # (o 9B enche filters_delta com filtros inventados). Ver PLANO_MELHORIAS §3.
     CHAT_ROUTER_COMPACT_SCHEMA: bool = False        # router pede 5 campos em vez de 12

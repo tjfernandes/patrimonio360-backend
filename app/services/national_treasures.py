@@ -1,27 +1,21 @@
-"""Tesouros Nacionais: a lista por museu (app/config/national_treasures.json) e
-os pedidos sobre eles («tesouros nacionais de pintura», «isto é tesouro
-nacional?»).
+"""Tesouros Nacionais: a lista por museu e os pedidos sobre eles («tesouros
+nacionais de pintura», «isto é tesouro nacional?»).
 
-A marca não existe no RAIZ nem no índice: vem do selo nas páginas dos POIs das
-visitas publicadas. Por isso vive num ficheiro de configuração, relido quando
-muda, e nunca no índice. Os n.ºs comparam-se sem maiúsculas, espaços nem
-pontuação («A. 3908» = «A 3908»; «114/34» = «114/ 34»).
+A marca não existe no RAIZ nem no índice: é o selo nas páginas dos POIs das
+visitas publicadas, escrito como `nationalTreasure` nos mapas dos POIs
+(poi_tours/panorama-overlays-inventory-<museu>.json, ver app/services/tour_pois.py),
+que são a fonte única. Os n.ºs são os do catálogo (inventoryIds) e comparam-se
+sem maiúsculas, espaços nem pontuação («A. 3908» = «A 3908»; «114/34» = «114/ 34»).
 """
 from __future__ import annotations
 
-import json
-import logging
-import os
 import re
-import threading
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-logger = logging.getLogger(__name__)
-
-DEFAULT_PATH = Path(__file__).resolve().parents[1] / "config" / "national_treasures.json"
+from app.services.tour_pois import TourPoiStore, get_tour_poi_store
 
 LIST, QUESTION = "list", "question"
 
@@ -83,66 +77,53 @@ def inventory_key(inventory: str | None) -> str:
     return fold(inventory or "").replace(" ", "")
 
 
-def _expand(item: str) -> list[str]:
-    """«A 3776 a A 3784» → A 3776 … A 3784; o resto fica como está."""
-    match = re.fullmatch(r"\s*(?P<p>[^\d]*?)\s*(?P<a>\d+)\s+a\s+(?P<p2>[^\d]*?)\s*(?P<b>\d+)\s*", item or "")
-    if match and inventory_key(match["p"]) == inventory_key(match["p2"]):
-        start, end = int(match["a"]), int(match["b"])
-        if start <= end <= start + 500:
-            return [f"{match['p'].strip()} {n}".strip() for n in range(start, end + 1)]
-    return [item.strip()] if (item or "").strip() else []
-
-
 class NationalTreasureRegistry:
-    """A lista por museu, relida quando o ficheiro muda."""
+    """Os n.ºs do catálogo com `nationalTreasure` nos mapas dos POIs, por museu."""
 
-    def __init__(self, path: Path | str | None = None) -> None:
-        self.path = Path(path) if path else DEFAULT_PATH
-        self._lock = threading.Lock()
-        self._mtime: float | None = None
+    def __init__(self, store: TourPoiStore | Path | str | None = None) -> None:
+        if store is None:
+            store = get_tour_poi_store()
+        self.store = store if isinstance(store, TourPoiStore) else TourPoiStore(Path(store))
+        self._built_for: tuple | None | bool = False
         self._by_museum: dict[str, list[str]] = {}
         self._keys: dict[str, frozenset[str]] = {}
 
-    def _reload_if_changed(self) -> None:
-        try:
-            mtime = os.stat(self.path).st_mtime
-        except OSError:
-            mtime = None
-        if mtime == self._mtime:
+    def _refresh(self) -> None:
+        version = self.store.version
+        if version == self._built_for:
             return
-        with self._lock:
-            if mtime == self._mtime:
-                return
-            by_museum: dict[str, list[str]] = {}
-            if mtime is not None:
-                try:
-                    raw = json.loads(self.path.read_text(encoding="utf-8"))
-                except Exception as exc:  # um ficheiro estragado não pode derrubar o chat
-                    logger.warning("national_treasures: %s ilegível (%s); lista vazia", self.path, exc)
-                    raw = {}
-                for museum, items in (raw.items() if isinstance(raw, dict) else []):
-                    if museum.startswith("_") or not isinstance(items, list):
-                        continue
-                    by_museum[museum.strip().lower()] = [x for item in items for x in _expand(str(item))]
-            self._by_museum = by_museum
-            self._keys = {m: frozenset(inventory_key(i) for i in items) for m, items in by_museum.items()}
-            self._mtime = mtime
+        by_museum: dict[str, list[str]] = {}
+        for museum in self.store.museums():
+            seen: set[str] = set()
+            numbers: list[str] = []
+            for entry in self.store.entries(museum) or []:
+                if entry.get("nationalTreasure") is not True:
+                    continue
+                ids = entry.get("inventoryIds")
+                for number in ([ids] if isinstance(ids, str) else ids or []):
+                    key = inventory_key(str(number))
+                    if key and key not in seen:
+                        seen.add(key)
+                        numbers.append(str(number).strip())
+            by_museum[museum] = numbers
+        self._by_museum = by_museum
+        self._keys = {museum: frozenset(inventory_key(n) for n in numbers) for museum, numbers in by_museum.items()}
+        self._built_for = version
 
     @property
-    def version(self) -> float | None:
-        self._reload_if_changed()
-        return self._mtime
+    def version(self) -> tuple | None:
+        return self.store.version
 
     def inventories(self, museum_id: str | None) -> list[str]:
-        self._reload_if_changed()
+        self._refresh()
         return list(self._by_museum.get((museum_id or "").strip().lower(), []))
 
     def keys(self, museum_id: str | None) -> frozenset[str]:
-        self._reload_if_changed()
+        self._refresh()
         return self._keys.get((museum_id or "").strip().lower(), frozenset())
 
     def is_treasure(self, museum_id: str | None, inventories: Iterable[str | None]) -> bool:
-        """True se algum dos n.ºs (um cartão agrupado tem vários) está na lista do museu."""
+        """True se algum dos n.ºs (um cartão agrupado tem vários) é Tesouro Nacional no mapa do museu."""
         keys = self.keys(museum_id)
         return bool(keys) and any(inventory_key(i) in keys for i in inventories if i)
 
@@ -150,11 +131,10 @@ class NationalTreasureRegistry:
 _REGISTRY: NationalTreasureRegistry | None = None
 
 
-def get_registry(path: str | None = None) -> NationalTreasureRegistry:
+def get_registry() -> NationalTreasureRegistry:
     global _REGISTRY
-    wanted = Path(path) if path else DEFAULT_PATH
-    if _REGISTRY is None or _REGISTRY.path != wanted:
-        _REGISTRY = NationalTreasureRegistry(wanted)
+    if _REGISTRY is None:
+        _REGISTRY = NationalTreasureRegistry()
     return _REGISTRY
 
 

@@ -1,4 +1,4 @@
-"""Tesouros Nacionais: lista por museu na configuração, campo national_treasure
+"""Tesouros Nacionais: o nationalTreasure dos mapas dos POIs, campo national_treasure
 nos cartões e pedidos sobre tesouros na pesquisa (CHAT_NATIONAL_TREASURES).
 
     python -m unittest tests.test_national_treasures
@@ -21,6 +21,7 @@ from app.core.config import Settings  # noqa: E402
 from app.prompts.chat_prompts import build_final_answer_prompt_v2  # noqa: E402
 from app.schemas.chat import ArtifactResult  # noqa: E402
 from app.services.chat_service import ChatService  # noqa: E402
+from app.services.tour_pois import TourPoiStore  # noqa: E402
 from app.services.national_treasures import (  # noqa: E402
     LIST,
     NO_MATCH_ID,
@@ -32,7 +33,8 @@ from app.services.national_treasures import (  # noqa: E402
     subject_matches,
 )
 
-REAL = NationalTreasureRegistry()   # app/config/national_treasures.json
+POI_TOURS = Path(__file__).resolve().parents[1] / "poi_tours"
+REAL = NationalTreasureRegistry(TourPoiStore(POI_TOURS, check_interval=0))   # o nationalTreasure dos mapas dos POIs
 
 MNAA_TREASURES = [
     {"artifact_id": "a-1874", "inventory_number": "1874 Pint", "title": "Fuga para o Egipto", "category": "Pintura", "museum_id": "mnaa"},
@@ -43,25 +45,42 @@ MNAA_TREASURES = [
 ]
 
 
+def _poi(overlay: str, inventories: list[str], treasure: bool, title: str = "x") -> dict:
+    return {"overlayId": overlay, "panoramaKey": "panorama_1", "inventoryIds": inventories, "location": "Sala",
+            "title": title, "nationalTreasure": treasure}
+
+
 class TestRegistry(unittest.TestCase):
-    def test_real_file(self) -> None:
-        self.assertEqual(len(REAL.inventories("mnaa")), 34)
-        self.assertEqual(len(REAL.inventories("mnc")), 18)            # «A 3776 a A 3784» são 9
-        self.assertIn("A 3780", REAL.inventories("mnc"))
-        self.assertTrue(REAL.is_treasure("mnaa", ["1874 Pint"]))
-        self.assertFalse(REAL.is_treasure("mnaa", ["1874 Des"]))
+    def test_real_files(self) -> None:
+        # o selo nas páginas dos POIs das visitas publicadas (2026-10-15)
+        self.assertEqual(len(REAL.inventories("mnaa")), 34)            # 33 peças; «Bacia e gomil» tem dois n.ºs
+        self.assertEqual(len(REAL.inventories("mnsr")), 13)            # 9 peças; 119.1/119.2 e 120.1–120.3 + 121
+        self.assertEqual(len(REAL.inventories("cmag")), 4)
+        for museum in ("mnt", "mnaz", "mj", "mnc"):
+            self.assertEqual(REAL.inventories(museum), [], museum)
+        for number in ("1874 Pint", "1 Our", "1498 Pint", "93 Pint", "5897 Cer"):
+            self.assertTrue(REAL.is_treasure("mnaa", [number]), number)
+        self.assertFalse(REAL.is_treasure("mnaa", ["94 Pint"]))        # a «Última Ceia»: a visita anunciava 94 por 93
         self.assertFalse(REAL.is_treasure("mnaa", ["47 Pint"]))        # outra «Fuga para o Egipto»
         self.assertFalse(REAL.is_treasure("mnt", ["1874 Pint"]))       # outro museu
+
+    def test_every_entry_has_the_field_and_the_same_piece_the_same_value(self) -> None:
+        for path in sorted(POI_TOURS.glob("panorama-overlays-inventory-*.json")):
+            values: dict[str, set[bool]] = {}
+            for entry in json.loads(path.read_text(encoding="utf-8")):
+                self.assertIsInstance(entry.get("nationalTreasure"), bool, (path.name, entry["overlayId"]))
+                for number in entry["inventoryIds"]:
+                    values.setdefault(inventory_key(number), set()).add(entry["nationalTreasure"])
+            self.assertEqual([k for k, v in values.items() if len(v) > 1], [], path.name)
 
     def test_cmag_number_needs_the_prefix(self) -> None:
         self.assertTrue(REAL.is_treasure("cmag", ["CMAG 32"]))
         self.assertFalse(REAL.is_treasure("cmag", ["32"]))
 
     def test_comparison_ignores_case_spaces_and_punctuation(self) -> None:
-        self.assertTrue(REAL.is_treasure("mnc", ["A. 3908"]))
-        self.assertTrue(REAL.is_treasure("mnc", ["a3908"]))
         self.assertTrue(REAL.is_treasure("mnsr", ["114/34 Pin MNSR"]))
         self.assertTrue(REAL.is_treasure("MNSR", ["114/ 34 pin mnsr"]))
+        self.assertTrue(REAL.is_treasure("mnaa", ["47 Tp"]))           # no mapa está «47 tp»
         self.assertEqual(inventory_key("114/ 34 Pin MNSR"), "11434pinmnsr")
 
     def test_group_is_treasure_if_any_member_is(self) -> None:
@@ -70,21 +89,65 @@ class TestRegistry(unittest.TestCase):
 
     def test_file_changes_are_picked_up(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "t.json"
-            path.write_text(json.dumps({"_x": "y", "mnt": ["100"]}), encoding="utf-8")
-            reg = NationalTreasureRegistry(path)
+            path = Path(tmp) / "panorama-overlays-inventory-mnt.json"
+            path.write_text(json.dumps([_poi("o1", ["100"], True), _poi("o2", ["300"], False)]), encoding="utf-8")
+            reg = NationalTreasureRegistry(TourPoiStore(tmp, check_interval=0))
             self.assertTrue(reg.is_treasure("mnt", ["100"]))
-            path.write_text(json.dumps({"mnt": ["200"]}), encoding="utf-8")
+            self.assertFalse(reg.is_treasure("mnt", ["300"]))
+            path.write_text(json.dumps([_poi("o1", ["100"], False), _poi("o2", ["200"], True)]), encoding="utf-8")
             os.utime(path, (time.time() + 5, time.time() + 5))
             self.assertFalse(reg.is_treasure("mnt", ["100"]))
             self.assertTrue(reg.is_treasure("mnt", ["200"]))
 
-    def test_broken_or_missing_file_is_empty(self) -> None:
+    def test_broken_or_missing_files_are_empty(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            broken = Path(tmp) / "x.json"
-            broken.write_text("{", encoding="utf-8")
-            self.assertEqual(NationalTreasureRegistry(broken).inventories("mnaa"), [])
-            self.assertEqual(NationalTreasureRegistry(Path(tmp) / "nada.json").inventories("mnaa"), [])
+            (Path(tmp) / "panorama-overlays-inventory-mnaa.json").write_text("[", encoding="utf-8")
+            self.assertEqual(NationalTreasureRegistry(TourPoiStore(tmp, check_interval=0)).inventories("mnaa"), [])
+            self.assertEqual(NationalTreasureRegistry(TourPoiStore(Path(tmp) / "nada", check_interval=0)).inventories("mnaa"), [])
+
+
+class TestTourPoisEndpoint(unittest.TestCase):
+    def setUp(self) -> None:
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from unittest import mock
+
+        from app.api.routes import chat as chat_route
+
+        patch = mock.patch.object(chat_route, "get_tour_poi_store", return_value=TourPoiStore(POI_TOURS, check_interval=0))
+        patch.start()
+        self.addCleanup(patch.stop)
+        app = FastAPI()
+        app.include_router(chat_route.router, prefix="/api/v1/chat")
+        self.client = TestClient(app)
+
+    def _pois(self, slug: str):
+        response = self.client.get("/api/v1/chat/tour/pois", params={"museum_slug": slug})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["cache-control"], "public, max-age=300")
+        return response.json()["pois"]
+
+    def test_mnaa(self) -> None:
+        pois = self._pois("mnaa")
+        self.assertEqual(set(pois[0]), {"overlayId", "panoramaKey", "inventoryIds", "location", "title", "nationalTreasure"})
+        flag = {inventory_key(n): p["nationalTreasure"] for p in pois for n in p["inventoryIds"]}
+        for number in ("1874 Pint", "1 Our", "1498 Pint", "93 Pint"):
+            self.assertTrue(flag[inventory_key(number)], number)
+        self.assertFalse(flag[inventory_key("297 Mov")])
+        self.assertNotIn(inventory_key("94 Pint"), flag)              # os n.ºs corrigidos, como nas navigation_targets
+        self.assertEqual(len({k for k, v in flag.items() if v}), 34)
+
+    def test_counts_per_museum(self) -> None:
+        def treasures(slug):
+            return {inventory_key(n) for p in self._pois(slug) if p["nationalTreasure"] for n in p["inventoryIds"]}
+        self.assertEqual(len(treasures("mnsr")), 13)
+        self.assertEqual(sum(1 for p in self._pois("mnsr") if p["nationalTreasure"]), 9)
+        self.assertEqual(len(treasures("cmag")), 4)
+        self.assertEqual(treasures("mnt"), set())
+
+    def test_unknown_museum_is_404_and_bad_slug_400(self) -> None:
+        self.assertEqual(self.client.get("/api/v1/chat/tour/pois", params={"museum_slug": "mnc"}).status_code, 404)
+        self.assertEqual(self.client.get("/api/v1/chat/tour/pois", params={"museum_slug": "../etc"}).status_code, 400)
 
 
 class TestIntent(unittest.TestCase):
