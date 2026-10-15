@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from uuid import uuid4
@@ -80,6 +81,11 @@ def create_app() -> FastAPI:
                 required.append("vl_reranker_ready")
             if settings.CHAT_PREWARM_INCLUDE_MULTIVIEW_WORKER:
                 required.append("multiview_worker_ready")
+        if settings.SPEECH_STT_ENABLED:
+            # o Whisper carrega e aquece aqui, nunca no primeiro pedido; se falhar,
+            # o resto arranca e o frontend usa o ditado do browser
+            from app.services.speech_dictation import get_speech_engine
+            checks["speech_ready"] = await asyncio.to_thread(get_speech_engine().load)
         app.state.readiness = {"ready": all(checks.get(key) is True for key in required), "checks": checks}
 
     @app.get("/ready", include_in_schema=False)
