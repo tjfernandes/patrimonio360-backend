@@ -198,6 +198,7 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
     "message.analytics_scope_museum": {"pt": "do museu", "en": "in the museum"},
     "message.analytics_scope_tour": {"pt": "desta visita virtual", "en": "in this virtual tour"},
     "message.analytics_subject": {"pt": " que correspondem a «{subject}»", "en": " matching “{subject}”"},
+    "message.analytics_treasure": {"pt": " classificadas como Tesouro Nacional", "en": " listed as National Treasures"},
     "message.analytics_oldest": {
         "pt": "Entre as {dated} peças com data na ficha ({pct}% das {total} {scope}{subject}), a mais antiga é «{title}» ({inventory}), {date}. Os cartões abaixo mostram as {shown} mais antigas, por ordem.",
         "en": "Among the {dated} objects with a date in their record ({pct}% of the {total} {scope}{subject}), the oldest is “{title}” ({inventory}), {date}. The cards below show the {shown} oldest, in order.",
