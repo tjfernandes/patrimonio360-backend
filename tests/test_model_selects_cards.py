@@ -340,5 +340,194 @@ class TestEndToEnd(_Base):
         self.assertFalse(response.results_has_more)
 
 
+# ----- encher a página 1 (CHAT_MODEL_SELECTS_CARDS_FILL) ----- #
+
+MORE_DOCS = [
+    {"artifact_id": f"m{i}", "inventory_number": f"MNAz {900 + i} Az", "title": title, "museum_id": "mnaz",
+     "in_tour": i % 2 == 0, "image_count": 1, "category": "Azulejaria"}
+    for i, title in enumerate(
+        ["Cena de Caça ao Javali", "Painel de Jardim", "Cena de Caça ao Veado", "Albarrada", "Cena Galante",
+         "Caçada Real", "Frontal de Altar", "Padrão de Ponta de Diamante",
+         "Montaria", "Macaco Caçador", "Painel Avulso", "Cenas de Caça (par)", "Fonte", "Vaso", "Brasão", "Anjo"],
+        start=1,
+    )
+]
+
+
+class _PagedGateway(_SearchGateway):
+    """Serve os candidatos 9+ a partir de MORE_DOCS e guarda os offsets pedidos."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.page_calls: list[tuple[int, int]] = []
+
+    async def search_relevant_context_page(self, *, from_offset, page_size, **_kwargs):
+        self.page_calls.append((from_offset, page_size))
+        everything = [dict(d) for d in MNAZ_DOCS] + [dict(d) for d in MORE_DOCS]
+        docs = everything[from_offset: from_offset + page_size]
+        return type("Page", (), {"results": docs, "total": len(everything), "query_body": {}})()
+
+    async def fetch_images_by_artifact_ids(self, *, artifact_ids, **_kwargs):
+        by_id = {d["artifact_id"]: d for d in MNAZ_DOCS + MORE_DOCS}
+        return [
+            {"artifact_id": i, "image_id": f"img-{i}", "local_path": f"Images/x/{i}.jpg",
+             "inventory_number": by_id[i]["inventory_number"], "museum_id": "mnaz", "score": 1.0}
+            for i in artifact_ids if i in by_id
+        ]
+
+
+class _ScriptedLLM(_FinalLLM):
+    """Uma resposta por chamada, pela ordem: a final e depois as de enchimento."""
+
+    def __init__(self, *texts: str) -> None:
+        super().__init__(texts[0])
+        self.texts = list(texts)
+
+    async def generate(self, *, message, response_format=ResponseFormatObject(type="text"), **_kwargs):
+        self.prompts.append(message)
+        text = self.texts[min(len(self.prompts), len(self.texts)) - 1]
+        return LLMResponse(text=text, model="fake", response_format=response_format, finish_reason="stop")
+
+
+class TestParseFillSelection(unittest.TestCase):
+    def setUp(self) -> None:
+        self.service = object.__new__(ChatService)
+
+    def parse(self, text: str, inventories=None, candidates=None):
+        return self.service._parse_fill_selection(text, inventories, candidates)
+
+    def test_cited_pieces_come_first_and_negated_lines_do_not_count(self) -> None:
+        cards = _cards()
+        text = ("Fuga para o Egipto (Inventário: MNAz 1690 Az) – cena bíblica\n"
+                "Cena de Caça (Inventário: MNAz 730 Az) – caçada com cavaleiros\n"
+                "Martírio de São Lourenço (MC.AZU.0490) – não corresponde (tema diferente)")
+        self.assertEqual(self.parse(text, None, cards), [5, 8])
+        # medido a 2026-10-15: «Nenhuma. … Apenas o cartão [doc_6] ("Interior…") … mas não é uma escultura»
+        text = 'Nenhuma. Apenas o cartão [doc_6] ("Regresso do Egipto") tem mulheres, mas não é uma escultura.'
+        self.assertEqual(self.parse(text, None, cards), [])
+        self.assertEqual(self.parse("Nenhuma.", None, cards), [])
+        self.assertEqual(self.parse("None.", None, cards), [])
+        # título partilhado por dois cartões («Martírio de São Sebastião», d2 e d3): só o n.º decide
+        self.assertIsNone(self.parse("Martírio de São Sebastião – cena de martírio", None, cards))
+        self.assertEqual(self.parse("Martírio de São Sebastião (MNAz 731 Proj) – cena de martírio", None, cards), [3])
+        # com um n.º na linha, um título de outro cartão no motivo não conta
+        self.assertEqual(self.parse("Regresso do Egipto (MNAz 158 Esc) – segue-se à fuga para o egipto", None, cards), [7])
+
+    def test_lines_decide_by_inventory_then_block_then_bare_labels(self) -> None:
+        inventories = ["MNAz 730 Az", "MNAz 7883 Az", "MNAz 391 Az"]
+        # o rótulo está errado (doc_2) mas o n.º copiado é o do 3.º cartão: vale o n.º
+        self.assertEqual(self.parse("doc_1 (MNAz 730 Az): não\ndoc_2 (MNAz 391 Az): sim\n[[cartões: doc_2]]", inventories), [3])
+        self.assertEqual(self.parse("doc_1 (mnaz 730 az): sim\ndoc_3 (xxx): sim", inventories), [1, 3])
+        self.assertEqual(self.parse("doc_1: não\ndoc_2: sim\ndoc_3: sim"), [2, 3])     # sem n.ºs: o rótulo
+        self.assertEqual(self.parse("doc_1: no\ndoc_2: yes"), [2])
+        self.assertEqual(self.parse("doc_1: não\ndoc_2: não\n[[cartões: nenhum]]"), [])
+        self.assertEqual(self.parse("Texto.\n[[cartões: doc_3, doc_2]]"), [3, 2])
+        # medido a 2026-10-15: o 9B omitia o «cartões:»
+        self.assertEqual(self.parse("[doc_3, doc_6]"), [3, 6])
+        self.assertEqual(self.parse("[[doc_7]]"), [7])
+        self.assertEqual(self.parse("Nenhum."), [])
+        self.assertEqual(self.parse("[[cartões: nenhum]]"), [])
+
+    def test_unreadable_is_none(self) -> None:
+        self.assertIsNone(self.parse("Não sei."))
+        self.assertIsNone(self.parse(""))
+        self.assertIsNone(self.parse("x" * 200 + " doc_2"))
+
+
+class TestPageOffset(unittest.TestCase):
+    offset = staticmethod(ChatService._text_page_offset)
+
+    def test_without_fill_pages_are_contiguous(self) -> None:
+        self.assertEqual([self.offset({}, p, 8) for p in (1, 2, 3)], [0, 8, 16])
+
+    def test_after_fill_page_two_starts_after_the_last_candidate_seen(self) -> None:
+        request = {"candidates_consumed": 24}
+        self.assertEqual([self.offset(request, p, 8) for p in (1, 2, 3)], [0, 24, 32])
+        self.assertEqual(self.offset({"candidates_consumed": 8}, 2, 8), 8)
+        self.assertEqual(self.offset({"candidates_consumed": "x"}, 2, 8), 8)
+
+
+class TestFill(_Base):
+    POI_BY_MUSEUM = {"mnaz": TestEndToEnd.POI_BY_MUSEUM["mnaz"] + [
+        {"overlayId": "ov-902", "panoramaKey": "pan_c", "inventoryIds": ["MNAz 902 Az"], "location": "Sala C", "title": "Jardim"},
+    ]}
+    _search_service = TestEndToEnd._search_service
+    _ask = TestEndToEnd._ask
+
+    def _fill_service(self, llm, *, fill: bool = True, rounds: int = 2, total: int = 24) -> ChatService:
+        service = self._search_service(llm, total=total)
+        service.settings = self._settings(
+            CHAT_MODEL_SELECTS_CARDS=True, CHAT_MODEL_SELECTS_CARDS_FILL=fill, CHAT_MODEL_SELECTS_CARDS_FILL_ROUNDS=rounds,
+            CHAT_COMPACT_ANSWER_CONTEXT=True, CHAT_ROUTER_MODE="deterministic", CHAT_RETRIEVAL_RESULTS_PAGE_SIZE=8,
+        )
+        service.opensearch_gateway = _PagedGateway()
+        return service
+
+    def test_short_page_is_filled_from_the_next_candidates(self) -> None:
+        llm = _ScriptedLLM(
+            "Há cenas de caça numa peça: Cena de Caça (MNAz 730 Az).\n[[cartões: doc_8]]",
+            "[[cartões: doc_3, doc_1, doc_6]]",     # candidatos 9–16: m3, m1, m6
+            "[[cartões: doc_4]]",                   # candidatos 17–24: m12
+        )
+        service = self._fill_service(llm)
+        response = self._ask(service, "Mostra-me painéis com cenas de caça")
+        self.assertEqual([a.artifact_id for a in response.artifact_results], ["d8", "m3", "m1", "m6", "m12"])
+        self.assertEqual([m.artifact_id for m in response.image_matches], ["d8", "m3", "m1", "m6", "m12"])
+        self.assertEqual(response.reply, "Há cenas de caça numa peça: Cena de Caça (MNAz 730 Az).")
+        self.assertFalse(response.results_has_more)            # viu os 24 candidatos
+        self.assertEqual(service.opensearch_gateway.page_calls, [(8, 8), (16, 8)])
+        self.assertEqual(len(llm.prompts), 3)
+        self.assertIn("MAIS CANDIDATOS:", llm.prompts[1])
+        self.assertIn("[doc_1] Título: Cena de Caça ao Javali", llm.prompts[1])
+        self.assertIn("PERGUNTA: Mostra-me painéis com cenas de caça", llm.prompts[1])
+        self.assertNotIn("Cena de Caça ao Javali", llm.prompts[0])
+        fill = service.query_logger.events[-1]["card_selection"]["fill"]
+        self.assertEqual((fill["rounds"], fill["candidates_seen"], fill["added"], fill["candidates_consumed"]), (2, 16, 4, 24))
+
+    def test_stops_when_the_page_is_full_and_see_more_continues_after_the_last_seen(self) -> None:
+        from app.schemas.chat import ChatResultsPageRequest
+
+        llm = _ScriptedLLM(
+            "Há cenas de caça em duas peças.\n[[cartões: doc_8, doc_5]]",
+            "[[cartões: doc_1, doc_2, doc_3, doc_4, doc_5, doc_6, doc_7, doc_8]]",
+        )
+        service = self._fill_service(llm, total=40)
+        response = self._ask(service, "Mostra-me painéis com cenas de caça")
+        self.assertEqual(len(response.artifact_results), 8)
+        self.assertEqual([a.artifact_id for a in response.artifact_results][:2], ["d8", "d5"])
+        self.assertTrue(response.results_has_more)
+        self.assertEqual(len(llm.prompts), 2)                   # uma ronda chegou
+        self.assertEqual([t.overlay_id for t in response.navigation_targets], ["ov-1690", "ov-902"])
+        page2 = asyncio.run(service.get_results_page(ChatResultsPageRequest(
+            museum_slug="mnaz", museum_id="mnaz", language="pt", conversation_id=response.conversation_id,
+            results_page=2, results_page_size=8, results_request_id=response.results_request_id,
+        )))
+        self.assertEqual(service.opensearch_gateway.page_calls[-1], (16, 8))   # a seguir ao último candidato visto
+        self.assertEqual([a.artifact_id for a in page2.artifact_results], [f"m{i}" for i in range(9, 17)])
+
+    def test_no_block_in_the_fill_adds_nothing(self) -> None:
+        llm = _ScriptedLLM("Há cenas de caça numa peça.\n[[cartões: doc_8]]", "Não sei.", "[[cartões: nenhum]]")
+        service = self._fill_service(llm)
+        response = self._ask(service, "Mostra-me painéis com cenas de caça")
+        self.assertEqual([a.artifact_id for a in response.artifact_results], ["d8"])
+        fill = service.query_logger.events[-1]["card_selection"]["fill"]
+        self.assertEqual((fill["rounds"], fill["added"], fill["no_block"]), (2, 0, 1))
+
+    def test_not_applied_without_the_flag_for_named_pieces_or_full_pages(self) -> None:
+        llm = _ScriptedLLM("Há cenas de caça numa peça.\n[[cartões: doc_8]]", "[[cartões: doc_1]]")
+        service = self._fill_service(llm, fill=False)
+        self.assertEqual(len(self._ask(service, "Mostra-me painéis com cenas de caça").artifact_results), 1)
+        self.assertEqual(len(llm.prompts), 1)
+        llm = _ScriptedLLM("A Fuga para o Egipto.\n[[cartões: doc_5]]", "[[cartões: doc_1]]")
+        service = self._fill_service(llm)
+        response = self._ask(service, "encontra a fuga para o egito")
+        self.assertEqual([a.artifact_id for a in response.artifact_results], ["d5", "d6"])
+        self.assertEqual(len(llm.prompts), 1)                   # pedido por nome: não enche
+        llm = _ScriptedLLM("Várias peças.", "[[cartões: doc_1]]")
+        service = self._fill_service(llm)
+        self.assertEqual(len(self._ask(service, "Mostra-me painéis").artifact_results), 8)
+        self.assertEqual(len(llm.prompts), 1)                   # sem bloco, a página já está cheia
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -104,6 +104,7 @@ class LLMService:
         response_format: ResponseFormatObject,
         system_prompt: str | None,
         model_override: str | None,
+        max_tokens: int | None = None,
     ) -> tuple[dict[str, Any], str, str, str]:
         provider = self.settings.LLM_PROVIDER.strip().lower()
         if provider != "openai_compatible":
@@ -134,9 +135,10 @@ class LLMService:
             "response_format": {"type": response_format.type},
             "temperature": temperature,
         }
-        max_tokens = self._resolve_max_tokens(response_format.type)
-        if max_tokens:
-            payload["max_tokens"] = max_tokens
+        # um limite pedido pela chamada (uma escolha curta) ganha ao global
+        resolved_max_tokens = int(max_tokens) if max_tokens and int(max_tokens) > 0 else self._resolve_max_tokens(response_format.type)
+        if resolved_max_tokens:
+            payload["max_tokens"] = resolved_max_tokens
         return payload, provider, model, user_content
 
     async def generate(
@@ -146,12 +148,14 @@ class LLMService:
         response_format: ResponseFormatObject,
         system_prompt: str | None = None,
         model_override: str | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         payload, provider, model, user_content = self._build_payload(
             message=message,
             response_format=response_format,
             system_prompt=system_prompt,
             model_override=model_override,
+            max_tokens=max_tokens,
         )
         system_content = (system_prompt or "").strip()
 

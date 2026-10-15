@@ -27,6 +27,10 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "A gerar resposta final",
         "en": "Generating final answer",
     },
+    "status.selecting_more_cards": {
+        "pt": "A procurar mais peças que correspondam",
+        "en": "Looking for more matching objects",
+    },
     "status.answer_ready": {
         "pt": "Resposta pronta",
         "en": "Answer ready",

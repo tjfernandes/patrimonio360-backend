@@ -43,6 +43,7 @@ from app.services.catalogue_analytics import (
     parse_catalogue_analytics,
 )
 from app.prompts.chat_prompts import (
+    build_card_fill_prompt,
     build_describe_artifact_prompt,
     build_final_answer_prompt_v2,
     build_tour_context_prompt,
@@ -255,6 +256,14 @@ _REFERENCE_SEARCH_VERBS = frozenset(
 )
 
 # O modelo escolhe os cartões (CHAT_MODEL_SELECTS_CARDS): bloco final
+# Encher a página (CHAT_MODEL_SELECTS_CARDS_FILL): limite de saída da escolha e
+# as negações que anulam uma peça citada na mesma linha.
+_CARD_FILL_MAX_TOKENS = 220
+_CARD_FILL_NEGATION = re.compile(
+    r"\bn[aã]o\s+(?:corresponde|cumpre|é|e|está|esta|tem|representa|se\s+trata)\b|\bnenhum[a]?\b"
+    r"|\bdoes\s+not\s+match\b|\bnot\s+(?:a|an|the)\b|\bnone\b",
+    re.IGNORECASE,
+)
 # «[[cartões: doc_1, doc_3]]» / «[[cards: …]]», fechado ou cortado no fim.
 _CARD_SELECTION_BLOCK = re.compile(r"\[\[\s*(?:cart[oõ]es|cards)\s*:\s*([^\[\]]*?)\s*\]\]", re.IGNORECASE)
 _CARD_SELECTION_OPEN_TAIL = re.compile(r"\[\[\s*(?:cart[oõ]es|cards)\s*:\s*([^\[\]]*)$", re.IGNORECASE)
@@ -1840,23 +1849,34 @@ class ChatService:
             pass
         return translate("message.results_page_fallback", language)
 
-    async def _materialize_text_results_page(
+    @staticmethod
+    def _text_page_offset(request: dict[str, Any], page: int, page_size: int) -> int:
+        """Primeiro candidato da página N. Com a página 1 enchida pelo modelo
+        (`candidates_consumed`), a página 2 começa a seguir ao último
+        candidato que ele viu, não no 9.º."""
+        if page <= 1:
+            return 0
+        try:
+            consumed = int(request.get("candidates_consumed") or 0)
+        except (TypeError, ValueError):
+            consumed = 0
+        first = consumed if consumed > page_size else page_size
+        return first + (page - 2) * page_size
+
+    async def _fetch_text_candidates(
         self,
         *,
-        state: ChatSessionState,
-        payload: ChatResultsPageRequest,
         request: dict[str, Any],
-        page: int,
+        museum_slug: str,
+        museum_id: str | None,
+        conversation_id: str,
+        from_offset: int,
         page_size: int,
-    ) -> ChatResultsPageResponse:
-        from_offset = (page - 1) * page_size
-        request_museum_slug = self._request_museum_slug(payload, request)
-        request_museum_id = self._request_museum_id(payload, request)
-        search_scope = self._search_scope_from_request(
-            request,
-            fallback_museum_slug=request_museum_slug,
-            fallback_museum_id=request_museum_id,
-        )
+        context: str = "text_page",
+    ) -> tuple[list[dict[str, object]], list[ArtifactResult], list[ImageMatchResult], list[TourNavigationTarget], int]:
+        """Os candidatos [from_offset, from_offset + page_size) da pesquisa
+        guardada, já como cartões (fichas completas, miniaturas e alvos de
+        navegação). Devolve também o total do OpenSearch."""
         # Com fichas iguais juntas, a página N não pode ser um `from` no
         # OpenSearch (as fichas juntas na página 1 voltariam na 2): pede-se
         # desde o início até ao fim da página pedida, junta-se e corta-se.
@@ -1865,8 +1885,8 @@ class ChatService:
         fetch_size = self._collapse_fetch_size(from_offset + page_size) if collapse else page_size
         window = self._retrieval_window_from_request(request)
         page_result = await self.opensearch_gateway.search_relevant_context_page(
-            museum_slug=request_museum_slug,
-            museum_id=request_museum_id,
+            museum_slug=museum_slug,
+            museum_id=museum_id,
             query_text=str(request.get("query_text") or ""),
             lexical_query=str(request.get("lexical_query") or "") or None,
             query_embedding=list(request.get("query_embedding") or []),
@@ -1889,8 +1909,8 @@ class ChatService:
         if artifact_ids:
             try:
                 image_hits = await self.opensearch_gateway.fetch_images_by_artifact_ids(
-                    museum_slug=request_museum_slug,
-                    museum_id=request_museum_id,
+                    museum_slug=museum_slug,
+                    museum_id=museum_id,
                     artifact_ids=artifact_ids,
                     per_artifact=1,
                     max_total=max(len(artifact_ids), 1),
@@ -1902,27 +1922,54 @@ class ChatService:
                 artifact_docs=docs,
             )
         navigation_targets = self._resolve_navigation_targets(
-            museum_slug=request_museum_slug,
-            museum_id=request_museum_id,
+            museum_slug=museum_slug,
+            museum_id=museum_id,
             docs=docs,
         )
         # Build the full artifact records (all images) so the detail modal matches
         # the image/model search behaviour. The 1-image `image_hits` above only feed
         # the result-card thumbnails, not the modal gallery.
         artifact_results = await self._build_artifact_results(
-            museum_slug=request_museum_slug,
-            museum_id=request_museum_id,
+            museum_slug=museum_slug,
+            museum_id=museum_id,
             artifact_docs=docs,
         )
         image_matches = self._enrich_image_matches(
-            context="text_page",
-            conversation_id=payload.conversation_id,
-            museum_slug=request_museum_slug,
+            context=context,
+            conversation_id=conversation_id,
+            museum_slug=museum_slug,
             image_matches=image_matches,
             artifact_results=artifact_results,
             navigation_targets=navigation_targets,
         )
-        reported_total = self._reported_results_total(request, page_result.total)
+        return docs, artifact_results, image_matches, navigation_targets, int(page_result.total or 0)
+
+    async def _materialize_text_results_page(
+        self,
+        *,
+        state: ChatSessionState,
+        payload: ChatResultsPageRequest,
+        request: dict[str, Any],
+        page: int,
+        page_size: int,
+    ) -> ChatResultsPageResponse:
+        from_offset = self._text_page_offset(request, page, page_size)
+        request_museum_slug = self._request_museum_slug(payload, request)
+        request_museum_id = self._request_museum_id(payload, request)
+        search_scope = self._search_scope_from_request(
+            request,
+            fallback_museum_slug=request_museum_slug,
+            fallback_museum_id=request_museum_id,
+        )
+        docs, artifact_results, image_matches, navigation_targets, page_total = await self._fetch_text_candidates(
+            request=request,
+            museum_slug=request_museum_slug,
+            museum_id=request_museum_id,
+            conversation_id=payload.conversation_id,
+            from_offset=from_offset,
+            page_size=page_size,
+        )
+        reported_total = self._reported_results_total(request, page_total)
         reply = await self._generate_results_page_reply(
             payload=payload,
             request=request,
@@ -4401,6 +4448,38 @@ class ChatService:
                 results_has_more=results_has_more,
                 reply_text=final_reply_text,
             )
+            if (
+                bool(getattr(self.settings, "CHAT_MODEL_SELECTS_CARDS_FILL", False))
+                and retrieval_kind_for_log == "text"
+                and card_selection.get("rule") in {"cited", "model"}
+                and len(paged_artifact_results) < results_page_size
+                and results_has_more
+            ):
+                (
+                    paged_artifact_results,
+                    paged_image_matches,
+                    paged_navigation_targets,
+                    results_has_more,
+                    card_selection["fill"],
+                ) = await self._fill_selected_cards(
+                    state=state,
+                    status_cb=status_cb,
+                    language=language,
+                    conversation_id=conversation_id,
+                    retrieval_request=retrieval_request,
+                    museum_slug=search_museum_slug,
+                    museum_id=search_museum_id,
+                    museum_name=search_museum_name,
+                    user_message=original_message,
+                    rewritten_query=rewritten_query,
+                    artifact_results=paged_artifact_results,
+                    image_matches=paged_image_matches,
+                    navigation_targets=paged_navigation_targets,
+                    page_size=results_page_size,
+                    results_total=results_total,
+                    results_request_id=results_request_id,
+                    reply_text=final_reply_text,
+                )
             log_event(
                 logger,
                 logging.INFO,
@@ -10008,6 +10087,216 @@ class ChatService:
         )
         report["shown_after"] = len(artifacts)
         return artifacts, images, targets, total, has_more, report
+
+    async def _fill_selected_cards(
+        self,
+        *,
+        state: ChatSessionState,
+        status_cb: StatusCallback | None,
+        language: str | None,
+        conversation_id: str,
+        retrieval_request: dict[str, Any],
+        museum_slug: str,
+        museum_id: str | None,
+        museum_name: str | None,
+        user_message: str,
+        rewritten_query: str,
+        artifact_results: list[ArtifactResult],
+        image_matches: list[ImageMatchResult],
+        navigation_targets: list[TourNavigationTarget],
+        page_size: int,
+        results_total: int,
+        results_request_id: str | None,
+        reply_text: str = "",
+    ) -> tuple[list[ArtifactResult], list[ImageMatchResult], list[TourNavigationTarget], bool, dict[str, Any]]:
+        """Enche a página 1 (CHAT_MODEL_SELECTS_CARDS_FILL).
+
+        O modelo escolheu poucos cartões entre os primeiros candidatos. Lê os
+        `page_size` seguintes, pede-lhe só o bloco «[[cartões: …]]» (a
+        resposta já foi dada) e junta os escolhidos, por rondas, até a página
+        estar cheia, os candidatos acabarem ou o limite de rondas. Guarda em
+        `candidates_consumed` até onde viu, para o «ver mais» continuar daí.
+        Qualquer falha pára a ronda e deixa a página como estava.
+        """
+        report: dict[str, Any] = {"rounds": 0, "candidates_seen": 0, "added": 0, "llm_ms": 0.0}
+        artifacts = list(artifact_results)
+        images = list(image_matches)
+        targets = list(navigation_targets)
+        known = {a.artifact_id for a in artifacts}
+        consumed = page_size
+        total = max(int(results_total), 0)
+        rounds = max(int(getattr(self.settings, "CHAT_MODEL_SELECTS_CARDS_FILL_ROUNDS", 2) or 0), 0)
+        for _round in range(rounds):
+            if len(artifacts) >= page_size or consumed >= total:
+                break
+            await self._emit_status(status_cb, "status.selecting_more_cards", language=language)
+            try:
+                docs, candidates, candidate_images, candidate_targets, page_total = await self._fetch_text_candidates(
+                    request=retrieval_request,
+                    museum_slug=museum_slug,
+                    museum_id=museum_id,
+                    conversation_id=conversation_id,
+                    from_offset=consumed,
+                    page_size=page_size,
+                    context="text_fill",
+                )
+            except Exception:
+                logger.warning("chat.card_fill.fetch_failed", exc_info=True)
+                break
+            if not candidates:
+                break
+            report["rounds"] += 1
+            report["candidates_seen"] += len(candidates)
+            consumed += len(candidates)
+            total = min(total, page_total) if page_total else total
+            prompt = build_card_fill_prompt(
+                museum_name=museum_name,
+                user_message=user_message,
+                rewritten_query=rewritten_query,
+                retrieval_context=self._format_docs_compact(docs=self._artifact_results_as_prompt_docs(candidates)),
+                language=language,
+                reply_text=reply_text,
+            )
+            started = time.monotonic()
+            try:
+                llm_response = await self.llm_service.generate(
+                    message=prompt,
+                    response_format=ResponseFormatObject(type="text"),
+                    system_prompt=self._final_system_prompt(None, language),
+                    model_override=None,
+                    max_tokens=_CARD_FILL_MAX_TOKENS,  # uma linha por peça: o 9B tende a descrever
+                )
+            except Exception:
+                logger.warning("chat.card_fill.llm_failed", exc_info=True)
+                break
+            report["llm_ms"] += round((time.monotonic() - started) * 1000, 1)
+            raw_text = str(getattr(llm_response, "text", "") or "")
+            indices = self._parse_fill_selection(
+                raw_text, [str(c.inventory_number or "") for c in candidates], candidates
+            )
+            report.setdefault("blocks", []).append(indices)
+            report.setdefault("raw", []).append(re.sub(r"\s+", " ", raw_text)[:200])
+            report.setdefault("candidates", []).append(
+                [f"{c.inventory_number}: {str(c.title or '')[:28]}" for c in candidates]
+            )
+            if indices is None:
+                # sem bloco: não se sabe o que o modelo quis; não se junta nada
+                report["no_block"] = report.get("no_block", 0) + 1
+                continue
+            chosen = [candidates[i - 1] for i in indices if 1 <= i <= len(candidates)]
+            for candidate in chosen:
+                if len(artifacts) >= page_size:
+                    break
+                if candidate.artifact_id in known:
+                    continue
+                known.add(candidate.artifact_id)
+                artifacts.append(candidate)
+                report["added"] += 1
+                inventory = str(candidate.inventory_number or "").strip().casefold()
+                images.extend(
+                    m for m in candidate_images
+                    if str(m.artifact_id or "").strip() == candidate.artifact_id
+                    or (inventory and str(m.inventory or "").strip().casefold() == inventory)
+                )
+                targets.extend(
+                    t for t in candidate_targets
+                    if inventory and str(t.inventory_id or "").strip().casefold() == inventory
+                )
+            if len(candidates) < page_size:
+                break  # acabaram os candidatos
+        report["candidates_consumed"] = consumed
+        has_more = consumed < total
+        # o «ver mais» continua a seguir ao último candidato visto
+        for request in (state.last_paged_retrieval_request, self._paged_snapshot_request(state, results_request_id)):
+            if isinstance(request, dict):
+                request["candidates_consumed"] = consumed
+        return artifacts, images, targets, has_more, report
+
+    def _parse_fill_selection(
+        self,
+        text: str,
+        inventories: list[str] | None = None,
+        candidates: list[ArtifactResult] | None = None,
+    ) -> list[int] | None:
+        """Os cartões escolhidos numa resposta só de escolha (índices 1-based).
+
+        Primeiro as peças citadas (n.º de inventário ou título, como na
+        resposta da página 1: o 9B engana-se nos rótulos, copiar o n.º não).
+        Depois as linhas «doc_N: sim», o bloco «[[cartões: …]]» e, numa
+        resposta curta, qualquer lista de rótulos («[doc_3, doc_6]»). «nenhum»
+        sem nada é a lista vazia; `None` quando não se percebe.
+        """
+        raw = (text or "").strip()
+        chosen: list[int] = []
+        if candidates:
+            # linha a linha: uma peça citada numa linha que a nega («… – não
+            # corresponde», «não é uma escultura») não conta. Pelo n.º de
+            # inventário, ou pelo título quando só um candidato o tem («Painel
+            # de azulejos» é o título de metade dos cartões do MNAz).
+            titles = Counter(self._fold_query_text(str(c.title or "")) for c in candidates)
+            for line in re.split(r"[\n;]+|(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÀÇ\[«\"'])", raw):
+                if _CARD_FILL_NEGATION.search(line):
+                    continue
+                folded_line = f" {self._fold_query_text(line)} "
+                by_inventory: list[int] = []
+                by_title: list[int] = []
+                for index, candidate in enumerate(candidates, start=1):
+                    inventory = self._fold_query_text(str(candidate.inventory_number or ""))
+                    title = self._fold_query_text(str(candidate.title or ""))
+                    if inventory and any(ch.isdigit() for ch in inventory) and f" {inventory} " in folded_line:
+                        by_inventory.append(index)
+                    elif len(title.split()) >= 2 and titles[title] == 1 and f" {title} " in folded_line:
+                        by_title.append(index)
+                # com um n.º na linha, o título só confunde («7883 – cena de caça
+                # com cavaleiro» citaria também o cartão «Cena de Caça»)
+                for index in by_inventory or by_title:
+                    if index not in chosen:
+                        chosen.append(index)
+            if chosen:
+                return chosen
+            if _CARD_FILL_NEGATION.search(raw):
+                return []  # «Nenhuma.», ou só peças negadas
+        lines = re.findall(
+            r"doc[_\s-]*(\d{1,3})\s*(?:\(([^)]*)\))?\s*[:\-–]\s*(sim|yes|n[aã]o|no)\b", raw, flags=re.IGNORECASE
+        )
+        if lines:
+            keys = [self._normalize_inventory_key(i) for i in (inventories or [])]
+            for number, inventory, verdict in lines:
+                if verdict.lower() not in {"sim", "yes"}:
+                    continue
+                index = int(number)
+                key = self._normalize_inventory_key(inventory)
+                if key and key in keys:
+                    index = keys.index(key) + 1
+                if index > 0 and index not in chosen:
+                    chosen.append(index)
+            return chosen
+        _cleaned, indices = self._split_card_selection(raw)
+        if indices is not None:
+            return indices
+        if len(raw) <= 160:
+            labels = re.findall(r"doc[_\s-]*(\d{1,3})", raw, flags=re.IGNORECASE)
+            if labels:
+                for number in labels:
+                    index = int(number)
+                    if index > 0 and index not in chosen:
+                        chosen.append(index)
+                return chosen
+        if re.search(r"\b(?:nenhum|nenhuma|none)\b", raw, flags=re.IGNORECASE):
+            return []
+        return None
+
+    @staticmethod
+    def _normalize_inventory_key(value: str | None) -> str:
+        return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
+
+    @staticmethod
+    def _paged_snapshot_request(state: ChatSessionState, results_request_id: str | None) -> dict[str, Any] | None:
+        snapshots = getattr(state, "paged_results_by_request_id", None)
+        if not isinstance(snapshots, dict) or not results_request_id:
+            return None
+        snapshot = snapshots.get(results_request_id)
+        return snapshot.get("retrieval_request") if isinstance(snapshot, dict) else None
 
     def _sanitize_assistant_reply(
         self,

@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     # ou n.º de inventário mostra só as peças que correspondem («egito» ≈
     # «Egipto»), sem «ver mais». Sem bloco, os cartões ficam como hoje.
     CHAT_MODEL_SELECTS_CARDS: bool = False
+    # Encher a página 1: quando o modelo escolhe menos cartões do que a página
+    # tem e há mais candidatos, vão-se buscar os 8 seguintes e o modelo escolhe
+    # entre eles só com o bloco (sem texto), até a página ficar cheia ou ao
+    # fim das rondas. O «ver mais» continua no candidato a seguir ao último visto.
+    CHAT_MODEL_SELECTS_CARDS_FILL: bool = False
+    CHAT_MODEL_SELECTS_CARDS_FILL_ROUNDS: int = 2
     # Fichas iguais do mesmo conjunto («Botões (dez)», 38195/1 a 38195/10: título e
     # descrição iguais, só o n.º muda) juntam-se num cartão, o da ficha mais bem
     # posicionada (ou a que está na visita), com group_size e os n.ºs das outras.
