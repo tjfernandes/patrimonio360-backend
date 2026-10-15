@@ -6,7 +6,8 @@
       "967"
     ],
     "location": "Sala Cantonal",
-    "title": "Bolsa"
+    "title": "Bolsa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6D74E487_5C2E_D4D0_41C1_16DAE5D2D1E8",
@@ -17,7 +18,8 @@
       "4659"
     ],
     "location": "Sala Cantonal",
-    "title": "Botões (três)"
+    "title": "Botões (três)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6E1E49AD_5C32_7CD1_41A8_5235FEC06AA9",
@@ -26,7 +28,8 @@
       "4935"
     ],
     "location": "Sala Cantonal",
-    "title": "Cartola"
+    "title": "Cartola",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6CC6A60C_5C52_37D3_41D3_EB58163C3C2A",
@@ -35,7 +38,8 @@
       "4989"
     ],
     "location": "Sala Cantonal",
-    "title": "Bicórnio"
+    "title": "Bicórnio",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6EBBD8D8_5C32_DC7F_41CE_7BCF61921D74",
@@ -45,7 +49,8 @@
       "4706"
     ],
     "location": "Sala Cantonal",
-    "title": "Botões (dois)"
+    "title": "Botões (dois)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_095649BA_93DD_04DE_41B2_967B2666256A",
@@ -54,7 +59,8 @@
       "9396"
     ],
     "location": "Sala Cantonal",
-    "title": "Bolsa para moedas"
+    "title": "Bolsa para moedas",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_7384B55F_5C36_D471_41C5_8A3AD35B548A",
@@ -63,7 +69,8 @@
       "3200"
     ],
     "location": "Sala Cantonal",
-    "title": "Leque"
+    "title": "Leque",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6D711AE7_5C2E_FC5F_41D4_ABD57D1ADA64",
@@ -72,7 +79,8 @@
       "992"
     ],
     "location": "Sala Cantonal",
-    "title": "Bolsa"
+    "title": "Bolsa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_64355EC0_D439_452A_41E7_E25B5F3DDB95",
@@ -81,7 +89,8 @@
       "38853"
     ],
     "location": "Sala do Arco",
-    "title": "Vestido de criança"
+    "title": "Vestido de criança",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_782625FF_D4C9_46D6_41D6_A4B4AABA8DD2",
@@ -90,7 +99,8 @@
       "38848"
     ],
     "location": "Sala do Arco",
-    "title": "Casaco, saia e blusa"
+    "title": "Casaco, saia e blusa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_75579C64_D4C8_C5EA_41D5_91E29C8C76EE",
@@ -99,7 +109,8 @@
       "38727"
     ],
     "location": "Sala do Arco",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_733081E4_D4C9_7EE9_41AC_D34565A5B71E",
@@ -108,7 +119,8 @@
       "37654"
     ],
     "location": "Sala do Arco",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_47F93612_D4C9_C529_41E3_82ADEFBA9584",
@@ -117,7 +129,8 @@
       "28668"
     ],
     "location": "Sala 1920-1930",
-    "title": "Chapéu (canotier)"
+    "title": "Chapéu (canotier)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_1C3AEBFB_7C3B_9893_41D8_99CAE658CF34",
@@ -126,7 +139,8 @@
       "MNT 29227"
     ],
     "location": "Loja",
-    "title": "Carruagem"
+    "title": "Carruagem",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_76759002_D4D8_BD2E_41DD_EB3F4C9DFC9B",
@@ -135,7 +149,8 @@
       "22525"
     ],
     "location": "Sala do Arco",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_47425919_D44F_4F5A_41E2_D7AB5D9F8529",
@@ -144,7 +159,8 @@
       "16572"
     ],
     "location": "Sala 1910-1918",
-    "title": "Fato de banho (casaco e calção)"
+    "title": "Fato de banho (casaco e calção)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_12C57860_5C7E_DC14_41C9_AC0E0B3B9BE2",
@@ -153,7 +169,8 @@
       "12045"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_5E909771_D449_43EB_41C1_15C3655A02FF",
@@ -163,7 +180,8 @@
       "32065"
     ],
     "location": "Sala da Música",
-    "title": "Blusa e saia"
+    "title": "Blusa e saia",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_A9686315_D44B_432A_41E6_C5E82DD13D72",
@@ -172,7 +190,8 @@
       "20426"
     ],
     "location": "Sala da Música",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_5FF083FB_D44B_42DF_41E9_996E19870ED9",
@@ -181,7 +200,8 @@
       "38783"
     ],
     "location": "Sala da Música",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_7580EF68_D4C9_43F9_41CA_A8CE1B7E340C",
@@ -190,7 +210,8 @@
       "30701"
     ],
     "location": "Sala do Arco",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_47C01F5E_D4C9_43D6_41DB_7C613F60C36B",
@@ -199,7 +220,8 @@
       "14807"
     ],
     "location": "Sala 1920-1930",
-    "title": "Retrato de Maria Luísa Cabral Metelo"
+    "title": "Retrato de Maria Luísa Cabral Metelo",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_F4FA8EE2_BA2B_226A_41D3_4068E552F1A2",
@@ -208,7 +230,8 @@
       "28668"
     ],
     "location": "Sala 1920-1930",
-    "title": "Chapéu (canotier)"
+    "title": "Chapéu (canotier)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_78FD753F_5C32_D432_41C7_A1B642000316",
@@ -217,7 +240,8 @@
       "4184"
     ],
     "location": "Sala Cantonal",
-    "title": "Spencer"
+    "title": "Spencer",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_7F8AAB48_5C32_7C5E_41C7_4439C56B866E",
@@ -227,7 +251,8 @@
       "1409"
     ],
     "location": "Sala Cantonal",
-    "title": "Casaca e calção"
+    "title": "Casaca e calção",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6F7D50D7_5C3E_4C71_41D3_6F253F6CE84E",
@@ -236,7 +261,8 @@
       "16925"
     ],
     "location": "Sala Cantonal",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_4E96E18F_D4D8_BF36_41D6_D0FCDC0E3F6F",
@@ -245,7 +271,8 @@
       "15592"
     ],
     "location": "Sala do Arco",
-    "title": "Três Gerações"
+    "title": "Três Gerações",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_A9AF9BE6_BDFB_1CFE_41E4_E1FC05A2AA2D",
@@ -254,7 +281,8 @@
       "15592"
     ],
     "location": "Sala do Arco",
-    "title": "Três Gerações"
+    "title": "Três Gerações",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_B12F507D_9442_B573_41B7_9288FE1DDAC6",
@@ -263,7 +291,8 @@
       "77"
     ],
     "location": "Sala do Arco",
-    "title": "Sapatos (par)"
+    "title": "Sapatos (par)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_7E9D224A_D439_BD3E_41E8_4BABC970EBA9",
@@ -272,7 +301,8 @@
       "38458"
     ],
     "location": "Sala do Arco",
-    "title": "Sapatos de criança (par) e caixa"
+    "title": "Sapatos de criança (par) e caixa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_662C5EE1_D43B_42EA_41E8_6D231E650A28",
@@ -281,7 +311,8 @@
       "38567"
     ],
     "location": "Sala do Arco",
-    "title": "Porta-moedas"
+    "title": "Porta-moedas",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_75483579_D439_47DA_41E1_8F2844F9F3E4",
@@ -290,7 +321,8 @@
       "38538"
     ],
     "location": "Sala do Arco",
-    "title": "Sandálias (par)"
+    "title": "Sandálias (par)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_7A72D06E_D43F_5DF6_41D5_E375C730664F",
@@ -299,7 +331,8 @@
       "31711"
     ],
     "location": "Sala do Arco",
-    "title": "Touca e caixa"
+    "title": "Touca e caixa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_77362BEA_D439_C2FE_41E2_64ECD3B8441F",
@@ -308,7 +341,8 @@
       "18247"
     ],
     "location": "Sala do Arco",
-    "title": "Chapéu"
+    "title": "Chapéu",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_68E8560C_41EA_7C2D_41CD_118A28A2B5AA",
@@ -319,7 +353,8 @@
       "3968"
     ],
     "location": "Salão Nobre",
-    "title": "Casaca, colete e calção"
+    "title": "Casaca, colete e calção",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_70884C5D_D4DB_C5DA_41E0_8E1E84421912",
@@ -328,7 +363,8 @@
       "32487"
     ],
     "location": "Sala do Arco",
-    "title": "Vestido e casaco"
+    "title": "Vestido e casaco",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_753799B3_D4D9_4F6E_41DA_542CE118E7B3",
@@ -337,7 +373,8 @@
       "19673"
     ],
     "location": "Sala do Arco",
-    "title": "Casaquinha"
+    "title": "Casaquinha",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_40F1516F_D4DB_DFF6_41D8_04676102F694",
@@ -346,7 +383,8 @@
       "20025"
     ],
     "location": "Sala do Arco",
-    "title": "Casaco e saia"
+    "title": "Casaco e saia",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_4282D298_D4D9_DD5A_41E3_2C8BAE85E59C",
@@ -355,7 +393,8 @@
       "23392"
     ],
     "location": "Sala do Arco",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6876F335_41D5_D47F_41BF_53F10D081DED",
@@ -364,7 +403,8 @@
       "4045"
     ],
     "location": "Salão Nobre",
-    "title": "Véstia"
+    "title": "Véstia",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6B4E6A68_41D6_D415_41C1_33C5E6D2287D",
@@ -373,7 +413,8 @@
       "7617"
     ],
     "location": "Salão Nobre",
-    "title": "Véstia de criança"
+    "title": "Véstia de criança",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_689ECB62_41DA_D415_41AE_FCA2F52AEC37",
@@ -382,7 +423,8 @@
       "4312"
     ],
     "location": "Salão Nobre",
-    "title": "Véstia de criança"
+    "title": "Véstia de criança",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_49AC1535_D44B_476B_41DD_1131911FCA35",
@@ -391,7 +433,8 @@
       "12049"
     ],
     "location": "Sala 1910-1918",
-    "title": "Bolsa"
+    "title": "Bolsa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_477183FC_D449_C2DA_41E5_349A71614214",
@@ -400,7 +443,8 @@
       "12846"
     ],
     "location": "Sala 1910-1918",
-    "title": "Chapéu"
+    "title": "Chapéu",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_4D25C3BF_7C39_89C8_41D5_484049967EFA",
@@ -409,7 +453,8 @@
       "MNT 29226"
     ],
     "location": "Loja",
-    "title": "Carruagem"
+    "title": "Carruagem",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_40CD1025_D459_DD6B_41DB_2B7D054AE97D",
@@ -418,7 +463,8 @@
       "16415"
     ],
     "location": "Sala Chinioiserie",
-    "title": "Saiote"
+    "title": "Saiote",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_A8ADBACA_D449_4D3E_41E9_19C5FB0252C5",
@@ -427,7 +473,8 @@
       "7619"
     ],
     "location": "Sala da Música",
-    "title": "Visite"
+    "title": "Visite",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AE2666F3_D458_C2EE_41D7_7AA0F857BBCE",
@@ -436,7 +483,8 @@
       "11595"
     ],
     "location": "Sala da Música",
-    "title": "Capa"
+    "title": "Capa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_47CD7E29_D439_C57A_41E2_BD02B3965C00",
@@ -445,7 +493,8 @@
       "32709"
     ],
     "location": "Sala 1910-1918",
-    "title": "Botins (par)"
+    "title": "Botins (par)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_7F12F667_D4C7_45F6_41D5_B9A6D25652BA",
@@ -454,7 +503,8 @@
       "22958"
     ],
     "location": "Sala do Arco",
-    "title": "Chapéu"
+    "title": "Chapéu",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_76569627_D4D9_4577_41E7_07CFF7F5C5A5",
@@ -463,7 +513,8 @@
       "38127"
     ],
     "location": "Sala do Arco",
-    "title": "Carteira"
+    "title": "Carteira",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_5DD2EE80_D447_C52A_41E4_F898BF255D0F",
@@ -472,7 +523,8 @@
       "19663"
     ],
     "location": "Sala da Música",
-    "title": "Barrete de fumador"
+    "title": "Barrete de fumador",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_54C877EA_41AB_BC15_41A8_F5D126179F89",
@@ -481,7 +533,8 @@
       "26738"
     ],
     "location": "Hall",
-    "title": "Leque"
+    "title": "Leque",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_56E371EF_40F9_29E2_41B4_FB947B6C94CC",
@@ -490,7 +543,8 @@
       "4270"
     ],
     "location": "Hall",
-    "title": "Sapatos (par)"
+    "title": "Sapatos (par)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_540834BD_41AA_DC6F_41A3_A9B825BFF16D",
@@ -499,7 +553,8 @@
       "6869"
     ],
     "location": "Hall",
-    "title": "Ligas (par)"
+    "title": "Ligas (par)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_57528A36_41B6_747D_41CF_7C9760167234",
@@ -509,7 +564,8 @@
       "4704"
     ],
     "location": "Hall",
-    "title": "Botões (dois)"
+    "title": "Botões (dois)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_57B0AB6D_41B7_F4EE_41AE_C224ECA84E37",
@@ -518,7 +574,8 @@
       "8699"
     ],
     "location": "Hall",
-    "title": "Bolsa"
+    "title": "Bolsa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_544D26C3_41B6_BC1B_41B8_91CD54C5888C",
@@ -527,7 +584,8 @@
       "4130"
     ],
     "location": "Hall",
-    "title": "Capa indo-portuguesa"
+    "title": "Capa indo-portuguesa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_5725812E_41B5_D46D_41CE_6AA4ED3B6210",
@@ -536,7 +594,8 @@
       "3998"
     ],
     "location": "Hall",
-    "title": "Véstia"
+    "title": "Véstia",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_D4A3CA4E_D47F_4D36_41E4_74C6D5946500",
@@ -545,7 +604,8 @@
       "26510"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Retrato de Famíilia"
+    "title": "Retrato de Famíilia",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_EB4FB53D_BA69_2792_41D7_4BAF5B51AF0E",
@@ -554,7 +614,8 @@
       "26510"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Retrato de Famíilia"
+    "title": "Retrato de Famíilia",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_23E2A238_7C4F_8BAA_41D2_AA80F7A6157C",
@@ -563,7 +624,8 @@
       "MNT 29226"
     ],
     "location": "Loja",
-    "title": "Carruagem"
+    "title": "Carruagem",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AD818901_D459_4F2A_41E9_8E05C92308E8",
@@ -572,7 +634,8 @@
       "5622"
     ],
     "location": "Sala da Música",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_12FC95DB_5C52_D7CD_41D5_90F40EB2E804",
@@ -582,7 +645,8 @@
       "10430"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Alfinete e brincos (par)"
+    "title": "Alfinete e brincos (par)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_0C8C51BF_5C52_4C42_41D2_73784AD9A876",
@@ -591,7 +655,8 @@
       "26143"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Chapéu (capota)"
+    "title": "Chapéu (capota)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_4C5DB75D_D43B_43DB_41D5_8A6C9AE3BDC2",
@@ -600,7 +665,8 @@
       "29432"
     ],
     "location": "Sala 1920-1930",
-    "title": "Chapéu"
+    "title": "Chapéu",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_426A8345_D439_432A_41DB_ED621908CB8E",
@@ -609,7 +675,8 @@
       "30148"
     ],
     "location": "Sala 1920-1930",
-    "title": "Leque"
+    "title": "Leque",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_1C5F36CD_7C3F_888F_41B6_F9FE2A2F9A26",
@@ -618,7 +685,8 @@
       "MNT 29227"
     ],
     "location": "Loja",
-    "title": "Carruagem"
+    "title": "Carruagem",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_4A62C6D3_D439_452E_41C7_A1C0104BFFE2",
@@ -627,7 +695,8 @@
       "24112"
     ],
     "location": "Sala 1910-1918",
-    "title": "Capa"
+    "title": "Capa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_473A9A16_D438_CD29_41BA_EB773FFFBE48",
@@ -636,7 +705,8 @@
       "3375"
     ],
     "location": "Sala 1910-1918",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_4B891A01_5C32_DFD1_41D3_CC2652837659",
@@ -645,7 +715,8 @@
       "12179"
     ],
     "location": "Sala Cantonal",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_09F68A97_93D5_04A1_41DD_CA2544EF117F",
@@ -654,7 +725,8 @@
       "38461"
     ],
     "location": "Sala Cantonal",
-    "title": "Colete"
+    "title": "Colete",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_E1705778_D3C7_43D9_41E6_442A55B21312",
@@ -663,7 +735,8 @@
       "5626"
     ],
     "location": "Sala da Música",
-    "title": "Vestido (duas peças)"
+    "title": "Vestido (duas peças)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_49302F11_D4C7_432A_41E1_C522AEE63490",
@@ -672,7 +745,8 @@
       "11773"
     ],
     "location": "Sala 1920-1930",
-    "title": "No Parque"
+    "title": "No Parque",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_479FEE1C_D4C7_455A_41E5_979DBE1BFFAC",
@@ -681,7 +755,8 @@
       "38264"
     ],
     "location": "Sala 1920-1930",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_A809704C_D459_7D3A_41D7_61796F5FBCE9",
@@ -690,7 +765,8 @@
       "28519"
     ],
     "location": "Sala da Música",
-    "title": "Vestido de criança"
+    "title": "Vestido de criança",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_D4A2341B_D478_C55D_41E2_8185D9470E62",
@@ -699,7 +775,8 @@
       "11459"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Retrato de Senhora"
+    "title": "Retrato de Senhora",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_082497EA_5C56_73CA_41AD_3B0380954DEE",
@@ -708,7 +785,8 @@
       "38072"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Vestido (três peças)"
+    "title": "Vestido (três peças)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_097CE99C_93D3_04CF_41DE_436BCDE6F2FB",
@@ -717,7 +795,8 @@
       "3546"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Vestido de criança"
+    "title": "Vestido de criança",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_084784F8_4808_ACE3_41D1_456894A489EA",
@@ -726,7 +805,8 @@
       "3546"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Vestido de criança"
+    "title": "Vestido de criança",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_122F46F7_5C72_55F8_41C3_378BC9EC017D",
@@ -735,7 +815,8 @@
       "11957"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Vestido (duas peças)"
+    "title": "Vestido (duas peças)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_12C87120_5C7E_4C16_41AF_ED76039BBD35",
@@ -744,7 +825,8 @@
       "63"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Sapatos (par)"
+    "title": "Sapatos (par)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_4713A8F4_D458_CEE9_41DB_392D224D7CE0",
@@ -753,7 +835,8 @@
       "38746"
     ],
     "location": "Sala Chinioiserie",
-    "title": "Matiné"
+    "title": "Matiné",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_474F436F_D449_C3F7_41CE_47517E520E87",
@@ -762,7 +845,8 @@
       "5642"
     ],
     "location": "Sala 1910-1918",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_47BFF8DB_D447_4EDE_41E6_CE8AE3FEF143",
@@ -771,7 +855,8 @@
       "14835"
     ],
     "location": "Sala 1910-1918",
-    "title": "Vestido"
+    "title": "Vestido",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_422B11C3_D448_BF2E_41E3_B00C5D822E96",
@@ -780,7 +865,8 @@
       "15075"
     ],
     "location": "Sala 1910-1918",
-    "title": "Conjunto 'à marinheiro'"
+    "title": "Conjunto 'à marinheiro'",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_499F7C4F_D447_4536_41E8_5072EDFD354B",
@@ -789,7 +875,8 @@
       "15748"
     ],
     "location": "Sala 1910-1918",
-    "title": "Casaco e saia"
+    "title": "Casaco e saia",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_41424E11_D459_C52B_41E9_71609B418185",
@@ -801,7 +888,8 @@
       "12729"
     ],
     "location": "Sala Chinioiserie",
-    "title": "Conjunto (camisa de dia, camisa de noite, corpete e culottes)"
+    "title": "Conjunto (camisa de dia, camisa de noite, corpete e culottes)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_68EC124E_41EE_742D_41C4_00CB04DF7DF6",
@@ -810,7 +898,8 @@
       "3972"
     ],
     "location": "Salão Nobre",
-    "title": "Casaca"
+    "title": "Casaca",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_52949B7C_D44F_C3DA_41BB_5C70146BDED9",
@@ -819,7 +908,8 @@
       "15255"
     ],
     "location": "Sala Vitrine",
-    "title": "Visite"
+    "title": "Visite",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_75486B39_D449_C35A_41E3_C57CF2A15202",
@@ -828,7 +918,8 @@
       "6376"
     ],
     "location": "Sala Vitrine",
-    "title": "Visite"
+    "title": "Visite",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_4ACBF7B3_D447_436E_41C9_FC0748FB26DD",
@@ -837,7 +928,8 @@
       "9343"
     ],
     "location": "Sala Vitrine",
-    "title": "Capa"
+    "title": "Capa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_D4A043E9_D479_42FB_41D6_4183004FA06B",
@@ -846,7 +938,8 @@
       "11459"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Retrato de Senhora"
+    "title": "Retrato de Senhora",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_F52C5081_BA68_FD42_41E6_A6075204D321",
@@ -855,7 +948,8 @@
       "11459"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Retrato de Senhora"
+    "title": "Retrato de Senhora",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_D4A0348D_D478_C53B_41D6_C271430F5C4D",
@@ -864,7 +958,8 @@
       "11460"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Retrato de Homem"
+    "title": "Retrato de Homem",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_F024FBF5_BA7B_22D2_41B2_EC8C7B13B848",
@@ -873,7 +968,8 @@
       "11460"
     ],
     "location": "Sala das Bandeiras",
-    "title": "Retrato de Homem"
+    "title": "Retrato de Homem",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_68C6700C_41D6_B42D_41C4_B559F1259E64",
@@ -882,7 +978,8 @@
       "1013"
     ],
     "location": "Salão Nobre",
-    "title": "Elemento de vestido (plis Watteau)"
+    "title": "Elemento de vestido (plis Watteau)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6ACD0292_41EB_B435_4192_DE86D877B914",
@@ -891,7 +988,8 @@
       "4186"
     ],
     "location": "Salão Nobre",
-    "title": "Casaquinha"
+    "title": "Casaquinha",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6B23C2F3_41D5_F5FB_41AA_E923F182A6E9",
@@ -902,7 +1000,8 @@
       "3971"
     ],
     "location": "Salão Nobre",
-    "title": "Casaca, colete e calção"
+    "title": "Casaca, colete e calção",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_6AEDDF2B_41EA_CC6A_41A2_3555D6652F72",
@@ -911,6 +1010,7 @@
       "33879"
     ],
     "location": "Salão Nobre",
-    "title": "Casaquinha"
+    "title": "Casaquinha",
+    "nationalTreasure": false
   }
 ]

@@ -20,6 +20,24 @@ tools/poi_mapping/obter_poi_mapping.sh mnaa
 
 Por baixo corre o `extract_poi_mapping.py`, que também aceita uma pasta de export local.
 
+## Tesouros Nacionais: `nationalTreasure`
+
+Cada entrada do mapa tem sempre `"nationalTreasure": true | false`. É a única fonte da marca: o backend lê-a para o campo `national_treasure` dos cartões, para os pedidos sobre tesouros e para o `GET /api/v1/chat/tour/pois`. Os ficheiros são relidos quando mudam, sem reiniciar.
+
+- Uma entrada é tesouro quando a página do POI que o hotspot abre tem o selo visível `<b style="color: goldenrod"> Tesouro Nacional </b>`. A página é `iFrames/generated-html/<sala>/<peça>.html` (`iframes/` no MNT), e chega-se a ela pelo `url` do `PopupWebFrameBehaviour` no `locale/*.txt`.
+- O campo `"treasure": "Tesouro Nacional"` do JSON embutido em todas as páginas é uma constante do modelo e não conta.
+- A mesma peça em vários hotspots fica com o mesmo valor.
+- O `obter_poi_mapping.sh` descarrega também as páginas dos POIs, e o `extract_poi_mapping.py` escreve o campo em cada entrada que gera.
+- Para atualizar só a marca sem regenerar o mapa, o que mantém as correções feitas à mão, corre-se:
+
+  ```bash
+  tools/poi_mapping/obter_poi_mapping.sh mnaa --so-comparar
+  ~/miniconda3/envs/visitas_virtuais/bin/python tools/poi_mapping/marcar_tesouros_poi.py mnaa
+  ```
+
+  - Sem museus, faz todos os de `poi_tours/`. Tem `--simular`.
+  - Com `--acrescentar-novos`, junta os POIs da visita que o mapa ainda não tem, com os números tal como a visita os anuncia. Esses números confirmam-se depois no catálogo, como em baixo.
+
 ## Validar os números contra o índice
 
 ```bash

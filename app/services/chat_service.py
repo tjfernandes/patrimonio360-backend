@@ -8891,12 +8891,11 @@ class ChatService:
         return results
 
     def _national_treasure_registry(self):
-        path = getattr(self.settings, "CHAT_NATIONAL_TREASURES_PATH", None)
-        return get_national_treasure_registry(str(path).strip() if path else None)
+        return get_national_treasure_registry()
 
     def _attach_national_treasure(self, results: list[ArtifactResult], *, fallback_museum_id: str | None) -> None:
-        """national_treasure em cada cartão, pela lista da configuração (sem
-        índice). Num cartão agrupado basta uma das fichas do grupo."""
+        """national_treasure em cada cartão, pelo nationalTreasure dos mapas dos
+        POIs (sem índice). Num cartão agrupado basta uma das fichas do grupo."""
         registry = self._national_treasure_registry()
         for result in results:
             inventories = list(result.group_inventory_numbers) or [result.inventory_number]

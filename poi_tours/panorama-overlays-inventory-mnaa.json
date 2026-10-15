@@ -7,6 +7,7 @@
     ],
     "location": "Mobiliário Português",
     "title": "Mesa-escritório de estrado",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 37"
   },
   {
@@ -17,6 +18,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "São Lucas retratando a Virgem",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 64"
   },
   {
@@ -27,6 +29,7 @@
     ],
     "location": "Mobiliário Português",
     "title": "Mesa-escritório de estrado",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 37"
   },
   {
@@ -37,6 +40,7 @@
     ],
     "location": "Mobiliário Português",
     "title": "Contador",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 39"
   },
   {
@@ -47,6 +51,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Tríptico do Descimento da Cruz (com as santas Catarina e Madalena e os santos Cristóvão e Antão)",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 65"
   },
   {
@@ -57,6 +62,7 @@
     ],
     "location": "Ourivesaria",
     "title": "Porta-Paz",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 29"
   },
   {
@@ -67,6 +73,7 @@
     ],
     "location": "Mobiliário Português",
     "title": "Xiloteca (mostruário de madeiras)",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 42"
   },
   {
@@ -77,6 +84,7 @@
     ],
     "location": "Pintura e Escultura Portuguesas",
     "title": "Adoração dos Pastores",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 3"
   },
   {
@@ -87,6 +95,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Cofre",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 49"
   },
   {
@@ -97,6 +106,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Tapete",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 49"
   },
   {
@@ -107,6 +117,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Tapete",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 49"
   },
   {
@@ -118,6 +129,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Bacia e gomil",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 49"
   },
   {
@@ -128,6 +140,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Cofre",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 49"
   },
   {
@@ -139,6 +152,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Bacia e gomil",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 49"
   },
   {
@@ -149,6 +163,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Tapete",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 49"
   },
   {
@@ -159,6 +174,7 @@
     ],
     "location": "Mobiliário Português",
     "title": "Xiloteca (mostruário de madeiras)",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 42"
   },
   {
@@ -169,6 +185,7 @@
     ],
     "location": "Ourivesaria",
     "title": "Custódia de Belém",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 29"
   },
   {
@@ -179,6 +196,7 @@
     ],
     "location": "Pintura e Escultura Portuguesas",
     "title": "Inferno",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 5"
   },
   {
@@ -189,6 +207,7 @@
     ],
     "location": "Têxteis",
     "title": "Estola",
+    "nationalTreasure": true,
     "locationOriginal": "Sala J"
   },
   {
@@ -199,6 +218,7 @@
     ],
     "location": "Têxteis",
     "title": "Casula",
+    "nationalTreasure": true,
     "locationOriginal": "Sala J"
   },
   {
@@ -209,6 +229,7 @@
     ],
     "location": "Têxteis",
     "title": "Pluvial",
+    "nationalTreasure": true,
     "locationOriginal": "Sala J"
   },
   {
@@ -219,6 +240,7 @@
     ],
     "location": "Têxteis",
     "title": "Casula",
+    "nationalTreasure": true,
     "locationOriginal": "Sala J"
   },
   {
@@ -229,6 +251,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Fuga para o Egipto",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 52"
   },
   {
@@ -239,6 +262,7 @@
     ],
     "location": "Ourivesaria",
     "title": "Custódia de Belém",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 29"
   },
   {
@@ -249,6 +273,7 @@
     ],
     "location": "Pintura e Escultura Portuguesas",
     "title": "Aparição de Cristo à Virgem",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 5"
   },
   {
@@ -259,6 +284,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "O Arrependimento de São Pedro",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 53"
   },
   {
@@ -269,6 +295,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Deposição de Cristo da Cruz",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 53"
   },
   {
@@ -279,6 +306,7 @@
     ],
     "location": "Ourivesaria",
     "title": "Custódia da Bemposta",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 27"
   },
   {
@@ -289,6 +317,7 @@
     ],
     "location": "Ourivesaria",
     "title": "Custódia de Belém",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 29"
   },
   {
@@ -299,6 +328,7 @@
     ],
     "location": "Piso 1",
     "title": "Dalmática",
+    "nationalTreasure": true,
     "locationOriginal": "Sala J"
   },
   {
@@ -309,6 +339,7 @@
     ],
     "location": "Piso 1",
     "title": "Pluvial",
+    "nationalTreasure": true,
     "locationOriginal": "Sala J"
   },
   {
@@ -319,6 +350,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Conversação",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 54"
   },
   {
@@ -329,6 +361,7 @@
     ],
     "location": "Ourivesaria",
     "title": "Relicário de D. Leonor",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 29"
   },
   {
@@ -339,6 +372,7 @@
     ],
     "location": "Ourivesaria",
     "title": "Custódia de Belém",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 29"
   },
   {
@@ -349,6 +383,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Mesa de centro",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 55"
   },
   {
@@ -359,6 +394,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Combate de Hércules contra os Centauros",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 55"
   },
   {
@@ -369,6 +405,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Mesa de centro",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 55"
   },
   {
@@ -379,6 +416,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Combate de Hércules contra os Centauros",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 55"
   },
   {
@@ -389,6 +427,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Mesa de centro",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 55"
   },
   {
@@ -399,6 +438,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "São Leonardo",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 55"
   },
   {
@@ -409,6 +449,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "São Leonardo",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 55"
   },
   {
@@ -419,6 +460,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "São Leonardo",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 55"
   },
   {
@@ -429,6 +471,7 @@
     ],
     "location": "Artes Decorativas Europeias",
     "title": "Combate de Hércules contra os Centauros",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 55"
   },
   {
@@ -439,6 +482,7 @@
     ],
     "location": "Pintura e Escultura Portuguesas",
     "title": "Adoração dos Pastores",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 12"
   },
   {
@@ -449,6 +493,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Natureza-morta com legumes e aprestos de cozinha",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 57"
   },
   {
@@ -459,6 +504,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Casamento Místico de Santa Catarina",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 57"
   },
   {
@@ -469,6 +515,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Natureza-morta com cesto de frutos",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 57"
   },
   {
@@ -479,6 +526,7 @@
     ],
     "location": "Pintura e Escultura Portuguesas",
     "title": "Virgem com o Menino e Anjos",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 9"
   },
   {
@@ -489,6 +537,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "S. Pedro (Apostolado)",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 58"
   },
   {
@@ -499,6 +548,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Morte de S. Francisco",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 59"
   },
   {
@@ -509,6 +559,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Salomé com a cabeça de São João Baptista",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 61"
   },
   {
@@ -519,6 +570,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "São Jerónimo",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 61"
   },
   {
@@ -529,6 +581,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Virgem com o Menino, Sagrada Família e Santas, dito “A Fonte da Vida”",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 61"
   },
   {
@@ -539,6 +592,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Tentações de Santo Antão",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 61"
   },
   {
@@ -549,6 +603,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Retábulo das Dores da Virgem: Virgem das Dores",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 62"
   },
   {
@@ -559,6 +614,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Baptismo de Cristo",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 62"
   },
   {
@@ -569,6 +625,7 @@
     ],
     "location": "Pintura e Escultura Portuguesas",
     "title": "Adoração dos Magos",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 1"
   },
   {
@@ -579,6 +636,7 @@
     ],
     "location": "Pintura Europeia",
     "title": "Santo Agostinho",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 63"
   },
   {
@@ -589,6 +647,7 @@
     ],
     "location": "Piso 1",
     "title": "Eusébio de Cremona ressuscitando três jovens com a capa de S. Jerónimo",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 63"
   },
   {
@@ -599,6 +658,7 @@
     ],
     "location": "Piso 1",
     "title": "Tríptico do Descimento da Cruz (com as santas Catarina e Madalena e os santos Cristóvão e Antão)",
+    "nationalTreasure": false,
     "locationOriginal": "Sala 65"
   },
   {
@@ -609,6 +669,7 @@
     ],
     "location": "Pintura e Escultura Portuguesas",
     "title": "Adoração dos Pastores",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 3"
   },
   {
@@ -619,17 +680,23 @@
     ],
     "location": "Ourivesaria",
     "title": "Cruz de D. Sancho I",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 29"
   },
   {
     "overlayId": "overlay_BB3A0EEF_9FD6_192D_4188_9C883DDDBD9C",
     "panoramaKey": "panorama_B5B96654_A1C2_A681_41D8_C37BD13BEB03",
     "inventoryIds": [
-      "94 pint"
+      "93 Pint"
     ],
     "location": "Pintura e Escultura Portuguesas",
     "title": "Encontro de Abraão e Melquisedeque",
-    "locationOriginal": "Sala 3"
+    "nationalTreasure": true,
+    "locationOriginal": "Sala 3",
+    "inventoryIdsOriginal": [
+      "94 pint"
+    ],
+    "inventoryIdsNota": "na visita está «94 pint», que no catálogo é a «Última Ceia»; a página do POI e o catálogo dizem 93 Pint"
   },
   {
     "overlayId": "overlay_B04C5924_9FAE_18D5_41CF_C0216334F760",
@@ -639,6 +706,7 @@
     ],
     "location": "Mobiliário Português",
     "title": "Cadeira de braços (estadela), dita de D. Afonso V",
+    "nationalTreasure": true,
     "locationOriginal": "Sala 36"
   }
 ]

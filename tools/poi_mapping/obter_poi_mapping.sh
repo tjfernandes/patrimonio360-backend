@@ -37,6 +37,23 @@ for l in $(curl -sfL -m 60 "$BASE/$MUSEU/" | grep -oE 'locale/[A-Za-z_-]+\.txt' 
   curl -sfL -m 60 -o "$DESTINO/$l" "$BASE/$MUSEU/$l" && echo "descarregado: $BASE/$MUSEU/$l" || rm -f "$DESTINO/$l"
 done
 
+# as páginas dos POIs (iFrames/generated-html/<sala>/<peça>.html), para o nationalTreasure:
+# conta o selo <b style="color: goldenrod"> Tesouro Nacional </b> da página que cada hotspot abre
+paginas=0; falhas=0
+while IFS= read -r url; do
+  [ -n "$url" ] || continue
+  local_path="$DESTINO/$(printf '%b' "${url//%/\\x}")"
+  mkdir -p "$(dirname "$local_path")"
+  if curl -sfL -m 60 -o "$local_path" "$BASE/$MUSEU/${url// /%20}"; then
+    paginas=$((paginas + 1))
+  else
+    falhas=$((falhas + 1)); rm -f "$local_path"; echo "não descarreguei: $BASE/$MUSEU/$url"
+  fi
+done < <(cat "$DESTINO"/locale/*.txt "$DESTINO"/script_*.js 2>/dev/null \
+           | grep -oE 'PopupWebFrameBehaviour_[0-9A-Fa-f_]+\.url = [^\r]*\.html|i[Ff]rames/generated-html/[^"<>\\]*\.html' \
+           | sed -E 's/^PopupWebFrameBehaviour_[0-9A-Fa-f_]+\.url = //' | grep 'generated-html/' | sort -u)
+echo "páginas dos POIs: $paginas descarregadas$([ "$falhas" -gt 0 ] && echo ", $falhas em falta")"
+
 ARGS=("$DESTINO")
 if [ "${2:-}" = "--so-comparar" ]; then
   ARGS+=(-o "$DESTINO/panorama-overlays-inventory-$MUSEU.json")

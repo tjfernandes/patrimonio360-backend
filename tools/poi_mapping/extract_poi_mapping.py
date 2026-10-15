@@ -18,6 +18,13 @@ dele do `location` escrito no bloco JS do hotspot. No MNAA os blocos dizem
 Europeia», «Ourivesaria», …), que e o que o visitante procura. O valor do bloco
 fica em `locationOriginal` quando e diferente. --location-from js repoe o
 comportamento antigo; --location-from label usa o label do panorama.
+
+`nationalTreasure` (sempre escrito, true ou false): a pagina do POI que o
+hotspot abre (iFrames/generated-html/<sala>/<peca>.html, pelo url do
+PopupWebFrameBehaviour no locale) tem o selo visivel
+<b style="color: goldenrod"> Tesouro Nacional </b>. O campo "treasure":
+"Tesouro Nacional" do JSON embutido em todas as paginas e uma constante do
+modelo e nao conta. Todas as entradas da mesma peca ficam com o mesmo valor.
 """
 from __future__ import annotations
 
@@ -27,6 +34,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 CLICK_MARKER = "openedInfoWindow"
 
@@ -114,6 +122,72 @@ def load_locale(tour_dir: Path) -> tuple[dict[str, dict[str, str]], str | None]:
     return {}, None
 
 
+# --- Tesouro Nacional: o selo visivel na pagina do POI ---------------------
+
+# o click do hotspot abre a pagina pelo url de um PopupWebFrameBehaviour (no locale)
+PAGE_KEY_RE = re.compile(r"(PopupWebFrameBehaviour_[0-9A-Fa-f_]+)\.url")
+PAGE_URL_LINE_RE = re.compile(r"^(PopupWebFrameBehaviour_[0-9A-Fa-f_]+)\.url = (.*?)\s*$", re.M)
+# ou, nalgumas visitas, pelo caminho escrito no proprio script
+PAGE_PATH_RE = re.compile(r"(i[Ff]rames/generated-html/[^\"'<>\\]+?\.html)")
+# so o <b> com goldenrod conta; o "treasure": "Tesouro Nacional" do JSON embutido e uma constante
+TREASURE_BADGE_RE = re.compile(r"<b[^>]*goldenrod[^>]*>\s*Tesouro\s+Nacional\s*</b>", re.I)
+NON_ALNUM_RE = re.compile(r"[^A-Z0-9]+")
+
+
+def load_page_urls(tour_dir: Path) -> dict[str, str]:
+    """{PopupWebFrameBehaviour_…: url} de todos os locale/*.txt (pt antes de en)."""
+    urls: dict[str, str] = {}
+    folder = tour_dir / "locale"
+    if not folder.is_dir():
+        return urls
+    for path in sorted(folder.glob("*.txt"), key=lambda p: {"pt": 0, "en": 1}.get(p.stem, 2)):
+        for key, value in PAGE_URL_LINE_RE.findall(path.read_text(encoding="utf-8", errors="replace")):
+            if value.strip():
+                urls.setdefault(key, value.strip())
+    return urls
+
+
+def page_of(obj_text: str, page_urls: dict[str, str]) -> str | None:
+    """A pagina de POI que o hotspot abre (caminho relativo a pasta da visita)."""
+    for key in PAGE_KEY_RE.findall(obj_text):
+        url = page_urls.get(key, "")
+        if "generated-html/" in url and url.endswith(".html"):
+            return unquote(url)
+    direct = PAGE_PATH_RE.search(obj_text.replace("\\/", "/"))
+    return unquote(direct.group(1)) if direct else None
+
+
+def page_has_treasure_badge(path: Path) -> bool | None:
+    """True/False pelo selo; None se a pagina nao existe na pasta da visita."""
+    if not path.is_file():
+        return None
+    return bool(TREASURE_BADGE_RE.search(path.read_text(encoding="utf-8", errors="replace")))
+
+
+def inventory_key(value: str) -> str:
+    return NON_ALNUM_RE.sub("", (value or "").upper())
+
+
+def unify_treasures(results: list) -> None:
+    """A mesma peca (o mesmo n.o) em varios hotspots fica com o mesmo valor."""
+    treasures = {inventory_key(i) for e in results if e.get("nationalTreasure") for i in e.get("inventoryIds") or []}
+    for entry in results:
+        entry["nationalTreasure"] = any(inventory_key(i) in treasures for i in entry.get("inventoryIds") or [])
+
+
+def with_treasure_field(entry: dict, value: bool) -> dict:
+    """Entrada com o nationalTreasure logo a seguir ao title (a ordem dos campos do ficheiro)."""
+    ordered: dict = {}
+    for key, item in entry.items():
+        if key == "nationalTreasure":
+            continue
+        ordered[key] = item
+        if key == "title":
+            ordered["nationalTreasure"] = value
+    ordered.setdefault("nationalTreasure", value)
+    return ordered
+
+
 def is_human_name(value: str) -> bool:
     """«Pintura Europeia» sim; nomes de ficheiro de captura («E01_Terreo_32») nao."""
     return bool(value) and "_" not in value and not re.search(r"\d{2}\.\d{2}\.\d{4}", value)
@@ -145,6 +219,7 @@ def extract(tour_dir: Path):
     text = src.read_text(encoding="utf-8", errors="replace")
     spans = object_spans(text)
     starts = [s[0] for s in spans]
+    page_urls = load_page_urls(tour_dir)
 
     hotspots = []
     seen_area: set[str] = set()
@@ -167,11 +242,14 @@ def extract(tour_dir: Path):
             continue
         t_m = TITLE_RE.search(obj)
         l_m = LOC_RE.search(obj)
+        page = page_of(obj, page_urls)
         hotspots.append({
             "areaId": area_id,
             "inventoryIds": ids,
             "title": unescape(first_group(t_m)) or None if t_m else None,
             "location": unescape(first_group(l_m)) or None if l_m else None,
+            "page": page,
+            "badge": page_has_treasure_badge(tour_dir / page) if page else None,
         })
 
     def parent_of(child_id: str, prefixes: tuple[str, ...]) -> str | None:
@@ -205,9 +283,37 @@ def extract(tour_dir: Path):
             "inventoryIds": h["inventoryIds"],
             "location": h["location"],
             "title": h["title"],
+            "nationalTreasure": bool(h["badge"]),
+            # so para o relatorio; nao vao para o ficheiro
+            "_page": h["page"],
+            "_pageFound": h["badge"] is not None,
         })
+    unify_treasures(results)
 
     return results, unresolved, src.name
+
+
+def public(entry: dict) -> dict:
+    return {key: value for key, value in entry.items() if not key.startswith("_")}
+
+
+def report_treasures(results: list) -> None:
+    sem_pagina = [e for e in results if not e.get("_page")]
+    em_falta = [e for e in results if e.get("_page") and not e.get("_pageFound")]
+    pecas = {inventory_key(i): i for e in results if e["nationalTreasure"] for i in e["inventoryIds"]}
+    print("tesouros nacionais: {} pecas em {} POIs".format(len(pecas), sum(1 for e in results if e["nationalTreasure"])))
+    for e in results:
+        if e["nationalTreasure"]:
+            print("    * {:34} {}".format(", ".join(e["inventoryIds"]), e["title"]))
+    if sem_pagina:
+        print("AVISO: {} POIs sem pagina de POI no click (ficam false)".format(len(sem_pagina)))
+        for e in sem_pagina:
+            print("    ? {:34} {}".format(", ".join(e["inventoryIds"]), e["title"]))
+    if em_falta:
+        print("AVISO: {} paginas de POI que nao estao na pasta da visita (ficam false); "
+              "o obter_poi_mapping.sh descarrega-as".format(len(em_falta)))
+        for e in em_falta[:10]:
+            print("    ? {:34} {}".format(", ".join(e["inventoryIds"]), e["_page"]))
 
 
 def compare(new: list, old_path: Path) -> None:
@@ -220,6 +326,10 @@ def compare(new: list, old_path: Path) -> None:
         k for k in set(old_by_id) & set(new_by_id)
         if old_by_id[k]["inventoryIds"] != new_by_id[k]["inventoryIds"]
         or old_by_id[k]["panoramaKey"] != new_by_id[k]["panoramaKey"]
+    ]
+    tesouro = [
+        k for k in set(old_by_id) & set(new_by_id)
+        if old_by_id[k].get("nationalTreasure") != new_by_id[k].get("nationalTreasure")
     ]
 
     print()
@@ -235,6 +345,10 @@ def compare(new: list, old_path: Path) -> None:
         print("    - {:30} {} / {}  (so no ficheiro antigo)".format(str(e["inventoryIds"]), e["location"], e["title"]))
     for k in diverg:
         print("    ~ {} -> {}   {}".format(old_by_id[k]["inventoryIds"], new_by_id[k]["inventoryIds"], new_by_id[k]["title"]))
+    print("  nationalTreasure diferente: " + str(len(tesouro)))
+    for k in sorted(tesouro):
+        print("    t {} -> {}   {} {}".format(old_by_id[k].get("nationalTreasure"), new_by_id[k].get("nationalTreasure"),
+                                              new_by_id[k]["inventoryIds"], new_by_id[k]["title"]))
 
 
 def keep_better(results: list, old_path: Path) -> list:
@@ -285,6 +399,7 @@ def main() -> None:
 
     if args.keep_better:
         results = keep_better(results, Path(args.keep_better))
+        unify_treasures(results)
 
     if args.location_from != "js":
         names, locale_name = load_locale(tour_dir)
@@ -297,7 +412,7 @@ def main() -> None:
 
     out = Path(args.out) if args.out else tour_dir / "panorama-overlays-inventory.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+    out.write_text(json.dumps([public(e) for e in results], ensure_ascii=False, indent=2), encoding="utf-8")
 
     print("fonte             : " + str(tour_dir / src_name))
     print("POIs              : " + str(len(results)))
@@ -312,6 +427,8 @@ def main() -> None:
             print("    {}: {} {} {}".format(u["motivo"], u["areaId"], u["inventoryIds"], u["title"]))
 
     report_suspicious(results)
+    print()
+    report_treasures(results)
 
     if args.compare:
         compare(results, Path(args.compare))

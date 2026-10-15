@@ -6,7 +6,8 @@
       "1026 Pin MNSR"
     ],
     "location": "Sala 1.15",
-    "title": "As visitas"
+    "title": "As visitas",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BC29A2E2_9266_837A_41A0_AD3B31569398",
@@ -15,7 +16,8 @@
       "108 Pin MNSR"
     ],
     "location": "Sala 1.06",
-    "title": "Esperando o sucesso"
+    "title": "Esperando o sucesso",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_8331DCE7_9727_08A8_41B7_70C4DDF360DE",
@@ -24,7 +26,8 @@
       "339 Pin CMP/ MNSR"
     ],
     "location": "Sala 2.05",
-    "title": "Coro dos Capuchinhos em Roma"
+    "title": "Coro dos Capuchinhos em Roma",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_8265906D_972B_17B9_41D6_7A8C5A39E509",
@@ -33,7 +36,8 @@
       "338 Pin CMP/ MNSR"
     ],
     "location": "Sala 2.05",
-    "title": "Escola de meninas em Roma"
+    "title": "Escola de meninas em Roma",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_837C77EA_976B_F8BB_41DC_BEB8C2A11EE8",
@@ -42,7 +46,8 @@
       "103 Our MNSR"
     ],
     "location": "Sala 2.08",
-    "title": "Estojo de faqueiro"
+    "title": "Estojo de faqueiro",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_817BE578_9769_3998_41DB_677C9DF1B4E1",
@@ -51,7 +56,8 @@
       "135 Vid CMP/ MNSR"
     ],
     "location": "Sala 2.08",
-    "title": "Frasqueira de viagem"
+    "title": "Frasqueira de viagem",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BCA5113A_9227_9ECA_41D9_287681493492",
@@ -60,7 +66,8 @@
       "168 Pin MNSR"
     ],
     "location": "Sala 1.11",
-    "title": "Macieira partida"
+    "title": "Macieira partida",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_B1D29287_91E3_83B9_41D7_AE70C94C2507",
@@ -69,7 +76,8 @@
       "23 Pin CMP/ MNSR"
     ],
     "location": "Sala 1.02",
-    "title": "Fuga de Margarida de Anjou"
+    "title": "Fuga de Margarida de Anjou",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_F3391714_9266_82DE_41D9_97DF71CED3BB",
@@ -78,7 +86,8 @@
       "113 Tex CMP/ MNSR"
     ],
     "location": "Sala 2.03",
-    "title": "Véstia"
+    "title": "Véstia",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_8236D645_91E2_82B9_41CE_160C8F3A0F55",
@@ -112,7 +121,8 @@
       "2.26 Div MNSR"
     ],
     "location": "Sala 1.01",
-    "title": "Série de vinte e seis placas com cenas do Ciclo da Paixão de Cristo"
+    "title": "Série de vinte e seis placas com cenas do Ciclo da Paixão de Cristo",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BCFF9043_9266_9EBA_41D2_8E238342A7D8",
@@ -121,7 +131,8 @@
       "2 Esc CMP/ MNSR"
     ],
     "location": "Sala 1.08",
-    "title": "Infância de Caim"
+    "title": "Infância de Caim",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BC801221_9263_82F6_41E0_C23B145909CF",
@@ -130,7 +141,8 @@
       "Dep. 373 MNSR"
     ],
     "location": "Sala 1.08",
-    "title": "Conde de Ferreira"
+    "title": "Conde de Ferreira",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BC973241_926F_82B6_41B2_BC557D10B26F",
@@ -139,7 +151,8 @@
       "1 Esc CMP/ MNSR"
     ],
     "location": "Sala 1.08",
-    "title": "Flor Agreste"
+    "title": "Flor Agreste",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BF6A3C0E_9262_86CB_4195_0BFBE69BE4D6",
@@ -148,7 +161,8 @@
       "SN"
     ],
     "location": "Sala 1.06",
-    "title": "O Abandonado"
+    "title": "O Abandonado",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BCA7405C_9266_BF45_41D2_8DB92C641BA0",
@@ -157,7 +171,8 @@
       "19 Esc MNSR"
     ],
     "location": "Sala 1.07",
-    "title": "Firmino"
+    "title": "Firmino",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BC914193_921E_81D9_41AE_C3DB817FCDB8",
@@ -166,7 +181,8 @@
       "125 Esc MNSR"
     ],
     "location": "Sala 1.10",
-    "title": "Nossa Senhora da Vitória"
+    "title": "Nossa Senhora da Vitória",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_89C0E6D7_976B_18E9_41BA_8C58ABBAB667",
@@ -175,7 +191,8 @@
       "SN"
     ],
     "location": "Entrada",
-    "title": "Entrada"
+    "title": "Entrada",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_82360659_91E3_8349_41DA_F955DF29C87E",
@@ -184,7 +201,8 @@
       "28 Obj Hist CMP/ MNSR"
     ],
     "location": "Sala 1.01",
-    "title": "Espada e Boldrié"
+    "title": "Espada e Boldrié",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_84427283_91FF_83B8_41D7_DB991276D19B",
@@ -193,7 +211,8 @@
       "55 Obj Hist CMP/ MNSR"
     ],
     "location": "Sala 1.01",
-    "title": "Câmara clara"
+    "title": "Câmara clara",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_B23E0172_921E_815B_41E1_0C45351967E4",
@@ -202,7 +221,8 @@
       "47 Esc CMP/ MNSR"
     ],
     "location": "Sala 1.03",
-    "title": "Busto de Alexandre Herculano"
+    "title": "Busto de Alexandre Herculano",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_B214F0F1_9225_9F59_41D3_69727EB9F555",
@@ -211,7 +231,8 @@
       "1102 Pin MNSR"
     ],
     "location": "Sala 1.03",
-    "title": "O Negro"
+    "title": "O Negro",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_B1DBBFD4_91E7_815F_41D0_46418D7D8DE2",
@@ -220,7 +241,8 @@
       "6 Pin MNSR"
     ],
     "location": "Sala 1.02",
-    "title": "Alegoria à aliança entre Portugal, Espanha e Inglaterra"
+    "title": "Alegoria à aliança entre Portugal, Espanha e Inglaterra",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_B25400EC_922D_BF48_41B4_54949EBEAEEB",
@@ -229,7 +251,8 @@
       "363 CMFC/ MNSR"
     ],
     "location": "Sala 1.03",
-    "title": "Compra Garibaldi! (Vendedor de estatuetas)"
+    "title": "Compra Garibaldi! (Vendedor de estatuetas)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_B21F219B_9225_81CA_41DE_5B58752099AC",
@@ -238,7 +261,8 @@
       "994 Pin MNSR"
     ],
     "location": "Sala 1.03",
-    "title": "Procissão"
+    "title": "Procissão",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_B214C24F_922E_834A_4189_977E606A3F8A",
@@ -247,7 +271,8 @@
       "75 Pin CMP/ MNSR"
     ],
     "location": "Sala 1.03",
-    "title": "O Mártir cristão"
+    "title": "O Mártir cristão",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BFFD1F47_922E_82B8_41D1_4F87705E5033",
@@ -256,7 +281,8 @@
       "79 Pin CMP/ MNSR"
     ],
     "location": "Sala 1.05",
-    "title": "Entre o almoço e o jantar (Costureiras trabalhando)"
+    "title": "Entre o almoço e o jantar (Costureiras trabalhando)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BFF11F81_9223_81B9_41BB_3FC80C987251",
@@ -265,7 +291,8 @@
       "102 Pin MNSR"
     ],
     "location": "Sala 1.05",
-    "title": "Um campo de trigo – Seara"
+    "title": "Um campo de trigo – Seara",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BFBBDE1B_922D_82CA_41D7_93B6F7B765F0",
@@ -274,7 +301,8 @@
       "170 Pin MNSR"
     ],
     "location": "Sala 1.05",
-    "title": "Céfalo e Prócris"
+    "title": "Céfalo e Prócris",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BF99FFEE_9222_814A_41D8_814452F703A1",
@@ -283,7 +311,8 @@
       "3 Esc CMP/ MNSR"
     ],
     "location": "Sala 1.05",
-    "title": "A Caridade"
+    "title": "A Caridade",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BFF96BE7_9222_817A_41E1_3CCEED350255",
@@ -292,7 +321,8 @@
       "17 Pin CMP (DHL)/ MNSR"
     ],
     "location": "Sala 1.05",
-    "title": "No Areinho, Douro"
+    "title": "No Areinho, Douro",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BFD17DD2_9222_815A_41C9_52CA92B1B7C8",
@@ -302,7 +332,8 @@
       "1100 Pin MNSR"
     ],
     "location": "Sala 1.04",
-    "title": "Retratos do Visconde e da Viscondessa de Pernes"
+    "title": "Retratos do Visconde e da Viscondessa de Pernes",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BFCFFB55_923F_8159_41DC_406F74F10568",
@@ -311,7 +342,8 @@
       "Dep. 362 MNSR"
     ],
     "location": "Sala 1.04",
-    "title": "Busto de Luís de Camões"
+    "title": "Busto de Luís de Camões",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_F33AB1FC_9262_814F_41C0_6D1461BBE46E",
@@ -320,7 +352,8 @@
       "211 Our MNSR"
     ],
     "location": "Sala 2.03",
-    "title": "Guarnição de corpete"
+    "title": "Guarnição de corpete",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_C53F806C_9225_9F48_41DF_99C70EDC3012",
@@ -329,7 +362,8 @@
       "88 Esc CMP/ MNSR"
     ],
     "location": "Piso 2",
-    "title": "Sarcófago romano – As Quatro Estações"
+    "title": "Sarcófago romano – As Quatro Estações",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_89CD3F87_9769_0968_41DA_6ECAE84D9CC4",
@@ -339,7 +373,8 @@
       "252 Esc CMFC/ MNSR"
     ],
     "location": "Sala 2.10",
-    "title": "São Francisco Xavier e Santo Inácio de Loyola"
+    "title": "São Francisco Xavier e Santo Inácio de Loyola",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_B652486A_976B_77BB_41B5_043CF21A5540",
@@ -348,7 +383,8 @@
       "2689 Mob MNSR"
     ],
     "location": "Sala 2.10",
-    "title": "Contador de mesa"
+    "title": "Contador de mesa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_89C5449B_9769_3899_41D1_E8219E131084",
@@ -358,7 +394,8 @@
       "865 Mob MNSR"
     ],
     "location": "Sala 2.10",
-    "title": "Biombos Namban (par)"
+    "title": "Biombos Namban (par)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BCF638F2_9222_8F5B_41D8_328DCC4B891F",
@@ -367,7 +404,8 @@
       "147 Pin MNSR"
     ],
     "location": "Sala 1.11",
-    "title": "Vaso com camélias"
+    "title": "Vaso com camélias",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AB8A472B_9222_82CA_41DD_197661676E3F",
@@ -376,7 +414,8 @@
       "5 Esc CMP/ MNSR"
     ],
     "location": "Sala 1.11",
-    "title": "Cabeça de Negra"
+    "title": "Cabeça de Negra",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BCB9E6B0_9222_83D6_41D4_0710388C3731",
@@ -385,7 +424,8 @@
       "1159 Pin MNSR"
     ],
     "location": "Sala 1.11",
-    "title": "Cuidados de amor"
+    "title": "Cuidados de amor",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BC8AD82D_9222_8EC9_41BB_50780BD88A56",
@@ -394,7 +434,8 @@
       "1861 Pin MNSR"
     ],
     "location": "Sala 1.11",
-    "title": "Régulo australiano"
+    "title": "Régulo australiano",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BCA821CC_9226_814E_41E1_96F475581412",
@@ -403,7 +444,8 @@
       "99 Pin CMFC/ MNSR"
     ],
     "location": "Sala 1.11",
-    "title": "Vou ser mãe"
+    "title": "Vou ser mãe",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_A53AF2E4_9226_837F_41CA_54B2B3BF3CD4",
@@ -412,7 +454,8 @@
       "4 Esc CMP/ MNSR"
     ],
     "location": "Sala 1.12",
-    "title": "Cabeça de Velha"
+    "title": "Cabeça de Velha",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_A531DF0B_923D_82C9_41D0_8B5D0B0BA1FE",
@@ -421,7 +464,8 @@
       "1007 Pin MNSR"
     ],
     "location": "Sala 1.12",
-    "title": "Menina do gato – retrato da filha do pintor, Maria"
+    "title": "Menina do gato – retrato da filha do pintor, Maria",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_DF3C6767_9226_817A_41E0_F1255D636189",
@@ -430,7 +474,8 @@
       "987 Pin MNSR"
     ],
     "location": "Sala 1.16",
-    "title": "CarnavalCavalo-Marinho (título original)"
+    "title": "CarnavalCavalo-Marinho (título original)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_DF1559CE_922F_814B_41E1_BAC6D1C1C4F6",
@@ -439,7 +484,8 @@
       "SN"
     ],
     "location": "Sala 1.15",
-    "title": "Tambores"
+    "title": "Tambores",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_C3577BDD_922D_8148_419C_4440E0731F3C",
@@ -448,7 +494,8 @@
       "SC 431"
     ],
     "location": "Sala 1.15",
-    "title": "Sentimento na Planície"
+    "title": "Sentimento na Planície",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_DF3723FF_9223_814A_41D8_EB1F58715F03",
@@ -457,7 +504,8 @@
       "347 Esc MNSR"
     ],
     "location": "Sala 1.16",
-    "title": "Abstração I"
+    "title": "Abstração I",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_DF357110_9223_9ED6_41C3_4303BA51B240",
@@ -466,7 +514,8 @@
       "308 Esc MNSR"
     ],
     "location": "Sala 1.15",
-    "title": "Três Raparigas Sentadas"
+    "title": "Três Raparigas Sentadas",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_DF2FFC71_9225_8759_41E1_226E6B69F32F",
@@ -475,7 +524,8 @@
       "1008 Pin MNSR"
     ],
     "location": "Sala 1.15",
-    "title": "Mulheres com bilhas"
+    "title": "Mulheres com bilhas",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_BC96E0A5_922E_9FFE_41A8_713565C60341",
@@ -484,7 +534,8 @@
       "1097 Pin MNSR"
     ],
     "location": "Sala 1.11",
-    "title": "Retrato do Dr. Joaquim Madureira"
+    "title": "Retrato do Dr. Joaquim Madureira",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AADF6F2E_93E2_82CB_4185_1EDDF48C7567",
@@ -493,7 +544,8 @@
       "2410 Pin MNSR"
     ],
     "location": "Sala 1.14",
-    "title": "Torreão Velho – Massarellos"
+    "title": "Torreão Velho – Massarellos",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AAF27863_93E7_8F79_41C3_3DC6847FE965",
@@ -502,7 +554,8 @@
       "983 Pin MNSR"
     ],
     "location": "Sala 1.14",
-    "title": "Casas de Malakoff - Paris"
+    "title": "Casas de Malakoff - Paris",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AAD3FF74_93E3_815E_41C2_9089B5567496",
@@ -511,7 +564,8 @@
       "343 Esc MNSR"
     ],
     "location": "Sala 1.14",
-    "title": "Beijo (Baiser)"
+    "title": "Beijo (Baiser)",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AE93B75C_93EE_814E_41DC_872302823FEE",
@@ -520,7 +574,8 @@
       "900 Pin CMP/ MNSR"
     ],
     "location": "Sala 1.14",
-    "title": "Barcos à descarga no Rio Douro"
+    "title": "Barcos à descarga no Rio Douro",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AA443590_93ED_81D7_41B6_7FDEC331189A",
@@ -529,7 +584,8 @@
       "1062 Pin MNSR"
     ],
     "location": "Sala 1.14",
-    "title": "Autorretrato"
+    "title": "Autorretrato",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_84C847B5_9739_38A9_41BB_E81A3E5BFEEF",
@@ -538,7 +594,8 @@
       "59 Mob CMP/ MNSR"
     ],
     "location": "Sala 2.05",
-    "title": "Papeleira com alçado"
+    "title": "Papeleira com alçado",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_C9167CFF_9226_8749_41E0_F01725796B92",
@@ -548,7 +605,8 @@
       "28.2 Our MNSR"
     ],
     "location": "Sala 2.01",
-    "title": "Gomil e bacia de água às mãos"
+    "title": "Gomil e bacia de água às mãos",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_84C34879_973B_1798_41D7_C29E67D2C950",
@@ -557,7 +615,8 @@
       "SN"
     ],
     "location": "Sala 2.05",
-    "title": "Cerâmica"
+    "title": "Cerâmica",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AAC23D48_921E_86B7_41D7_A4EAFC615A5B",
@@ -566,7 +625,8 @@
       "1490 Pin Museu do Chiado/ MNAC-MC"
     ],
     "location": "Sala 1.13",
-    "title": "A Ponte de D. Maria, vista da cidade do Porto"
+    "title": "A Ponte de D. Maria, vista da cidade do Porto",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AAF67831_9222_8ED9_41C2_1B0FDD2EF294",
@@ -575,7 +635,8 @@
       "253 Esc MNSR"
     ],
     "location": "Sala 1.13",
-    "title": "Cabeça do poeta Miguel Torga"
+    "title": "Cabeça do poeta Miguel Torga",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_AAF6DA20_921D_82F7_41C9_61347773E3CD",
@@ -584,7 +645,8 @@
       "1560 Pin MNSR"
     ],
     "location": "Sala 1.13",
-    "title": "Louça de Barcelos"
+    "title": "Louça de Barcelos",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_C519562C_9267_82CE_41C4_33B916CC03CE",
@@ -593,7 +655,8 @@
       "179 Our MNSR"
     ],
     "location": "Sala 2.02",
-    "title": "Salva"
+    "title": "Salva",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_832801B7_9739_18A9_41B6_977442ED8B8F",
@@ -606,7 +669,8 @@
       "51 Mob MNSR"
     ],
     "location": "Sala 2.04",
-    "title": "Tremós e consolas"
+    "title": "Tremós e consolas",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_C503C89B_9262_8FC9_41D2_5F8E31CD1293",
@@ -615,7 +679,8 @@
       "158 Our MNSR"
     ],
     "location": "Sala 2.02",
-    "title": "Pendente lanterna"
+    "title": "Pendente lanterna",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_847878B4_9727_08A9_41D5_4009A32918CF",
@@ -624,7 +689,8 @@
       "111 Tex CMP/ MNSR"
     ],
     "location": "Sala 2.04",
-    "title": "Conjunto de saia e casaco"
+    "title": "Conjunto de saia e casaco",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_F33CDB25_9262_82F9_41DE_EE7DB0B5F22A",
@@ -633,7 +699,8 @@
       "31 Tex CMP/ MNSR"
     ],
     "location": "Sala 2.03",
-    "title": "Pluvial / Capa de Asperges"
+    "title": "Pluvial / Capa de Asperges",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_8310AFBD_9767_0899_41CF_7C9AD2BBE4FE",
@@ -642,7 +709,8 @@
       "315 Cer CMP/ MNSR"
     ],
     "location": "Sala 2.08",
-    "title": "Virgem com o Menino"
+    "title": "Virgem com o Menino",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_C6E5AB5F_922D_814A_41DF_DADBFB34DFCE",
@@ -652,7 +720,8 @@
       "59 Tex CMP/ MNSR"
     ],
     "location": "Sala 2.01",
-    "title": "Faldistório"
+    "title": "Faldistório",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_C5C5CD0F_9222_86CA_4194_6E85217AFD4F",
@@ -661,7 +730,8 @@
       "301 Pin MNSR"
     ],
     "location": "Sala 2.01",
-    "title": "D. Frei José Maria da Fonseca e Évora, Bispo do Porto"
+    "title": "D. Frei José Maria da Fonseca e Évora, Bispo do Porto",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_892BC2EC_9779_18B8_41C4_58CB853B2011",
@@ -670,7 +740,8 @@
       "4 Cer MNSR"
     ],
     "location": "Sala 2.09",
-    "title": "Peças de um serviço de mesa"
+    "title": "Peças de um serviço de mesa",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_837DF4B6_976F_18AB_41BD_FF8C689BA651",
@@ -679,7 +750,8 @@
       "SN"
     ],
     "location": "Sala 2.08",
-    "title": "Vidros portugueses do século XVIII"
+    "title": "Vidros portugueses do século XVIII",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_837680CF_971B_38F8_41BE_274B7B11B3BB",
@@ -688,7 +760,8 @@
       "40 Pin MNSR"
     ],
     "location": "Sala 2.07",
-    "title": "Natureza-morta"
+    "title": "Natureza-morta",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_83D1A55D_971B_3999_41E1_531A7C21E9DA",
@@ -697,7 +770,8 @@
       "771 Mob MNSR"
     ],
     "location": "Sala 2.07",
-    "title": "Contador com trempe"
+    "title": "Contador com trempe",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_83111E59_971F_0B98_41CE_BD3217315A9B",
@@ -706,7 +780,8 @@
       "770 Mob MNSR"
     ],
     "location": "Sala 2.07",
-    "title": "Arca de bragal com brasão de armas da família Vieira, Ribeiro e Vasconcelos"
+    "title": "Arca de bragal com brasão de armas da família Vieira, Ribeiro e Vasconcelos",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_83774205_9769_1B69_41D5_EFC549CC21F5",
@@ -715,7 +790,8 @@
       "SN"
     ],
     "location": "Sala 2.07",
-    "title": "Fábricas de faiança em Portugal – séculos XVIII a XX"
+    "title": "Fábricas de faiança em Portugal – séculos XVIII a XX",
+    "nationalTreasure": false
   },
   {
     "overlayId": "overlay_83A6A7F6_9769_38A8_41AA_4A38AA0ACAB4",
@@ -724,6 +800,118 @@
       "998 Cer MNSR"
     ],
     "location": "Sala 2.07",
-    "title": "Jarra"
+    "title": "Jarra",
+    "nationalTreasure": false
+  },
+  {
+    "overlayId": "overlay_BC1EA50C_9222_86CF_41C5_7112F4F87813",
+    "panoramaKey": "panorama_8C140559_9F16_FA11_41E0_60ABFAFEC3C6",
+    "inventoryIds": [
+      "82 Pin MNSR"
+    ],
+    "location": "Sala 1.06",
+    "title": "As casas brancas de Capri",
+    "nationalTreasure": true
+  },
+  {
+    "overlayId": "overlay_BF6FD384_921D_81BF_41E1_54A14B6D7BFF",
+    "panoramaKey": "panorama_8D801AA7_9F16_8E32_41DF_36F782776E10",
+    "inventoryIds": [
+      "114/ 39 Pin MNSR"
+    ],
+    "location": "Sala 1.06",
+    "title": "Senhora vestida de preto",
+    "nationalTreasure": true,
+    "inventoryIdsOriginal": [
+      "114/39 Pin MNSR"
+    ],
+    "inventoryIdsNota": "no catálogo é «114/ 39 Pin MNSR»"
+  },
+  {
+    "overlayId": "overlay_CCD48D65_926D_817E_41C2_3412E06C8D0F",
+    "panoramaKey": "panorama_09B113B5_3631_FB79_41B9_60B843ACBD73",
+    "inventoryIds": [
+      "119.1 Our MNSR",
+      "119.2 Our MNSR"
+    ],
+    "location": "Sala 2.03",
+    "title": "Bracelete (par)",
+    "nationalTreasure": true,
+    "inventoryIdsOriginal": [
+      "119.1. 2 Our MNSR"
+    ],
+    "inventoryIdsNota": "na visita está «119.1. 2 Our MNSR», o par de pulseiras"
+  },
+  {
+    "overlayId": "overlay_BF6CDDF5_9262_815E_41A2_7032085509D5",
+    "panoramaKey": "panorama_8D80E0BD_9F16_9A16_41E3_CB5E918C324F",
+    "inventoryIds": [
+      "114/ 34 Pin MNSR"
+    ],
+    "location": "Sala 1.06",
+    "title": "Janela das persianas azuis",
+    "nationalTreasure": true,
+    "inventoryIdsOriginal": [
+      "114/34 Pin MNSR"
+    ],
+    "inventoryIdsNota": "no catálogo é «114/ 34 Pin MNSR»"
+  },
+  {
+    "overlayId": "overlay_AAB370FF_9225_7F48_41D3_4A064BB0E6C2",
+    "panoramaKey": "panorama_B3C520F6_A139_BA8B_41D5_069B2690EAE1",
+    "inventoryIds": [
+      "878 Pin MNSR"
+    ],
+    "location": "Sala 1.12",
+    "title": "Autorretrato",
+    "nationalTreasure": true
+  },
+  {
+    "overlayId": "overlay_C5017388_9262_81B6_41CC_8EC10EFC486F",
+    "panoramaKey": "panorama_B6576903_A455_3D95_41D5_CCB20502C82D",
+    "inventoryIds": [
+      "104 Our MNSR"
+    ],
+    "location": "Sala 2.02",
+    "title": "Busto-relicário de São Pantaleão",
+    "nationalTreasure": true
+  },
+  {
+    "overlayId": "overlay_C5C91A1B_9226_82CA_41D4_396D46E55099",
+    "panoramaKey": "panorama_B4BCDDE7_A46B_D7DB_41DD_DD923E09A9C9",
+    "inventoryIds": [
+      "32 Our MNSR"
+    ],
+    "location": "Sala 2.01",
+    "title": "Croça de báculo episcopal",
+    "nationalTreasure": true
+  },
+  {
+    "overlayId": "overlay_BC704D5E_9262_814B_41D9_F15A2E77EF6D",
+    "panoramaKey": "panorama_8CF0A09E_9F19_9AF5_41DA_9C9CBB3FC608",
+    "inventoryIds": [
+      "41 Esc MNSR"
+    ],
+    "location": "Sala 1.09",
+    "title": "O Desterrado",
+    "nationalTreasure": true,
+    "locationOriginal": "Sala 1.08"
+  },
+  {
+    "overlayId": "overlay_89D577B3_9779_F8A9_41E0_C14CE7EBFA20",
+    "panoramaKey": "panorama_B10DAA3F_A5BF_5E25_41D8_6A618EA0064B",
+    "inventoryIds": [
+      "120.1 Our MNSR",
+      "120.2 Our MNSR",
+      "120.3 Our MNSR",
+      "121 Our MNSR"
+    ],
+    "location": "Sala 2.10",
+    "title": "Cruz-relicário de altar, galhetas e estojo",
+    "nationalTreasure": true,
+    "inventoryIdsOriginal": [
+      "120 1.2.3, 121 Our MNSR"
+    ],
+    "inventoryIdsNota": "na visita está «120 1.2.3, 121 Our MNSR»; o 121 Our MNSR (estojo) não existe no catálogo"
   }
 ]

@@ -319,8 +319,8 @@ class ArtifactResult(BaseModel):
     # `artifact_count` do índice de conjuntos, que coincide com as fichas do
     # conjunto no índice de peças (1850/1850 a 2026-10-12).
     set_object_counts: list[int] = Field(default_factory=list)
-    # Tesouro Nacional (lista em app/config/national_treasures.json). Num cartão
-    # agrupado, true se alguma das fichas do grupo for tesouro.
+    # Tesouro Nacional (o nationalTreasure do mapa dos POIs da visita, em
+    # poi_tours/). Num cartão agrupado, true se alguma das fichas do grupo for tesouro.
     national_treasure: bool = False
 
 
