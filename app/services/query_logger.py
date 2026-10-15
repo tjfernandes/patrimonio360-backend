@@ -99,6 +99,13 @@ class QueryLogger:
             label="frontend_interaction",
         )
 
+    async def log_speech_session(self, event: dict[str, Any]) -> None:
+        await self._log_jsonl(
+            path=self.settings.speech_log_path_resolved,
+            event=event,
+            label="speech_session",
+        )
+
 
 @lru_cache(maxsize=1)
 def get_query_logger() -> QueryLogger:

@@ -423,6 +423,25 @@ class Settings(BaseSettings):
     QUERY_LOG_PATH: str = "logs/evaluation/backend_queries.jsonl"
     FRONTEND_EVENT_LOG_PATH: str = "logs/evaluation/frontend_events.jsonl"
 
+    # Ditado por voz no servidor (WebSocket /api/v1/speech/stream, faster-whisper).
+    # Desligado: o modelo não carrega e o WebSocket recusa a ligação, e o
+    # frontend passa ao reconhecimento do browser.
+    SPEECH_STT_ENABLED: bool = False
+    SPEECH_MODEL: str = "large-v3-turbo"
+    SPEECH_DEVICE: str = "cuda"
+    SPEECH_COMPUTE_TYPE: str = "float16"
+    # réplicas do modelo na GPU que transcrevem em paralelo (sessões em fila)
+    SPEECH_NUM_WORKERS: int = 2
+    SPEECH_MAX_SESSIONS: int = 6
+    SPEECH_MAX_SESSION_SECONDS: float = 120.0
+    SPEECH_PARTIAL_INTERVAL_MS: int = 400
+    SPEECH_ENDPOINT_SILENCE_MS: int = 600
+    # troço mais longo do que isto: confirmam-se as palavras estáveis e continua-se
+    SPEECH_MAX_SEGMENT_SECONDS: float = 12.0
+    SPEECH_NO_SPEECH_THRESHOLD: float = 0.6
+    # vazio: speech_sessions.jsonl na pasta do QUERY_LOG_PATH (só metadados e texto final, nunca áudio)
+    SPEECH_LOG_PATH: str = ""
+
     # Reranker (second-stage; disabled by default). These keys existed in .env but
     # were silently dropped by extra="ignore" until declared here — declaring them
     # is what makes PairwiseRerankerService constructible at all.
@@ -612,6 +631,16 @@ class Settings(BaseSettings):
         raw = (self.QUERY_LOG_PATH or "").strip()
         if not raw:
             raw = "logs/evaluation/backend_queries.jsonl"
+        path = Path(raw).expanduser()
+        if not path.is_absolute():
+            path = (Path(__file__).resolve().parents[2] / path).resolve()
+        return path
+
+    @property
+    def speech_log_path_resolved(self) -> Path:
+        raw = (self.SPEECH_LOG_PATH or "").strip()
+        if not raw:
+            return self.query_log_path_resolved.parent / "speech_sessions.jsonl"
         path = Path(raw).expanduser()
         if not path.is_absolute():
             path = (Path(__file__).resolve().parents[2] / path).resolve()
