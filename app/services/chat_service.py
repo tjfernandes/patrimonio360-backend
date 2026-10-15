@@ -1,4 +1,5 @@
-﻿from functools import lru_cache
+﻿from collections import Counter
+from functools import lru_cache
 import asyncio
 from dataclasses import dataclass
 import difflib
@@ -18,6 +19,17 @@ from app.prompts import (
     build_final_answer_prompt,
     build_router_user_prompt,
     get_router_system_prompt,
+)
+from app.services.national_treasures import (
+    LIST as TREASURE_LIST,
+    NO_MATCH_ID as TREASURE_NO_MATCH_ID,
+    QUESTION as TREASURE_QUESTION,
+    TreasureIntent,
+    fold as treasure_fold,
+    get_registry as get_national_treasure_registry,
+    parse_treasure_intent,
+    strip_treasure_words,
+    subject_matches,
 )
 from app.services.catalogue_analytics import (
     CENTURIES,
@@ -181,6 +193,8 @@ _SELECTED_ATTRIBUTE_STEMS: tuple[str, ...] = (
     "made", "date", "year", "century", "when", "old", "who", "maker", "artist", "wore", "worn", "owner",
     "size", "technique", "tell", "describ", "explain", "detail", "meaning", "color", "colour", "condition",
     "story", "purpose", "name", "style",
+    # «isto é tesouro nacional?», «está classificada?»: é sobre a peça aberta
+    "tesour", "classific", "treasur",
 )
 # «peça», «objeto», «obra»: nomes genéricos para a peça em foco. Não são um
 # assunto próprio («O que é esta peça?» é sobre a peça aberta, não uma pesquisa
@@ -3930,7 +3944,9 @@ class ChatService:
             # E7B: o ramo t2i é independente do resultado de artifact_search —
             # corre também com zero docs textuais (t2i-only), desde que o
             # retrieval textual tenha sido tentado (kind=="text").
-            if str(retrieval_request.get("kind") or "") == "text":
+            # Numa lista fechada (Tesouros Nacionais) a fusão visual não entra:
+            # traria peças de fora da lista.
+            if str(retrieval_request.get("kind") or "") == "text" and not self._is_treasure_list_request(retrieval_request):
                 multimodal_outcome = await self._maybe_fuse_text_to_image(
                     query_text=retrieval_query,
                     museum_slug=search_museum_slug,
@@ -4123,6 +4139,16 @@ class ChatService:
             if retrieval_kind_for_log == "anchored_similarity"
             else (visible_retrieval_context or retrieval_context)
         )
+        national_treasure_info = retrieval_request.get("national_treasure")
+        treasure_note = (
+            self._national_treasure_note(
+                national_treasure_info, language, visible=paged_artifact_results, found=results_total
+            )
+            if isinstance(national_treasure_info, dict)
+            else ""
+        )
+        if treasure_note:
+            final_retrieval_context = f"{treasure_note}\n{final_retrieval_context}".strip()
         retry_context_result_count = (
             0
             if retrieval_kind_for_log == "anchored_similarity"
@@ -4169,6 +4195,8 @@ class ChatService:
             and requested_format.type == "text"
             and retrieval_kind_for_log != "anchored_similarity"
             and len(paged_artifact_results) > 1
+            # numa lista fechada (Tesouros Nacionais) todos os cartões correspondem
+            and not self._is_treasure_list_request(retrieval_request)
         )
 
         def build_text_final_message_for_result_count(result_count: int) -> str:
@@ -4186,6 +4214,8 @@ class ChatService:
                 if retrieval_kind_for_log == "anchored_similarity"
                 else limited_visible_retrieval_context
             )
+            if treasure_note:
+                limited_final_retrieval_context = f"{treasure_note}\n{limited_final_retrieval_context}".strip()
             return self._build_final_prompt(
                 payload=payload,
                 state=state,
@@ -4443,6 +4473,7 @@ class ChatService:
                 "llm_endpoint": getattr(llm_response, "endpoint", None),
                 "grounding": grounding_report,
                 "card_selection": card_selection,
+                "national_treasure": national_treasure_info,
             },
         )
 
@@ -5736,6 +5767,15 @@ class ChatService:
         if temporal.start_year is not None and temporal.end_year is not None:
             subject = parse_catalogue_analytics(self._strip_temporal_expression_from_query(payload.message, temporal))
             subject = subject.subject if subject else analytics.subject
+        # «qual é o tesouro nacional mais antigo?»: a lista filtra; o assunto
+        # que sobra («de pintura») escolhe dentro dela, pelas mesmas regras
+        # da pesquisa
+        treasure_subject = tuple(treasure_fold(strip_treasure_words(subject)).split())
+        filters, treasure_info = await self._apply_national_treasure_intent(
+            message=payload.message, museum_id=museum_id, filters=filters, subject_tokens=treasure_subject,
+        )
+        if treasure_info is not None:
+            subject = " ".join(treasure_subject)
         cards = max(int(getattr(self.settings, "CHAT_CATALOGUE_ANALYTICS_CARDS", 24)), 1)
         kind = analytics.kind
         try:
@@ -5743,7 +5783,7 @@ class ChatService:
                 museum_slug=museum_slug,
                 museum_id=museum_id,
                 in_tour=analytics.in_tour,
-                subject=subject,
+                subject="" if treasure_info is not None else subject,
                 filters=filters,
                 order=("asc" if kind == OLDEST else "desc") if kind in {OLDEST, NEWEST} else None,
                 size=cards if kind in {OLDEST, NEWEST} else (8 if kind == COUNT and subject else 0),
@@ -5759,6 +5799,8 @@ class ChatService:
         total_dated = int(result.get("total_dated") or 0)
         scope = translate("message.analytics_scope_tour" if analytics.in_tour else "message.analytics_scope_museum", language)
         subject_text = translate("message.analytics_subject", language, subject=subject) if subject else ""
+        if treasure_info is not None:
+            subject_text = translate("message.analytics_treasure", language) + subject_text
         period_text = ""
         if temporal.start_year is not None and temporal.end_year is not None:
             period_text = translate(
@@ -7319,6 +7361,18 @@ class ChatService:
             search_query,
             tour_scope_expression,
         )
+        # Tesouros Nacionais: a lista filtra (combinada com época e âmbito, que
+        # já estão nos filtros) e as palavras «tesouro nacional» saem da
+        # pesquisa, para o resto do pedido («de pintura», «a Fuga para o
+        # Egipto») mandar no ranking.
+        # lido já sem época nem âmbito, que estão nos filtros
+        retrieval_filters, national_treasure_info = await self._apply_national_treasure_intent(
+            message=search_query,
+            museum_id=museum_id,
+            filters=retrieval_filters,
+        )
+        if national_treasure_info is not None:
+            search_query = strip_treasure_words(search_query)
         if not search_query:
             search_query = "objetos"
         original_search_query = search_query
@@ -7500,6 +7554,8 @@ class ChatService:
             "tour_scope": tour_scope_filter_payload,
             "opensearch_query": getattr(page_result, "query_body", None),
         }
+        if national_treasure_info is not None:
+            retrieval_request["national_treasure"] = national_treasure_info
 
         if not docs:
             return "", results_total, [], retrieval_request
@@ -8486,6 +8542,10 @@ class ChatService:
             if not isinstance(prompt_doc.get("group_size"), int) or prompt_doc["group_size"] <= 1:
                 prompt_doc.pop("group_size", None)
                 prompt_doc.pop("group_inventory_numbers", None)
+            # só a marca positiva, e só com a flag (como no cartão compacto)
+            if not (prompt_doc.get("national_treasure") is True and getattr(self.settings, "CHAT_NATIONAL_TREASURES", False)):
+                prompt_doc.pop("national_treasure", None)
+            prompt_doc.pop("set_object_counts", None)
             snippet = json.dumps(prompt_doc, ensure_ascii=True)
             snippets.append(f"[doc_{index}] {snippet}")
         return "\n".join(snippets)
@@ -8564,6 +8624,8 @@ class ChatService:
                 lines.append(f"    Descrição: {description}")
             if isinstance(in_tour, bool):
                 lines.append(f"    Na visita virtual: {'sim' if in_tour else 'não'}")
+            if bool(getattr(self.settings, "CHAT_NATIONAL_TREASURES", False)) and self._doc_is_national_treasure(doc):
+                lines.append("    Tesouro Nacional: sim")
             group_size = doc.get("group_size")
             if isinstance(group_size, int) and group_size > 1:
                 numbers = self._as_string_list(doc.get("group_inventory_numbers"))
@@ -8825,7 +8887,146 @@ class ChatService:
             )
 
         await self._attach_set_object_counts(results)
+        self._attach_national_treasure(results, fallback_museum_id=museum_id)
         return results
+
+    def _national_treasure_registry(self):
+        path = getattr(self.settings, "CHAT_NATIONAL_TREASURES_PATH", None)
+        return get_national_treasure_registry(str(path).strip() if path else None)
+
+    def _attach_national_treasure(self, results: list[ArtifactResult], *, fallback_museum_id: str | None) -> None:
+        """national_treasure em cada cartão, pela lista da configuração (sem
+        índice). Num cartão agrupado basta uma das fichas do grupo."""
+        registry = self._national_treasure_registry()
+        for result in results:
+            inventories = list(result.group_inventory_numbers) or [result.inventory_number]
+            result.national_treasure = registry.is_treasure(result.museum_id or fallback_museum_id, inventories)
+
+    def _doc_is_national_treasure(self, doc: dict[str, object]) -> bool:
+        flag = doc.get("national_treasure")
+        if isinstance(flag, bool):
+            return flag
+        inventories = self._as_string_list(doc.get("group_inventory_numbers")) or [self._doc_inventory(doc)]
+        return self._national_treasure_registry().is_treasure(str(doc.get("museum_id") or ""), inventories)
+
+    async def _national_treasure_docs(self, museum_id: str | None) -> list[dict[str, object]]:
+        """As fichas da lista de Tesouros Nacionais do museu, com cache por
+        museu e versão do ficheiro (10 min, para apanhar reindexações)."""
+        registry = self._national_treasure_registry()
+        museum = (museum_id or "").strip().lower()
+        keys = sorted(registry.keys(museum))
+        if not keys:
+            return []
+        cache = getattr(self, "_national_treasure_cache", None)
+        if cache is None:
+            cache = {}
+            self._national_treasure_cache = cache
+        cache_key = (museum, registry.version)
+        cached = cache.get(cache_key)
+        if cached is not None and time.monotonic() - cached[0] < 600:
+            return list(cached[1])
+        docs = await self.opensearch_gateway.fetch_artifacts_by_inventory_keys(museum_id=museum, keys=keys)
+        cache[cache_key] = (time.monotonic(), list(docs))
+        return list(docs)
+
+    @staticmethod
+    def _is_treasure_list_request(retrieval_request: dict[str, Any]) -> bool:
+        info = retrieval_request.get("national_treasure")
+        return isinstance(info, dict) and info.get("kind") == TREASURE_LIST
+
+    def _national_treasure_note(
+        self,
+        info: dict[str, Any],
+        language: str | None,
+        visible: list[ArtifactResult] | None = None,
+        found: int | None = None,
+    ) -> str:
+        """Factos para o prompt final dos pedidos sobre Tesouros Nacionais. Na
+        pergunta («é tesouro nacional?»), diz já quais dos cartões estão na
+        lista: o 9B mistura peças com o mesmo título."""
+        en = normalize_language(language) == "en"
+        total = int(info.get("museum_total") or 0)
+        cats = ", ".join(f"{name} {count}" for name, count in (info.get("categories") or []))
+        if info.get("kind") == TREASURE_QUESTION:
+            rule = (
+                f"Question about National Treasures: an object is a National Treasure only if its card says "
+                f"\"Tesouro Nacional: sim\". This museum's official list has {total}." if en else
+                f"Pergunta sobre Tesouros Nacionais: uma peça só é Tesouro Nacional se o cartão disser «Tesouro Nacional: sim». "
+                f"A lista oficial do museu tem {total}."
+            )
+            if visible is None:
+                return rule
+            listed = [f"«{r.title or '—'}» ({r.inventory_number or '—'})" for r in visible if r.national_treasure]
+            if listed:
+                return rule + (f" Of the cards below, on the list: {', '.join(listed)}; the others are not." if en
+                               else f" Dos cartões abaixo, estão na lista: {', '.join(listed)}; os outros não.")
+            return rule + (" None of the cards below is on the list." if en else " Nenhum dos cartões abaixo está na lista.")
+        matched = int(info.get("matched") or 0)
+        if not total:
+            return ("This museum has no objects on the National Treasures list." if en
+                    else "Este museu não tem peças na lista de Tesouros Nacionais.")
+        subject = " ".join(info.get("subject") or [])
+        # o resto do pedido (época, visita) ainda pode reduzir a lista
+        narrowed = found is not None and 0 <= found < matched
+        if narrowed:
+            matched = int(found or 0)
+        # a contagem final vai à frente: o 9B lia «Correspondem a: 18» e respondia
+        # «existe um tesouro», ou contava só os cartões que destacava
+        listing = (f"official list: {total}" if en else f"lista oficial: {total}") + (f" — {cats}" if cats else "")
+        what = (f"National Treasures of “{subject}”" if en else f"Tesouros Nacionais de «{subject}»") if subject else (
+            "National Treasures" if en else "Tesouros Nacionais")
+        if narrowed:
+            what += " that match the request" if en else " que correspondem ao pedido"
+        head = (f"This museum has {matched} {what} ({listing})." if en
+                else f"Este museu tem {matched} {what} ({listing}).")
+        if not matched:
+            return head + (" None is shown." if en else " Não há nenhum a mostrar.")
+        shown = len(visible) if visible is not None else 0
+        if 0 < shown < matched:
+            return head + (f" The {shown} cards below are some of them; there are {matched} in total." if en
+                           else f" Os {shown} cartões abaixo são alguns deles; ao todo são {matched}.")
+        return head + (" Every card below is a National Treasure." if en else " Todos os cartões abaixo são Tesouro Nacional.")
+
+    async def _apply_national_treasure_intent(
+        self,
+        *,
+        message: str,
+        museum_id: str | None,
+        filters: dict[str, object],
+        subject_tokens: tuple[str, ...] | None = None,
+    ) -> tuple[dict[str, object], dict[str, Any] | None]:
+        """Pedido sobre Tesouros Nacionais (CHAT_NATIONAL_TREASURES): na lista
+        («tesouros nacionais de pintura»), restringe a pesquisa às fichas da
+        lista que correspondem ao assunto; na pergunta («é tesouro
+        nacional?»), não filtra — o cartão de cada peça diz se é. Devolve os
+        filtros e a informação para o prompt e o registo."""
+        if not bool(getattr(self.settings, "CHAT_NATIONAL_TREASURES", False)):
+            return filters, None
+        intent = parse_treasure_intent(message)
+        if intent is None:
+            return filters, None
+        if subject_tokens is not None:
+            # a analítica já separou o assunto das palavras da pergunta («mais antigo»)
+            intent = TreasureIntent(TREASURE_LIST, tuple(subject_tokens))
+        try:
+            docs = await self._national_treasure_docs(museum_id)
+        except Exception as exc:
+            log_event(logger, logging.WARNING, "chat.national_treasures.error", museum_id=museum_id, error=exc)
+            docs = []
+        categories = Counter(str(d.get("category") or "").strip() for d in docs if str(d.get("category") or "").strip())
+        info: dict[str, Any] = {
+            "kind": intent.kind,
+            "museum_total": len(docs),
+            "categories": categories.most_common(),
+            "subject": list(intent.subject_tokens),
+        }
+        if intent.kind == TREASURE_QUESTION:
+            return filters, info
+        matching = [d for d in docs if subject_matches(intent.subject_tokens, d)]
+        info["matched"] = len(matching)
+        updated = dict(filters)
+        updated["artifact_id"] = [str(d.get("artifact_id")) for d in matching if d.get("artifact_id")] or [TREASURE_NO_MATCH_ID]
+        return updated, info
 
     async def _attach_set_object_counts(self, results: list[ArtifactResult]) -> None:
         """Preenche set_object_counts (total de peças de cada conjunto, pela
@@ -10233,6 +10434,7 @@ class ChatService:
                 use_history_for_answer=use_history_for_answer,
                 language=state.language,
                 select_cards=select_cards,
+                national_treasures=bool(getattr(self.settings, "CHAT_NATIONAL_TREASURES", False)),
             )
         if select_cards:
             return "\n".join(

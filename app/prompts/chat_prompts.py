@@ -302,6 +302,18 @@ _CARD_SELECTION_INSTRUCTION_EN = (
 )
 
 
+# Tesouros Nacionais (CHAT_NATIONAL_TREASURES): a marca vem da lista oficial e
+# chega ao modelo como «Tesouro Nacional: sim» no cartão; nunca se infere.
+_NATIONAL_TREASURE_RULE_PT = (
+    "Só dizes que uma peça é Tesouro Nacional se o cartão indicar «Tesouro Nacional: sim»; "
+    "se o cartão não o indicar, a peça não está na lista de Tesouros Nacionais do museu."
+)
+_NATIONAL_TREASURE_RULE_EN = (
+    "Only say an object is a National Treasure when its card states \"Tesouro Nacional: sim\"; "
+    "if the card does not say so, the object is not on the museum's National Treasures list."
+)
+
+
 def card_selection_instruction(language: str | None = None) -> str:
     """Instrução do bloco final «[[cartões: …]]», acrescentada ao prompt final."""
     return _CARD_SELECTION_INSTRUCTION_EN if _normalize_language(language) == "en" else _CARD_SELECTION_INSTRUCTION_PT
@@ -414,6 +426,7 @@ def build_final_answer_prompt_v2(
     language: str | None = None,
     input_modality: str = "text",
     select_cards: bool = False,
+    national_treasures: bool = False,
 ) -> str:
     """Prompt final compacto (quick win PR-01; texto, imagem e modelo 3D).
 
@@ -445,6 +458,8 @@ def build_final_answer_prompt_v2(
         kind = "search" if en else "pesquisa"
 
     parts = [template.format(museum_name=name)]
+    if national_treasures:
+        parts.append(_NATIONAL_TREASURE_RULE_EN if en else _NATIONAL_TREASURE_RULE_PT)
     if modality in {"image", "model"}:
         source = (
             ("the uploaded image" if modality == "image" else "views of the uploaded 3D model") if en

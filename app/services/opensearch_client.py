@@ -1083,14 +1083,14 @@ class OpenSearchGateway:
         )
 
         if query_embedding and retrieval_mode != "bm25_only":
-            knn_query: dict[str, Any] = {
-                "knn": {
-                    "text_embedding": {
-                        "vector": query_embedding,
-                        "k": knn_k,
-                    }
-                }
-            }
+            knn_spec: dict[str, Any] = {"vector": query_embedding, "k": knn_k}
+            # Lista fechada de peças (Tesouros Nacionais): o filtro vai dentro do
+            # kNN (filtragem eficiente do lucene) para os vizinhos serem
+            # procurados só entre elas. Fora disso, o kNN fica como estava: os
+            # 1000 vizinhos do índice inteiro, filtrados depois.
+            if isinstance((filters or {}).get("artifact_id"), list) and filter_clauses:
+                knn_spec["filter"] = {"bool": {"filter": filter_clauses}}
+            knn_query: dict[str, Any] = {"knn": {"text_embedding": knn_spec}}
             if filter_clauses or in_tour_boost_clause:
                 bool_query: dict[str, Any] = {"must": [knn_query]}
                 if filter_clauses:
@@ -2990,6 +2990,39 @@ class OpenSearchGateway:
         total_value = self._total_hits_value(response)
         results = self._artifact_results_from_hits(hits)
         return results, total_value
+
+    def _fetch_artifacts_by_inventory_keys_sync(self, *, museum_id: str, keys: list[str]) -> list[dict[str, Any]]:
+        """Fichas do museu cujo n.º de inventário, sem maiúsculas, espaços nem
+        pontuação, está em `keys` (Tesouros Nacionais). Lê só campos pequenos
+        de todas as fichas do museu: a comparação normalizada não se faz numa
+        query, e o resultado fica em cache no serviço."""
+        from opensearchpy.helpers import scan
+
+        from app.services.national_treasures import inventory_key
+
+        wanted = set(keys)
+        if not wanted or not (museum_id or "").strip():
+            return []
+        client = self._ensure_client()
+        fields = ["artifact_id", "inventory_number", "title", "category", "super_category", "technique",
+                  "support_or_material", "in_tour", "start_year", "end_year", "museum_id"]
+        found: list[dict[str, Any]] = []
+        for hit in scan(client, index=self.settings.OPENSEARCH_INDEX_ARTIFACT, size=1000,
+                        query={"_source": fields, "query": {"term": {"museum_id": museum_id.strip()}}}):
+            source = hit.get("_source") or {}
+            if inventory_key(str(source.get("inventory_number") or "")) in wanted:
+                found.append({"artifact_id": source.get("artifact_id") or hit.get("_id"), **source})
+        return found
+
+    async def fetch_artifacts_by_inventory_keys(self, *, museum_id: str, keys: list[str]) -> list[dict[str, Any]]:
+        return await self._to_thread_logged(
+            "opensearch.fetch_artifacts_by_inventory_keys",
+            self._fetch_artifacts_by_inventory_keys_sync,
+            log_fields={"museum_id": museum_id, "keys": len(keys)},
+            result_size=len,
+            museum_id=museum_id,
+            keys=keys,
+        )
 
     def _fetch_set_object_counts_sync(self, *, set_ids: list[str]) -> dict[str, int]:
         """Número de peças de cada conjunto: `artifact_count` do índice de
