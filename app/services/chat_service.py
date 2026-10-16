@@ -20,6 +20,7 @@ from app.prompts import (
     build_router_user_prompt,
     get_router_system_prompt,
 )
+from app.services.point_ask import PointRequest
 from app.services.national_treasures import (
     LIST as TREASURE_LIST,
     NO_MATCH_ID as TREASURE_NO_MATCH_ID,
@@ -2958,6 +2959,19 @@ class ChatService:
         um pedido independente segue sem ela e a resposta avisa o widget."""
         metadata = payload.metadata if isinstance(payload.metadata, dict) else None
         selected = self._selected_artifact_from_metadata(metadata)
+        # «Apontar e perguntar»: o toque no panorama traz metadata.point; a peça
+        # decide-se pela imagem, nunca pelo texto («O que é isto?»).
+        if bool(getattr(self.settings, "POINT_AND_ASK_ENABLED", False)):
+            intent = self._metadata_intent(metadata)
+            if intent in {"point_and_ask", "describe_point_crop"}:
+                point_request = PointRequest.parse((metadata or {}).get("point"))
+                if point_request is not None:
+                    from app.services.point_flow import answer_point_and_ask, answer_describe_point_crop
+
+                    if intent == "point_and_ask":
+                        return await answer_point_and_ask(self, payload, point_request, status_cb=status_cb)
+                    return await answer_describe_point_crop(self, payload, point_request, status_cb=status_cb)
+                log_event(logger, logging.WARNING, "chat.point.invalid_metadata", intent=intent)
         # «Ver na tour»: o frontend diz a intenção e a peça; não há nada a
         # decidir nem a pesquisar. Antes da libertação automática, que veria
         # «Sapatos (par)/Feminino (4270)» como uma pesquisa nova.
@@ -3062,13 +3076,17 @@ class ChatService:
         *,
         selected: dict[str, str | None],
         status_cb: StatusCallback | None = None,
+        fast_path: str = "describe_artifact",
+        log_extra: dict[str, Any] | None = None,
+        prompt_subject: str | None = None,
     ) -> ChatMessageResponse:
         """Intenção «describe_artifact» (CHAT_DESCRIBE_ARTIFACT_INTENT).
 
         O visitante carregou em «Ver na tour» e está a olhar para a peça: a
         ficha vai buscar-se pelo artifact_id (pelo n.º de inventário se o id
         já não existir) e o LLM apresenta-a com um prompt próprio. Só essa
-        peça sai nos cartões; nunca há pesquisa.
+        peça sai nos cartões; nunca há pesquisa. O «Apontar e perguntar»
+        reutiliza-o com `fast_path="point_and_ask"` e o seu `log_extra`.
         """
         conversation_id = payload.conversation_id or str(uuid4())
         requested_format = payload.response_format or ResponseFormatObject(type="text")
@@ -3095,7 +3113,7 @@ class ChatService:
             query_id=query_id,
             mode="rag",
             intent="describe_artifact",
-            fast_path="describe_artifact",
+            fast_path=fast_path,
             selected_artifact_id=artifact_id,
         )
 
@@ -3134,7 +3152,7 @@ class ChatService:
         else:
             prompt = build_describe_artifact_prompt(
                 museum_name=museum_name,
-                user_message=payload.message,
+                user_message=prompt_subject or payload.message,
                 card_context=self._format_docs_compact(docs=docs, description_chars=900),
                 language=language,
             )
@@ -3255,7 +3273,7 @@ class ChatService:
             lexical_query=None,
             embedding_query=None,
             route="rag",
-            retrieval_mode="describe_artifact",
+            retrieval_mode=fast_path,
             filters_applied={
                 "filters": {"artifact_id": artifact_id} if artifact_id else {},
                 "sort": {},
@@ -3277,12 +3295,13 @@ class ChatService:
             error=error,
             opensearch_query=None,
             extra={
-                "fast_path": "describe_artifact",
+                "fast_path": fast_path,
                 "artifact_found": bool(docs),
                 "llm_finish_reason": getattr(llm_response, "finish_reason", None),
                 "llm_usage": getattr(llm_response, "usage", None),
                 "llm_endpoint": getattr(llm_response, "endpoint", None),
                 "grounding": grounding_report,
+                **(log_extra or {}),
             },
         )
         log_event(
@@ -3292,7 +3311,7 @@ class ChatService:
             conversation_id=conversation_id,
             query_id=query_id,
             status=status,
-            fast_path="describe_artifact",
+            fast_path=fast_path,
             shown_artifacts=len(artifact_results),
             duration_ms=round(total_ms, 1),
         )

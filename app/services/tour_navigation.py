@@ -215,6 +215,34 @@ class TourNavigationService:
         self._build_places(museum_key=museum_key, museum_id=museum_id, poi_rooms=rooms)
         self._loaded_museums.add(museum_key)
 
+    def overlay_inventories(self, *, museum_slug: str, museum_id: str | None, overlay_id: str) -> list[str]:
+        """N.ºs do catálogo do hotspot `overlay_id` («Apontar e perguntar»: o toque caiu num hotspot)."""
+        self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
+        museum_key = (museum_slug or "").strip().lower()
+        wanted = (overlay_id or "").strip()
+        found: list[str] = []
+        for entries in self._panorama_index.get(museum_key, {}).values():
+            for entry in entries:
+                if entry.overlay_id == wanted and entry.inventory_id not in found:
+                    found.append(entry.inventory_id)
+        return found
+
+    def panorama_inventory_keys(self, *, museum_slug: str, museum_id: str | None, panorama_key: str) -> set[str]:
+        """N.ºs (normalizados) das peças com hotspot no panorama."""
+        self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
+        museum_key = (museum_slug or "").strip().lower()
+        entries = self._panorama_index.get(museum_key, {}).get((panorama_key or "").strip(), [])
+        return {self._normalize_inventory(e.inventory_id) for e in entries if self._normalize_inventory(e.inventory_id)}
+
+    def tour_inventory_keys(self, *, museum_slug: str, museum_id: str | None) -> set[str]:
+        """N.ºs (normalizados) de todas as peças com hotspot na visita do museu."""
+        self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
+        museum_key = (museum_slug or "").strip().lower()
+        return set(self._inventory_index.get(museum_key, {}).keys())
+
+    def normalize_inventory_key(self, inventory: str | None) -> str:
+        return self._normalize_inventory(inventory or "")
+
     def corrected_inventories(self, *, museum_slug: str, museum_id: str | None, inventory: str) -> list[str]:
         """Números do catálogo para um número tal como a visita o anuncia.
 

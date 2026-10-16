@@ -472,6 +472,9 @@ class ChatMessageResponse(BaseModel):
     results_has_more: bool = False
     results_request_id: str | None = None
     search_scope: ChatSearchScope | None = None
+    # «Apontar e perguntar»: o mesmo objeto do último evento SSE `point` (stage
+    # decided, com candidates), para quem não usa stream.
+    point: dict[str, Any] | None = None
 
 
 class ChatResultsPageResponse(BaseModel):

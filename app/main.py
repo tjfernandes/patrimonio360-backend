@@ -81,6 +81,10 @@ def create_app() -> FastAPI:
                 required.append("vl_reranker_ready")
             if settings.CHAT_PREWARM_INCLUDE_MULTIVIEW_WORKER:
                 required.append("multiview_worker_ready")
+        if settings.POINT_AND_ASK_ENABLED:
+            # o SAM 3 carrega e aquece aqui; sem ele o toque responde «não consegui»
+            from app.services.point_ask import get_point_ask_service
+            checks["point_ready"] = await asyncio.to_thread(get_point_ask_service().load)
         if settings.SPEECH_STT_ENABLED:
             # o Whisper carrega e aquece aqui, nunca no primeiro pedido; se falhar,
             # o resto arranca e o frontend usa o ditado do browser

@@ -422,6 +422,46 @@ class Settings(BaseSettings):
     QUERY_LOG_PATH: str = "logs/evaluation/backend_queries.jsonl"
     FRONTEND_EVENT_LOG_PATH: str = "logs/evaluation/frontend_events.jsonl"
 
+    # «Apontar e perguntar» (metadata.intent point_and_ask / describe_point_crop):
+    # a vista reconstrói-se das faces do cubo da visita, o SAM 3 recorta o
+    # objeto tocado, o Qwen3-VL-Embedding procura-o no índice de imagens e o
+    # escolhido segue o fluxo describe_artifact. Desligado, a intenção segue
+    # como uma mensagem normal.
+    POINT_AND_ASK_ENABLED: bool = False
+    POINT_TOURS_BASE_URL: str = "https://patrimonio360.webredirect.org:5500"
+    # tiles das faces: vazio = tmp/visitas (a mesma pasta do obter_poi_mapping.sh)
+    POINT_TILES_CACHE_DIR: str = ""
+    POINT_FACE_LEVEL: int = 1           # nível 1 = 3×3 tiles de 512 px (1536 px por face)
+    POINT_FACE_TILES: int = 3
+    POINT_VIEW_WIDTH: int = 1024
+    # o recorte faz-se numa segunda vista, apertada à volta do objeto e com as
+    # faces no nível mais fino (0 = 6×6 tiles, 3072 px), para o embedding ver o
+    # objeto com resolução e não um recorte de 140 px da vista geral
+    POINT_CROP_FACE_LEVEL: int = 0
+    POINT_CROP_FACE_TILES: int = 6
+    POINT_CROP_WIDTH: int = 640
+    POINT_SAM_MODEL: str = "facebook/sam3"
+    POINT_SAM_DEVICE: str = "cuda"
+    # SAM 3 por conceito: a peça inteira que contém o ponto («artwork» dá o
+    # quadro; o ponto só dava o cisne pintado). Sem instância, cai no ponto.
+    POINT_CONCEPT_PROMPTS: str = "artwork,furniture,tapestry,garment"
+    POINT_CONCEPT_THRESHOLD: float = 0.3
+    POINT_CROP_MARGIN: float = 0.25     # folga da vista apertada à volta da máscara
+    # score normalizado 0..1 (cosseno do Qwen3-VL-Embedding, com os boosts) a partir do qual se dá a peça por identificada
+    POINT_MATCH_THRESHOLD: float = 0.80
+    POINT_IN_TOUR_BOOST: float = 1.15   # peças na visita deste museu (mapa dos POIs)
+    POINT_PANORAMA_BOOST: float = 1.30  # peças com hotspot neste panorama
+    POINT_CANDIDATES: int = 3
+    POINT_SEARCH_K: int = 24            # imagens pedidas ao kNN antes de agrupar por peça
+    POINT_ASSET_TTL_SECONDS: int = 600  # crop/cutout em memória, por request_id
+    # modelo de visão do «Descreve-me o que vês» (vLLM, API OpenAI; o servir_vlm.sh do caption_indexer)
+    POINT_VLM_BASE_URL: str = "http://127.0.0.1:8005/v1"
+    POINT_VLM_MODEL: str = "Qwen/Qwen3-VL-8B-Instruct-FP8"
+    POINT_VLM_API_KEY: str = ""
+    POINT_VLM_TIMEOUT_SECONDS: float = 30.0
+    # pasta de depuração: guarda vista, crop e cutout de cada toque (só em testes)
+    POINT_DEBUG_DIR: str = ""
+
     # Ditado por voz no servidor (WebSocket /api/v1/speech/stream, faster-whisper).
     # Desligado: o modelo não carrega e o WebSocket recusa a ligação, e o
     # frontend passa ao reconhecimento do browser.
@@ -634,6 +674,13 @@ class Settings(BaseSettings):
         if not path.is_absolute():
             path = (Path(__file__).resolve().parents[2] / path).resolve()
         return path
+
+    @property
+    def point_tiles_cache_dir_resolved(self) -> Path:
+        raw = (self.POINT_TILES_CACHE_DIR or "").strip()
+        if raw:
+            return Path(raw).expanduser().resolve()
+        return (Path(__file__).resolve().parents[2] / "tmp" / "visitas").resolve()
 
     @property
     def speech_log_path_resolved(self) -> Path:
