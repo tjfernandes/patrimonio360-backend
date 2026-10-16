@@ -8,7 +8,7 @@ import os
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from app.core.config import get_settings
 from app.core.logging import log_event
@@ -517,6 +517,21 @@ async def post_chat_model_message_stream(
             status_cb=status_cb,
         )
     )
+
+
+@router.get("/point/{request_id}/{kind}.jpg")
+async def get_point_asset(request_id: str, kind: str) -> Response:
+    """Recorte (crop), recorte com fundo escurecido (cutout) ou vista (view) de
+    um toque do «Apontar e perguntar», em memória durante 10 minutos."""
+    from app.services.point_ask import get_point_ask_service
+
+    assets = get_point_ask_service().assets.get(request_id)
+    if assets is None:
+        raise HTTPException(status_code=404, detail="Recorte expirado ou desconhecido.")
+    data = {"crop": assets.crop_jpeg, "cutout": assets.cutout_jpeg, "view": assets.view_jpeg}.get(kind)
+    if not data:
+        raise HTTPException(status_code=404, detail="Recorte desconhecido.")
+    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=600"})
 
 
 @router.get("/images/{image_ref:path}")
