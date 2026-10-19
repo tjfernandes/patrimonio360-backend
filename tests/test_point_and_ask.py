@@ -372,12 +372,33 @@ class TestPointAndAsk(_Base):
         self.assertNotIn("crop_jpeg", str(point_log))
         self.assertEqual(service.embedding_provider.calls, 1)
 
-    def test_below_threshold_says_not_found_and_keeps_candidates(self) -> None:
-        hits = [dict(h, score=0.74) for h in self.HITS]   # cos 0,48
+    def test_between_floor_and_threshold_presents_without_certainty(self) -> None:
+        hits = [dict(h, score=0.82) for h in self.HITS]   # cos 0,64: abaixo do limiar 0,8, acima do chão 0,45
+        service = self._service(hits, llm_text="Não tenho a certeza, mas parece ser a Fuga para o Egipto.")
+        response, events = self._ask(service)
+        decided = next(e["payload"] for e in events if e["type"] == "point" and e["payload"]["stage"] == "decided")
+        self.assertEqual(decided["chosen"], {"artifact_id": "raiz:1874", "score": 0.64})
+        self.assertEqual(decided["confidence"], "low")
+        self.assertEqual(response.reply, "Não tenho a certeza, mas parece ser a Fuga para o Egipto.")
+        self.assertEqual(len(response.artifact_results), 3)
+        self.assertEqual(response.point["confidence"], "low")
+        prompt = service.llm_service.prompts[0]
+        self.assertIn("a identificação não é segura (correspondência de 64 %", prompt)
+        self.assertIn("Não tenho a certeza, mas parece ser", prompt)
+        self.assertEqual(service.query_logger.events[-1]["point"]["confidence"], "low")
+
+    def test_above_threshold_has_no_caution(self) -> None:
+        service = self._service(self.HITS)
+        self._ask(service)
+        self.assertNotIn("não é segura", service.llm_service.prompts[0])
+
+    def test_below_floor_says_not_found_and_keeps_candidates(self) -> None:
+        hits = [dict(h, score=0.70) for h in self.HITS]   # cos 0,40 < chão 0,45
         service = self._service(hits)
         response, events = self._ask(service)
         decided = next(e["payload"] for e in events if e["type"] == "point" and e["payload"]["stage"] == "decided")
         self.assertIsNone(decided["chosen"])
+        self.assertIsNone(decided["confidence"])
         self.assertEqual(len(decided["candidates"]), 3)
         self.assertTrue(response.reply.startswith("Não encontrei esta peça no acervo"))
         self.assertEqual(len(response.artifact_results), 3)

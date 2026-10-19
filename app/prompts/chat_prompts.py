@@ -345,22 +345,41 @@ _DESCRIBE_ARTIFACT_EN = (
 )
 
 
+_DESCRIBE_UNCERTAIN_PT = (
+    "ATENÇÃO: a identificação não é segura (correspondência de {percent} % entre o que o visitante apontou e a "
+    "fotografia desta ficha). Começa por dizer isso mesmo, em meia frase («Não tenho a certeza, mas parece ser…», "
+    "«Talvez seja…»), apresenta a peça do cartão sem afirmar que é a que o visitante tocou, e termina a convidar a "
+    "confirmar pelas alternativas em baixo ou a apontar outra vez."
+)
+_DESCRIBE_UNCERTAIN_EN = (
+    "CAUTION: the identification is not certain ({percent} % match between what the visitor pointed at and this "
+    "record's photograph). Say so first, in half a sentence (\"I am not sure, but it looks like…\", \"It may be…\"), "
+    "present the object in the card without claiming it is the one the visitor tapped, and end by inviting them to "
+    "check the alternatives below or point again."
+)
+
+
 def build_describe_artifact_prompt(
     *,
     museum_name: str | None,
     user_message: str,
     card_context: str,
     language: str | None = None,
+    uncertain_percent: int | None = None,
 ) -> str:
     """Prompt da intenção «describe_artifact» (CHAT_DESCRIBE_ARTIFACT_INTENT).
 
     Sem pesquisa: só o cartão da peça a que o visitante acabou de chegar na
-    visita. `user_message` é o nome e o n.º que o frontend envia.
+    visita. `user_message` é o nome e o n.º que o frontend envia. Com
+    `uncertain_percent` («Apontar e perguntar» abaixo do limiar), a
+    apresentação começa por dizer que não há certeza.
     """
     en = _normalize_language(language) == "en"
     name = (museum_name or "").strip() or ("unknown" if en else "desconhecido")
     template = _DESCRIBE_ARTIFACT_EN if en else _DESCRIBE_ARTIFACT_PT
     parts = [template.format(museum_name=name)]
+    if uncertain_percent is not None:
+        parts.append((_DESCRIBE_UNCERTAIN_EN if en else _DESCRIBE_UNCERTAIN_PT).format(percent=int(uncertain_percent)))
     parts.append(("OBJECT: " if en else "PEÇA: ") + (user_message or "").strip())
     parts.append("CARD:" if en else "CARTÃO:")
     parts.append((card_context or "").strip() or ("(none)" if en else "(nenhum)"))

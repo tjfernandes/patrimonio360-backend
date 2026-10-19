@@ -164,6 +164,7 @@ class PointOutcome:
     cutout_url: str | None = None
     candidates: list[Candidate] = field(default_factory=list)
     chosen: Candidate | None = None
+    confidence: str | None = None      # «high» (≥ limiar), «low» (≥ chão) ou None
     hotspot_match: bool = False
     timings_ms: dict[str, float] = field(default_factory=dict)
     error: str | None = None
@@ -174,6 +175,7 @@ class PointOutcome:
             "stage": "decided",
             "request_id": self.request.request_id,
             "chosen": {"artifact_id": self.chosen.artifact_id, "score": round(self.chosen.score, 3)} if self.chosen else None,
+            "confidence": self.confidence,
             "hotspot_match": self.hotspot_match,
             "candidates": [c.payload() for c in self.candidates],
             "crop_url": self.crop_url,
@@ -199,6 +201,7 @@ class PointOutcome:
                         "proposals": [list(c) for c in self.segment_candidates], "vertices": len(self.mask_polygon)},
             "candidates": [{**c.payload(), "raw_score": c.raw_score, "in_tour": c.in_tour, "in_panorama": c.in_panorama} for c in self.candidates],
             "chosen": self.chosen.artifact_id if self.chosen else None,
+            "confidence": self.confidence,
             "threshold": threshold,
             "timings_ms": {k: round(v, 1) for k, v in self.timings_ms.items()},
             "error": self.error,

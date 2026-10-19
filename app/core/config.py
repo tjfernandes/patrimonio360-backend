@@ -449,6 +449,9 @@ class Settings(BaseSettings):
     POINT_CROP_MARGIN: float = 0.25     # folga da vista apertada à volta da máscara
     # score normalizado 0..1 (cosseno do Qwen3-VL-Embedding, com os boosts) a partir do qual se dá a peça por identificada
     POINT_MATCH_THRESHOLD: float = 0.80
+    # entre o chão e o limiar a peça apresenta-se na mesma, mas sem certeza
+    # («parece ser…»); abaixo do chão é «não encontrei»
+    POINT_LOW_CONFIDENCE_FLOOR: float = 0.45
     # Sem boosts (1.0): o score é só o cosseno. Medido a 2026-10-19 no MNT: o ×1,15
     # «na visita» pôs um «Elemento de Vestido» com hotspot (0,75) à frente do vestido
     # certo sem hotspot (0,84); o printscreen, sem boosts, acertava.

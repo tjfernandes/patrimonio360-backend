@@ -3079,6 +3079,7 @@ class ChatService:
         fast_path: str = "describe_artifact",
         log_extra: dict[str, Any] | None = None,
         prompt_subject: str | None = None,
+        uncertain_percent: int | None = None,
     ) -> ChatMessageResponse:
         """Intenção «describe_artifact» (CHAT_DESCRIBE_ARTIFACT_INTENT).
 
@@ -3155,6 +3156,7 @@ class ChatService:
                 user_message=prompt_subject or payload.message,
                 card_context=self._format_docs_compact(docs=docs, description_chars=900),
                 language=language,
+                uncertain_percent=uncertain_percent,
             )
             self._rag_debug_json(
                 "rag.final_prompt",
