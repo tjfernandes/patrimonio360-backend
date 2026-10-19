@@ -449,8 +449,11 @@ class Settings(BaseSettings):
     POINT_CROP_MARGIN: float = 0.25     # folga da vista apertada à volta da máscara
     # score normalizado 0..1 (cosseno do Qwen3-VL-Embedding, com os boosts) a partir do qual se dá a peça por identificada
     POINT_MATCH_THRESHOLD: float = 0.80
-    POINT_IN_TOUR_BOOST: float = 1.15   # peças na visita deste museu (mapa dos POIs)
-    POINT_PANORAMA_BOOST: float = 1.30  # peças com hotspot neste panorama
+    # Sem boosts (1.0): o score é só o cosseno. Medido a 2026-10-19 no MNT: o ×1,15
+    # «na visita» pôs um «Elemento de Vestido» com hotspot (0,75) à frente do vestido
+    # certo sem hotspot (0,84); o printscreen, sem boosts, acertava.
+    POINT_IN_TOUR_BOOST: float = 1.0
+    POINT_PANORAMA_BOOST: float = 1.0
     POINT_CANDIDATES: int = 3
     POINT_SEARCH_K: int = 24            # imagens pedidas ao kNN antes de agrupar por peça
     POINT_ASSET_TTL_SECONDS: int = 600  # crop/cutout em memória, por request_id

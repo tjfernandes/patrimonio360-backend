@@ -332,7 +332,7 @@ class TestPointAndAsk(_Base):
         return [e["payload"]["stage"] for e in events if e["type"] == "point"]
 
     HITS = [
-        {"artifact_id": "raiz:1874", "inventory_number": "1874 Pint", "score": 0.86, "local_path": "Images/1874.jpg", "artifact_title": "Fuga para o Egipto"},
+        {"artifact_id": "raiz:1874", "inventory_number": "1874 Pint", "score": 0.92, "local_path": "Images/1874.jpg", "artifact_title": "Fuga para o Egipto"},
         {"artifact_id": "raiz:14", "inventory_number": "14 Pint", "score": 0.84, "local_path": "Images/14.jpg", "artifact_title": "Fuga para o Egipto"},
         {"artifact_id": "raiz:9", "inventory_number": "9 Pint", "score": 0.80, "local_path": "Images/9.jpg", "artifact_title": "Paisagem"},
     ]
@@ -342,10 +342,10 @@ class TestPointAndAsk(_Base):
         response, events = self._ask(service)
         self.assertEqual(self._stages(events), ["captured", "segmented", "candidates", "decided"])
         decided = next(e["payload"] for e in events if e["type"] == "point" and e["payload"]["stage"] == "decided")
-        # 1874 Pint: cos 0,72 × 1,3 (hotspot neste panorama) = 0,936 ≥ 0,8; 9 Pint: 0,60 × 1,15 (na visita) = 0,69; 14 Pint fica a 0,68
-        self.assertEqual(decided["chosen"], {"artifact_id": "raiz:1874", "score": 0.936})
+        # sem boosts: 1874 Pint cos 0,84 ≥ 0,8; 14 Pint 0,68; 9 Pint 0,60 (o hotspot no panorama já não pesa)
+        self.assertEqual(decided["chosen"], {"artifact_id": "raiz:1874", "score": 0.84})
         self.assertFalse(decided["hotspot_match"])
-        self.assertEqual([c["inventory_number"] for c in decided["candidates"]], ["1874 Pint", "9 Pint", "14 Pint"])
+        self.assertEqual([c["inventory_number"] for c in decided["candidates"]], ["1874 Pint", "14 Pint", "9 Pint"])
         self.assertEqual(decided["candidates"][0]["image_name"], "Images/1874.jpg")
         segmented = next(e["payload"] for e in events if e["type"] == "point" and e["payload"]["stage"] == "segmented")
         self.assertGreaterEqual(len(segmented["mask"]), 12)
@@ -356,7 +356,7 @@ class TestPointAndAsk(_Base):
         self.assertIn("status.generating_final_answer", statuses)
         self.assertTrue(any(e["type"] == "token" for e in events))
         self.assertEqual(response.reply, "Esta pintura de Tiepolo mostra a Fuga para o Egipto.")
-        self.assertEqual([a.inventory_number for a in response.artifact_results], ["1874 Pint", "9 Pint", "14 Pint"])
+        self.assertEqual([a.inventory_number for a in response.artifact_results], ["1874 Pint", "14 Pint", "9 Pint"])
         self.assertEqual([t.inventory_id for t in response.navigation_targets], ["1874 Pint", "9 Pint"])
         self.assertEqual(response.point["stage"], "decided")
         self.assertEqual(response.point["chosen"]["artifact_id"], "raiz:1874")
@@ -373,7 +373,7 @@ class TestPointAndAsk(_Base):
         self.assertEqual(service.embedding_provider.calls, 1)
 
     def test_below_threshold_says_not_found_and_keeps_candidates(self) -> None:
-        hits = [dict(h, score=0.74) for h in self.HITS]   # cos 0,48 (× 1,3 = 0,62)
+        hits = [dict(h, score=0.74) for h in self.HITS]   # cos 0,48
         service = self._service(hits)
         response, events = self._ask(service)
         decided = next(e["payload"] for e in events if e["type"] == "point" and e["payload"]["stage"] == "decided")
