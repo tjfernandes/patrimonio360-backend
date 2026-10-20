@@ -98,36 +98,56 @@ class TestProjection(unittest.TestCase):
 # ----- recorte -----
 
 class TestSegmenterHelpers(unittest.TestCase):
-    def test_choose_mask_prefers_the_whole_object(self) -> None:
-        # as 3 propostas são encaixadas (todo, parte, pormenor): a maior dentro da janela
-        self.assertEqual(choose_mask([0.9, 0.8, 0.7], [0.6, 0.2, 0.05]), 1)    # 0,6 passa dos 30 %
-        self.assertEqual(choose_mask([0.7, 0.9, 0.8], [0.03, 0.01, 0.004]), 0)  # a maior, mesmo com score menor
+    def test_choose_mask_best_score_containing_the_point_within_the_area_window(self) -> None:
+        self.assertEqual(choose_mask([0.9, 0.8, 0.7], [0.6, 0.2, 0.05]), 1)    # 0,6 passa dos 40 %
+        self.assertEqual(choose_mask([0.7, 0.9, 0.8], [0.03, 0.02, 0.004]), 1)  # a de melhor score na janela
         self.assertEqual(choose_mask([0.9, 0.8, 0.7], [0.6, 0.5, 0.45]), 0)    # nenhuma na janela: a de melhor score
-        self.assertEqual(choose_mask([0.95, 0.3, 0.2], [0.001, 0.3, 0.02]), 0)  # as outras valem < metade: fica a melhor
-        self.assertEqual(choose_mask([0.9, 0.2, 0.1], [0.05, 0.2, 0.3]), 0)    # score < metade do melhor não conta
+        # só contam as propostas que contêm o ponto tocado
+        self.assertEqual(choose_mask([0.9, 0.8, 0.7], [0.03, 0.02, 0.05], contains=[False, True, True]), 1)
+        self.assertEqual(choose_mask([0.9, 0.8, 0.7], [0.6, 0.5, 0.45], contains=[False, True, False]), 1)
         self.assertEqual(choose_mask([0.9, 0.8, 0.7], [0.9, 0.5, 0.1], min_area=0.15, max_area=0.98), 0)  # vista apertada
 
     def test_polygon_of_a_rectangle(self) -> None:
         mask = np.zeros((200, 300), dtype=bool)
         mask[50:150, 80:220] = True
         polygon = mask_polygon(mask)
-        self.assertGreaterEqual(len(polygon), 12)
-        self.assertLessEqual(len(polygon), 40)
+        self.assertGreaterEqual(len(polygon), 40)   # as 4 esquinas mais pontos do contorno, igualmente espaçados
+        self.assertLessEqual(len(polygon), 400)
         xs, ys = zip(*polygon)
         self.assertTrue(all(0 <= v <= 1 for v in xs + ys))
+        # todos os vértices ficam em cima do contorno do retângulo
+        on_edge = [abs(x * 300 - 80) < 1 or abs(x * 300 - 220) < 1 or abs(y * 200 - 50) < 1 or abs(y * 200 - 150) < 1 for x, y in polygon]
+        self.assertTrue(all(on_edge))
         self.assertAlmostEqual(min(xs), 80 / 300, delta=0.01)
-        self.assertAlmostEqual(max(xs), 219 / 300, delta=0.01)
+        self.assertAlmostEqual(max(xs), 220 / 300, delta=0.01)
         self.assertAlmostEqual(min(ys), 50 / 200, delta=0.01)
 
-    def test_polygon_of_a_disc_is_simplified(self) -> None:
+    def test_polygon_of_a_disc_is_curved(self) -> None:
         yy, xx = np.mgrid[:240, :320]
         mask = (xx - 160) ** 2 + (yy - 120) ** 2 < 70 ** 2
         polygon = mask_polygon(mask)
-        self.assertGreaterEqual(len(polygon), 12)
-        self.assertLessEqual(len(polygon), 40)
+        # 0,15 % do perímetro (~440 px) simplifica pouco: dezenas de vértices, ordenados ao longo do contorno
+        self.assertGreaterEqual(len(polygon), 40)
+        self.assertLessEqual(len(polygon), 400)
+        radii = [np.hypot(x * 320 - 160, y * 240 - 120) for x, y in polygon]
+        self.assertLess(max(radii) - min(radii), 4.0)     # todos os vértices a ~70 px do centro: é um círculo
         contour = trace_contour(mask)
         self.assertGreater(len(contour), 300)   # o contorno cru tem centenas de píxeis
         self.assertEqual(mask_polygon(np.zeros((10, 10), dtype=bool)), [])
+
+    def test_clean_mask_keeps_the_largest_component_and_fills_holes(self) -> None:
+        from app.services.point_segmenter import clean_mask
+
+        mask = np.zeros((200, 300), dtype=bool)
+        mask[50:150, 80:220] = True
+        mask[90:100, 140:150] = False       # buraco
+        mask[10:14, 10:14] = True           # ruído
+        mask[149, 100] = False              # dente na borda
+        cleaned = clean_mask(mask)
+        self.assertTrue(cleaned[95, 145])
+        self.assertFalse(cleaned[12, 12])
+        self.assertTrue(cleaned[149, 100])
+        self.assertEqual(mask_polygon(mask)[:1] != [], True)
 
     def test_douglas_peucker_keeps_corners(self) -> None:
         square = [(0, 0), (5, 0), (10, 0), (10, 5), (10, 10), (5, 10), (0, 10), (0, 5), (0, 0)]
@@ -348,7 +368,7 @@ class TestPointAndAsk(_Base):
         self.assertEqual([c["inventory_number"] for c in decided["candidates"]], ["1874 Pint", "14 Pint", "9 Pint"])
         self.assertEqual(decided["candidates"][0]["image_name"], "Images/1874.jpg")
         segmented = next(e["payload"] for e in events if e["type"] == "point" and e["payload"]["stage"] == "segmented")
-        self.assertGreaterEqual(len(segmented["mask"]), 12)
+        self.assertGreaterEqual(len(segmented["mask"]), 40)
         self.assertTrue(all(0 <= x <= 1 and 0 <= y <= 1 for x, y in segmented["mask"]))
         self.assertEqual(segmented["cutout_url"], "/api/v1/chat/point/point-1/cutout.jpg")
         statuses = [e["key"] for e in events if e["type"] == "status"]
