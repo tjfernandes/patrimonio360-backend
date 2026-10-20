@@ -77,14 +77,14 @@ class PointSegmenter:
             return False
 
     async def segment(
-        self, image: np.ndarray, x: int, y: int, *, min_area: float = 0.002, max_area: float = 0.30
+        self, image: np.ndarray, x: int, y: int, *, min_area: float = 0.01, max_area: float = 0.40
     ) -> Segment:
         import asyncio
 
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(self._executor, self._segment_sync, image, int(x), int(y), min_area, max_area)
 
-    def _segment_sync(self, image: np.ndarray, x: int, y: int, min_area: float = 0.002, max_area: float = 0.30) -> Segment:
+    def _segment_sync(self, image: np.ndarray, x: int, y: int, min_area: float = 0.01, max_area: float = 0.40) -> Segment:
         if self._model is None or self._processor is None:
             raise RuntimeError("SAM não carregado")
         import torch
@@ -102,7 +102,8 @@ class PointSegmenter:
         masks_np = masks.numpy().astype(bool)
         total = float(masks_np.shape[-1] * masks_np.shape[-2])
         areas = masks_np.reshape(masks_np.shape[0], -1).sum(axis=1) / total
-        chosen = choose_mask(scores.tolist(), areas.tolist(), min_area=min_area, max_area=max_area)
+        contains = [bool(m[y, x]) for m in masks_np]
+        chosen = choose_mask(scores.tolist(), areas.tolist(), min_area=min_area, max_area=max_area, contains=contains)
         return Segment(
             mask=masks_np[chosen],
             score=float(scores[chosen]),
@@ -199,21 +200,19 @@ class ConceptSegmenter:
                           elapsed_ms=(time.perf_counter() - started) * 1000)
 
 
-def choose_mask(scores: list[float], areas: list[float], *, min_area: float = 0.002, max_area: float = 0.30) -> int:
-    """Qual das 3 propostas do SAM (encaixadas: o todo, uma parte, um pormenor).
-
-    Quer-se o objeto inteiro: entre as propostas com área dentro de
-    [min_area, max_area] da imagem e score de pelo menos metade do melhor,
-    a maior. Sem nenhuma na janela, a de melhor score. Na vista geral o
-    tecto limita a 30 % (não é a parede toda); na vista apertada à volta do
-    objeto o objeto enche-a quase toda e a janela é outra."""
+def choose_mask(
+    scores: list[float], areas: list[float], *, min_area: float = 0.01, max_area: float = 0.40, contains: list[bool] | None = None
+) -> int:
+    """Qual das 3 propostas do SAM por ponto: a de melhor score entre as que
+    contêm o ponto tocado e têm área entre `min_area` e `max_area` da imagem
+    (um objeto, não a parede toda nem um reflexo). Sem nenhuma na janela, a
+    de melhor score entre as que contêm o ponto; sem nenhuma, a de melhor score."""
     if not scores:
         return 0
-    best = max(scores)
-    preferred = [i for i, a in enumerate(areas) if min_area <= a <= max_area and scores[i] >= 0.5 * best]
-    if preferred:
-        return max(preferred, key=lambda i: (areas[i], scores[i]))
-    return max(range(len(scores)), key=lambda i: scores[i])
+    inside = [i for i in range(len(scores)) if contains is None or contains[i]]
+    preferred = [i for i in inside if min_area <= areas[i] <= max_area]
+    pool = preferred or inside or list(range(len(scores)))
+    return max(pool, key=lambda i: scores[i])
 
 
 # --- máscara → polígono -------------------------------------------------------
@@ -263,6 +262,11 @@ def douglas_peucker(points: list[tuple[float, float]], epsilon: float) -> list[t
     if len(points) < 3:
         return list(points)
     pts = np.asarray(points, dtype=np.float64)
+    return [tuple(p) for p in pts[douglas_peucker_keep(pts, epsilon)]]
+
+
+def douglas_peucker_keep(pts: np.ndarray, epsilon: float) -> np.ndarray:
+    """Máscara dos pontos que o Douglas-Peucker guarda (os dois extremos sempre)."""
     keep = np.zeros(len(pts), dtype=bool)
     keep[0] = keep[-1] = True
     stack = [(0, len(pts) - 1)]
@@ -284,34 +288,51 @@ def douglas_peucker(points: list[tuple[float, float]], epsilon: float) -> list[t
             keep[a + 1 + index] = True
             stack.append((a, a + 1 + index))
             stack.append((a + 1 + index, b))
-    return [tuple(p) for p in pts[keep]]
+    return keep
 
 
-def mask_polygon(mask: np.ndarray, *, min_vertices: int = 12, max_vertices: int = 40) -> list[tuple[float, float]]:
-    """Polígono do objeto em coordenadas 0..1 da imagem, com 12 a 40 vértices
-    (Douglas-Peucker com o epsilon ajustado por bissecção)."""
-    contour = trace_contour(mask)
+def clean_mask(mask: np.ndarray, *, radius: int = 3) -> np.ndarray:
+    """A maior componente, sem buracos e sem o ruído da borda (abertura e
+    fecho morfológicos de `radius` px)."""
+    component = largest_component(mask)
+    if not component.any():
+        return component
+    filled = ndimage.binary_fill_holes(component)
+    structure = np.ones((radius, radius), dtype=bool)
+    smoothed = ndimage.binary_closing(ndimage.binary_opening(filled, structure=structure), structure=structure)
+    smoothed = ndimage.binary_fill_holes(smoothed)
+    # a abertura pode partir a máscara em pedaços: fica outra vez a maior
+    return largest_component(smoothed) if smoothed.any() else filled
+
+
+def mask_polygon(
+    mask: np.ndarray, *, min_vertices: int = 40, max_vertices: int = 400, epsilon_fraction: float = 0.0015
+) -> list[tuple[float, float]]:
+    """Contorno exterior do objeto em coordenadas 0..1 da imagem, pela ordem
+    ao longo do contorno. Douglas-Peucker com epsilon = 0,15 % do perímetro
+    (pouco: um pote fica com 60–150 vértices). Um objeto retangular (um
+    quadro) ficaria só com as esquinas: nesse caso juntam-se pontos do
+    próprio contorno, igualmente espaçados, até `min_vertices`. Nunca acima
+    de `max_vertices` (o frontend desenha até 400)."""
+    contour = trace_contour(clean_mask(mask))
     if len(contour) < 3:
         return []
     height, width = mask.shape
-    closed = contour + [contour[0]]
-    best = douglas_peucker(closed, 0.5)[:-1]
-    if len(best) > max_vertices:
-        low, high = 0.5, max(width, height) / 4.0
-        for _ in range(24):
-            mid = (low + high) / 2.0
-            simplified = douglas_peucker(closed, mid)[:-1]
-            if len(simplified) > max_vertices:
-                low = mid
-            else:
-                best, high = simplified, mid
-                if len(simplified) >= min_vertices:
-                    break
-    if len(best) < min_vertices and len(contour) >= min_vertices:
-        # objeto quase retangular: reparte o contorno em pontos igualmente espaçados
-        step = len(contour) / float(min_vertices)
-        best = [contour[int(i * step)] for i in range(min_vertices)]
-    return [(round(x / width, 4), round(y / height, 4)) for x, y in best]
+    pts = np.asarray(contour + [contour[0]], dtype=np.float64)
+    perimeter = float(np.hypot(*(np.diff(pts, axis=0)).T).sum())
+    epsilon = max(perimeter * epsilon_fraction, 0.25)
+    keep = douglas_peucker_keep(pts, epsilon)
+    # mais de 400: epsilon maior até caber
+    while int(keep[:-1].sum()) > max_vertices:
+        epsilon *= 1.5
+        keep = douglas_peucker_keep(pts, epsilon)
+    kept = int(keep[:-1].sum())
+    if kept < min_vertices and len(contour) >= min_vertices:
+        # pontos do contorno cru, igualmente espaçados ao longo dele
+        for index in np.linspace(0, len(contour) - 1, num=min_vertices, endpoint=False):
+            keep[int(round(index))] = True
+    polygon = [tuple(p) for p in pts[:-1][keep[:-1]]]
+    return [(round((x + 0.5) / width, 4), round((y + 0.5) / height, 4)) for x, y in polygon]
 
 
 # --- crop e cutout ------------------------------------------------------------

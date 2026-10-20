@@ -143,7 +143,7 @@ def main() -> int:
     decided = next((t for t, name, d in events if name == "point" and d.get("payload", {}).get("stage") == "decided"), None)
     segmented = next((d["payload"] for t, name, d in events if name == "point" and d.get("payload", {}).get("stage") == "segmented"), {})
     mask = segmented.get("mask") or []
-    check(len(mask) >= 12 and all(0 <= x <= 1 and 0 <= y <= 1 for x, y in mask), f"máscara com {len(mask)} vértices em 0..1")
+    check(len(mask) >= 40 and all(0 <= x <= 1 and 0 <= y <= 1 for x, y in mask), f"máscara com {len(mask)} vértices em 0..1 (≥ 40)")
     check(decided is not None and decided < 1.5, f"decided aos {decided if decided else '—'} s < 1,5 s")
     candidates = point.get("candidates") or []
     if args.expect_inventory:
