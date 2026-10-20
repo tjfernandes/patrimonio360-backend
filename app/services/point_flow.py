@@ -1,7 +1,5 @@
-"""As duas intenções do «Apontar e perguntar» sobre o ChatService:
-
-- point_and_ask: vista → recorte → pesquisa → decisão → describe_artifact;
-- describe_point_crop: o modelo de visão descreve o recorte guardado.
+"""O «Apontar e perguntar» sobre o ChatService (intenção point_and_ask):
+vista → recorte → pesquisa → decisão → describe_artifact.
 
 Os eventos SSE `point` (captured, segmented, candidates, decided) saem pelo
 mesmo canal dos status e dos tokens.
@@ -15,7 +13,6 @@ from typing import Any, Awaitable, Callable
 from uuid import uuid4
 
 from app.core.logging import log_event
-from app.prompts.chat_prompts import build_describe_point_crop_prompt
 from app.schemas.chat import ChatMessageRequest, ChatMessageResponse, ResponseFormatObject
 from app.services.chat_i18n import translate
 from app.services.point_ask import Candidate, PointOutcome, PointRequest, compute_ray, get_point_ask_service
@@ -280,100 +277,4 @@ async def _finish_without_piece(
         reply=reply, model_hint="deterministic:point_and_ask", artifact_results=artifact_results, navigation_targets=navigation_targets,
         results_page=1, results_page_size=len(artifact_results), results_total=len(artifact_results), results_has_more=False,
         point=outcome.decided_payload(),
-    )
-
-
-async def answer_describe_point_crop(
-    service: Any,
-    payload: ChatMessageRequest,
-    request: PointRequest,
-    *,
-    status_cb: StatusCallback | None = None,
-) -> ChatMessageResponse:
-    """«Descreve-me o que vês»: o modelo de visão descreve o recorte do toque
-    (guardado por request_id, ou reconstruído), sem o ligar a nenhuma ficha."""
-    point = _point_service(service)
-    conversation_id = payload.conversation_id or str(uuid4())
-    query_id = str(uuid4())
-    started = time.monotonic()
-    state = service.session_store.load_or_create(conversation_id=conversation_id, museum_slug=payload.museum_slug)
-    language = service._sync_state_language(state, payload.language)
-    museum_slug = payload.museum_slug
-    timings: dict[str, float] = {}
-    error: str | None = None
-    status = "ok"
-
-    assets = point.assets.get(request.request_id)
-    crop_jpeg = assets.crop_jpeg if assets else None
-    crop_url = cutout_url = None
-    if crop_jpeg is None:
-        try:
-            outcome = PointOutcome(request=request)
-            outcome.view = await point.render(request, museum_slug=museum_slug)
-            timings["projection"] = outcome.view.elapsed_ms
-            await point.cut(outcome, museum_slug=museum_slug)
-            timings["sam"] = outcome.timings_ms.get("sam", 0.0)
-            crop_jpeg, crop_url, cutout_url = outcome.crop_jpeg, outcome.crop_url, outcome.cutout_url
-        except Exception as exc:
-            error = f"{type(exc).__name__}: {exc}"
-            log_event(logger, logging.ERROR, "chat.point.describe.view.error", conversation_id=conversation_id, query_id=query_id, error=exc)
-    else:
-        prefix = f"{service.settings.API_PREFIX}/chat/point/{request.request_id}"
-        crop_url, cutout_url = f"{prefix}/crop.jpg", f"{prefix}/cutout.jpg"
-
-    reply = ""
-    if crop_jpeg is None:
-        reply = translate("message.point_describe_expired", language)
-        status = "error"
-    else:
-        await service._emit_status(status_cb, "status.point_describing", language=language)
-        emit = service._make_token_emitter(status_cb, query_id=query_id)() if status_cb is not None else None
-        llm_started = time.monotonic()
-        first_token: dict[str, float] = {}
-
-        async def on_delta(delta: str) -> None:
-            if "t" not in first_token:
-                first_token["t"] = (time.monotonic() - llm_started) * 1000
-            if emit is not None:
-                await emit(delta)
-
-        try:
-            reply = await point.describe_crop(
-                crop_jpeg,
-                prompt=build_describe_point_crop_prompt(museum_name=payload.museum_name, language=language),
-                system_prompt=service._final_system_prompt(None, language),
-                on_delta=on_delta,
-            )
-            timings["vlm"] = (time.monotonic() - llm_started) * 1000
-            timings["llm_first_token"] = first_token.get("t", timings["vlm"])
-        except Exception as exc:
-            error = f"{type(exc).__name__}: {exc}"
-            status = "error"
-            log_event(logger, logging.ERROR, "chat.point.describe.vlm.error", conversation_id=conversation_id, query_id=query_id, error=exc)
-        if not reply:
-            reply = translate("message.point_describe_unavailable", language)
-
-    service.session_store.append_turn(state, role="user", text=payload.message)
-    service.session_store.append_turn(state, role="assistant", text=reply)
-    service.session_store.save(state)
-    await service._emit_status(status_cb, "status.answer_ready", language=language)
-    point_payload = {"stage": "described", "request_id": request.request_id, "crop_url": crop_url, "cutout_url": cutout_url}
-    await service._emit_query_log(
-        payload=payload, conversation_id=conversation_id, query_id=query_id, language=language,
-        raw_query=(payload.message or "").strip(), resolved_query=(payload.message or "").strip(),
-        lexical_query=None, embedding_query=None, route="rag", retrieval_mode="describe_point_crop",
-        filters_applied={"filters": {}, "sort": {}, "target_museum": None}, boosts_applied={},
-        retrieved_artifacts=[], shown_artifacts=[], navigation_targets=[],
-        latency_retrieval_ms=None, latency_llm_ms=timings.get("vlm"), latency_total_ms=(time.monotonic() - started) * 1000,
-        status=status, error=error, opensearch_query=None,
-        extra={"fast_path": "describe_point_crop", "point": {
-            "request_id": request.request_id, "panorama_key": request.panorama_key,
-            "point": {"x": request.point_x, "y": request.point_y}, "reused_crop": assets is not None,
-            "vlm_model": service.settings.POINT_VLM_MODEL, "timings_ms": {k: round(v, 1) for k, v in timings.items()},
-        }},
-    )
-    return ChatMessageResponse(
-        conversation_id=conversation_id, query_id=query_id, response_format=payload.response_format or ResponseFormatObject(type="text"),
-        reply=reply, model_hint=service.settings.POINT_VLM_MODEL if status == "ok" else "deterministic:describe_point_crop",
-        results_page=1, results_page_size=0, results_total=0, results_has_more=False, point=point_payload,
     )

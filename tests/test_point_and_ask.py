@@ -289,7 +289,6 @@ class _FakePoint(PointAskService):
         self.settings = settings
         self.assets = PointAssetStore(ttl_seconds=60)
         self.fail_render = fail_render
-        self.describe_calls = 0
         self.segmenter = SimpleNamespace(ready=True)
 
     async def render(self, request, *, museum_slug):
@@ -313,13 +312,6 @@ class _FakePoint(PointAskService):
         self.assets.put(outcome.request.request_id, cut.crop_jpeg, cut.cutout_jpeg, museum_slug=museum_slug, panorama_key=outcome.request.panorama_key)
         prefix = f"/api/v1/chat/point/{outcome.request.request_id}"
         outcome.crop_url, outcome.cutout_url = f"{prefix}/crop.jpg", f"{prefix}/cutout.jpg"
-
-    async def describe_crop(self, crop_jpeg, *, prompt, system_prompt, on_delta=None):
-        self.describe_calls += 1
-        text = "Vejo uma moldura dourada com uma pintura clara."
-        for start in range(0, len(text), 10):
-            await on_delta(text[start:start + 10])
-        return text
 
 
 class TestPointAndAsk(_Base):
@@ -464,21 +456,22 @@ class TestPointAndAsk(_Base):
         self.assertEqual(self._stages(events), ["decided"])
         self.assertEqual(service.query_logger.events[-1]["status"], "error")
 
-    def test_describe_point_crop_reuses_the_crop(self) -> None:
+    def test_crop_and_cutout_stay_available_for_the_caption(self) -> None:
         service = self._service(self.HITS)
-        self._ask(service)   # guarda o crop do point-1
-        response, events = self._ask(service, intent="describe_point_crop", message="Descreve-me o que vês")
-        self.assertEqual(response.reply, "Vejo uma moldura dourada com uma pintura clara.")
-        self.assertEqual(response.artifact_results, [])
-        self.assertEqual(response.point["stage"], "described")
-        self.assertTrue(any(e["type"] == "token" for e in events))
-        self.assertIn("status.point_describing", [e["key"] for e in events if e["type"] == "status"])
-        log = service.query_logger.events[-1]
-        self.assertEqual((log["retrieval_mode"], log["point"]["reused_crop"]), ("describe_point_crop", True))
-        # sem recorte guardado, reconstrói
-        response, _ = self._ask(service, intent="describe_point_crop", request_id="point-2")
-        self.assertEqual(response.reply, "Vejo uma moldura dourada com uma pintura clara.")
-        self.assertFalse(service.query_logger.events[-1]["point"]["reused_crop"])
+        response, _ = self._ask(service)
+        assets = service.point_ask_service.assets.get("point-1")
+        self.assertIsNotNone(assets)
+        self.assertTrue(assets.crop_jpeg.startswith(b"\xff\xd8") and assets.cutout_jpeg.startswith(b"\xff\xd8"))
+        self.assertEqual(response.point["crop_url"], "/api/v1/chat/point/point-1/crop.jpg")
+
+    def test_other_intent_with_a_point_goes_the_normal_way(self) -> None:
+        # uma intenção do «Apontar» que já não existe (frontend antigo em cache) é uma mensagem normal, sem erro
+        service = self._service(self.HITS)
+        service._handle_message_with_selection = lambda payload, status_cb=None: _normal()
+        response, events = self._ask(service, intent="descreve_o_recorte", message="Descreve-me o que vês")
+        self.assertEqual(response.reply, "normal")
+        self.assertEqual(self._stages(events), [])
+        self.assertEqual(service.embedding_provider.calls, 0)
 
     def test_flag_off_or_bad_metadata_goes_the_normal_way(self) -> None:
         service = self._service(self.HITS, enabled=False)

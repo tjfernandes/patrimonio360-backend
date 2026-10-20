@@ -2960,17 +2960,17 @@ class ChatService:
         metadata = payload.metadata if isinstance(payload.metadata, dict) else None
         selected = self._selected_artifact_from_metadata(metadata)
         # «Apontar e perguntar»: o toque no panorama traz metadata.point; a peça
-        # decide-se pela imagem, nunca pelo texto («O que é isto?»).
+        # decide-se pela imagem, nunca pelo texto («O que é isto?»). Qualquer
+        # outra intenção (por exemplo a de um frontend antigo em cache) segue
+        # como uma mensagem normal.
         if bool(getattr(self.settings, "POINT_AND_ASK_ENABLED", False)):
             intent = self._metadata_intent(metadata)
-            if intent in {"point_and_ask", "describe_point_crop"}:
+            if intent == "point_and_ask":
                 point_request = PointRequest.parse((metadata or {}).get("point"))
                 if point_request is not None:
-                    from app.services.point_flow import answer_point_and_ask, answer_describe_point_crop
+                    from app.services.point_flow import answer_point_and_ask
 
-                    if intent == "point_and_ask":
-                        return await answer_point_and_ask(self, payload, point_request, status_cb=status_cb)
-                    return await answer_describe_point_crop(self, payload, point_request, status_cb=status_cb)
+                    return await answer_point_and_ask(self, payload, point_request, status_cb=status_cb)
                 log_event(logger, logging.WARNING, "chat.point.invalid_metadata", intent=intent)
         # «Ver na tour»: o frontend diz a intenção e a peça; não há nada a
         # decidir nem a pesquisar. Antes da libertação automática, que veria
