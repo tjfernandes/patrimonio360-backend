@@ -16,6 +16,8 @@
 #   deploy/amalia_online.sh --status   só diagnostica, não mexe
 #   deploy/amalia_online.sh --vigiar   fica a vigiar e repara sozinho (Ctrl+C sai)
 #
+# Para desligar tudo (vigilante, túnel, backend e vLLM): deploy/amalia_offline.sh
+#
 # Para arrancar com o Windows: Agendador de Tarefas → nova tarefa → «Ao iniciar
 # sessão» → Programa: wsl.exe
 # Argumentos: -d ubuntu-24.04 -- bash -lc "~/Projects/AMALIA/patrimonio360-backend/deploy/amalia_online.sh --vigiar"
