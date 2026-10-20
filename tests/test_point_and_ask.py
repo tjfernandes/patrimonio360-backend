@@ -310,7 +310,7 @@ class TestPointAndAsk(_Base):
 
     def _service(self, hits, *, llm_text="Esta pintura de Tiepolo mostra a Fuga para o Egipto.", fail_render=False, enabled=True):
         settings = self._settings(POINT_AND_ASK_ENABLED=enabled, CHAT_DESCRIBE_ARTIFACT_INTENT=True, CHAT_COMPACT_ANSWER_CONTEXT=True,
-                                  CHAT_STREAM_FINAL_ANSWER=True, POINT_MATCH_THRESHOLD=0.8)
+                                  CHAT_STREAM_FINAL_ANSWER=True, POINT_MATCH_THRESHOLD=0.8, POINT_LOW_CONFIDENCE_FLOOR=0.45)
         service = super()._service(settings, llm=_LLM(llm_text))
         service.opensearch_gateway = _Gateway(hits)
         service.embedding_provider = _Embedder()
@@ -392,8 +392,26 @@ class TestPointAndAsk(_Base):
         self._ask(service)
         self.assertNotIn("não é segura", service.llm_service.prompts[0])
 
+    def test_defaults_never_say_not_found_with_a_candidate(self) -> None:
+        # por omissão: limiar 0,70 e chão 0: um candidato a 0,40 apresenta-se sem certeza
+        hits = [dict(h, score=0.70) for h in self.HITS]   # cos 0,40
+        service = self._service(hits, llm_text="Não tenho a certeza, mas parece ser a Fuga para o Egipto.")
+        service.settings = self._settings(POINT_AND_ASK_ENABLED=True, CHAT_DESCRIBE_ARTIFACT_INTENT=True, CHAT_COMPACT_ANSWER_CONTEXT=True,
+                                          CHAT_STREAM_FINAL_ANSWER=True)
+        service.point_ask_service.settings = service.settings
+        self.assertEqual((service.settings.POINT_MATCH_THRESHOLD, service.settings.POINT_LOW_CONFIDENCE_FLOOR), (0.7, 0.0))
+        response, events = self._ask(service)
+        decided = next(e["payload"] for e in events if e["type"] == "point" and e["payload"]["stage"] == "decided")
+        self.assertEqual((decided["chosen"]["artifact_id"], decided["confidence"]), ("raiz:1874", "low"))
+        self.assertIn("correspondência de 40 %", service.llm_service.prompts[0])
+        # sem candidatos nenhuns, aí sim «não encontrei»
+        service = self._service([])
+        response, events = self._ask(service)
+        self.assertTrue(response.reply.startswith("Não encontrei esta peça no acervo"))
+        self.assertIsNone(response.point["chosen"])
+
     def test_below_floor_says_not_found_and_keeps_candidates(self) -> None:
-        hits = [dict(h, score=0.70) for h in self.HITS]   # cos 0,40 < chão 0,45
+        hits = [dict(h, score=0.70) for h in self.HITS]   # cos 0,40 < chão 0,45 (chão explícito no teste)
         service = self._service(hits)
         response, events = self._ask(service)
         decided = next(e["payload"] for e in events if e["type"] == "point" and e["payload"]["stage"] == "decided")
