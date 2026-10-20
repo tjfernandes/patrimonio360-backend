@@ -151,9 +151,13 @@ async def answer_point_and_ask(
     await _fill_image_names(service, outcome, docs_by_id, museum_slug=museum_slug, museum_id=museum_id)
     await _emit_point(status_cb, {"stage": "candidates", "request_id": request.request_id, "candidates": [c.payload() for c in outcome.candidates]})
 
-    # 4. a decisão
+    # 4. a decisão: acima do limiar, com certeza; entre o chão e o limiar,
+    # apresenta-se a mesma peça mas sem certeza («parece ser…»); abaixo, nada
+    floor = float(getattr(settings, "POINT_LOW_CONFIDENCE_FLOOR", 0.45))
     if outcome.candidates and outcome.candidates[0].score >= threshold:
-        outcome.chosen = outcome.candidates[0]
+        outcome.chosen, outcome.confidence = outcome.candidates[0], "high"
+    elif outcome.candidates and outcome.candidates[0].score >= min(floor, threshold):
+        outcome.chosen, outcome.confidence = outcome.candidates[0], "low"
     outcome.timings_ms["decided"] = (time.monotonic() - started) * 1000
     await _emit_point(status_cb, outcome.decided_payload())
     log_event(
@@ -188,6 +192,7 @@ async def answer_point_and_ask(
         fast_path="point_and_ask",
         log_extra={"point": point_log},
         prompt_subject=" ".join(p for p in (chosen.title, f"({chosen.inventory_number})" if chosen.inventory_number else None) if p) or None,
+        uncertain_percent=int(round(chosen.score * 100)) if outcome.confidence == "low" else None,
     )
     artifact_results, navigation_targets = candidate_results
     if artifact_results:

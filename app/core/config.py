@@ -447,8 +447,11 @@ class Settings(BaseSettings):
     POINT_CONCEPT_PROMPTS: str = "artwork,furniture,tapestry,garment"
     POINT_CONCEPT_THRESHOLD: float = 0.3
     POINT_CROP_MARGIN: float = 0.25     # folga da vista apertada à volta da máscara
-    # score normalizado 0..1 (cosseno do Qwen3-VL-Embedding, com os boosts) a partir do qual se dá a peça por identificada
-    POINT_MATCH_THRESHOLD: float = 0.80
+    # score normalizado 0..1 (cosseno do Qwen3-VL-Embedding) a partir do qual a peça se dá por identificada com
+    # certeza; abaixo apresenta-se na mesma, sem certeza («parece ser…»). Com pelo menos um candidato nunca
+    # se diz «não encontrei» (pedido do utilizador, 2026-10-20); o chão só serve se se quiser voltar a isso.
+    POINT_MATCH_THRESHOLD: float = 0.70
+    POINT_LOW_CONFIDENCE_FLOOR: float = 0.0
     # Sem boosts (1.0): o score é só o cosseno. Medido a 2026-10-19 no MNT: o ×1,15
     # «na visita» pôs um «Elemento de Vestido» com hotspot (0,75) à frente do vestido
     # certo sem hotspot (0,84); o printscreen, sem boosts, acertava.
