@@ -386,34 +386,6 @@ def build_describe_artifact_prompt(
     return "\n".join(parts)
 
 
-# «Descreve-me o que vês» (describe_point_crop): o modelo de visão descreve o
-# recorte sem o ligar a nenhuma ficha; o visitante já sabe que não houve correspondência.
-_DESCRIBE_POINT_CROP_PT = (
-    "És a Amália, guia virtual de uma visita 360° ao museu {museum_name}.\n"
-    "O visitante tocou num ponto da visita e esta imagem é o recorte do que tocou. Não foi possível ligá-lo a "
-    "nenhuma ficha do acervo, por isso descreve só o que se vê, em português europeu, em 2 ou 3 frases curtas: "
-    "que tipo de objeto parece ser, formas, cores, materiais aparentes e um pormenor. Não inventes título, "
-    "autor, data, número de inventário nem lugar; não digas que é uma peça do museu nem que a identificaste. "
-    "Se o recorte não mostrar um objeto (parede, chão, teto), diz isso numa frase. Começa logo pela descrição, "
-    "sem cumprimentos nem listas."
-)
-_DESCRIBE_POINT_CROP_EN = (
-    "You are Amália, the virtual guide of a 360° tour of the museum {museum_name}.\n"
-    "The visitor tapped a point in the tour and this image is the cutout of what they tapped. It could not be "
-    "linked to any record in the collection, so describe only what is visible, in English, in 2 or 3 short "
-    "sentences: what kind of object it seems to be, shapes, colours, apparent materials and one detail. Do not "
-    "invent a title, maker, date, inventory number or place; do not say it is a museum object or that you "
-    "identified it. If the cutout shows no object (a wall, floor or ceiling), say so in one sentence. Start with "
-    "the description, with no greetings or lists."
-)
-
-
-def build_describe_point_crop_prompt(*, museum_name: str | None, language: str | None = None) -> str:
-    en = _normalize_language(language) == "en"
-    name = (museum_name or "").strip() or ("unknown" if en else "desconhecido")
-    return (_DESCRIBE_POINT_CROP_EN if en else _DESCRIBE_POINT_CROP_PT).format(museum_name=name)
-
-
 def build_tour_context_prompt(
     *,
     museum_name: str | None,

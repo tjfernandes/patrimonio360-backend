@@ -35,25 +35,13 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "A procurar no acervo",
         "en": "Searching the collection",
     },
-    "status.point_describing": {
-        "pt": "A observar o recorte",
-        "en": "Looking at the cutout",
-    },
     "message.point_not_found": {
-        "pt": "Não encontrei esta peça no acervo. Posso descrever o que vejo no recorte, ou pode tentar outro ponto.",
-        "en": "I could not find this object in the collection. I can describe what I see in the cutout, or you can try another point.",
+        "pt": "Não encontrei esta peça no acervo. Pode tentar outro ponto ou perguntar-me pelo nome da peça.",
+        "en": "I could not find this object in the collection. Try another point or ask me for the object by name.",
     },
     "message.point_unavailable": {
         "pt": "Não consegui reconstruir a vista deste ponto da visita. Tente outro ponto ou pergunte-me pelo nome da peça.",
         "en": "I could not rebuild the view at this point of the tour. Try another point or ask me for the object by name.",
-    },
-    "message.point_describe_unavailable": {
-        "pt": "De momento não consigo descrever o recorte, porque o modelo de visão não está disponível. Pode tentar outro ponto ou perguntar-me pelo nome da peça.",
-        "en": "I cannot describe the cutout right now because the vision model is unavailable. Try another point or ask me for the object by name.",
-    },
-    "message.point_describe_expired": {
-        "pt": "Já não tenho o recorte desse toque. Aponte outra vez para a peça.",
-        "en": "I no longer have the cutout from that tap. Point at the object again.",
     },
     "status.answer_ready": {
         "pt": "Resposta pronta",

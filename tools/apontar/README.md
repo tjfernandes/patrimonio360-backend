@@ -7,9 +7,9 @@ O visitante toca num ponto do panorama e o backend diz que peça é. O frontend 
 1. **Vista.** `app/services/point_view.py` projeta a vista retilínea da câmara a partir das faces do cubo da visita publicada (`media/<panorama>_0/{f,b,l,r,u,d}/<nível>/<row>_<col>.webp`, tiles de 512 px). Os tiles ficam em cache em `tmp/visitas/<museu>/media/`. ~120 ms com a cache quente.
 2. **Recorte.** `app/services/point_segmenter.py`: SAM 3 por conceito («artwork», «furniture», «tapestry», «garment») dá a peça inteira que contém o ponto; sem instância, o SAM por ponto. Depois projeta-se uma vista apertada à volta da máscara com as faces no nível mais fino (3072 px): é essa que vai ao embedding e, escurecida fora da máscara, ao visitante. ~0,35 s.
 3. **Pesquisa.** O recorte passa pelo Qwen3-VL-Embedding e vai ao kNN do índice de imagens, só neste museu. Score = cosseno, sem boosts (os ×1,15/×1,3 da visita e do panorama foram desligados a 2026-10-19: viravam resultados certos). Se o toque caiu num hotspot, a peça dele é o candidato 1 com 0,99, sem pesquisa.
-4. **Decisão.** Acima de `POINT_MATCH_THRESHOLD` (0,70) a peça segue o fluxo `describe_artifact` com certeza; abaixo segue na mesma, mas o texto começa por «Não tenho a certeza, mas parece ser…» (`confidence: "low"`). Com pelo menos um candidato nunca se diz «não encontrei»; sem candidatos (ou abaixo de `POINT_LOW_CONFIDENCE_FLOOR`, 0 por omissão) é «Não encontrei esta peça no acervo» e o frontend oferece «Descreve-me o que vês» (`describe_point_crop`), que pede ao modelo de visão (vLLM na :8005, `servir_vlm.sh` do caption_indexer) uma descrição do recorte.
+4. **Decisão.** Acima de `POINT_MATCH_THRESHOLD` (0,70) a peça segue o fluxo `describe_artifact` com certeza; abaixo segue na mesma, mas o texto começa por «Não tenho a certeza, mas parece ser…» (`confidence: "low"`). Com pelo menos um candidato nunca se diz «não encontrei»; sem candidatos (ou abaixo de `POINT_LOW_CONFIDENCE_FLOOR`, 0 por omissão) é «Não encontrei esta peça no acervo».
 
-Os recortes ficam em memória 10 minutos: `GET /api/v1/chat/point/<request_id>/{crop,cutout,view}.jpg`.
+Os recortes ficam em memória 10 minutos, só para a legenda os mostrar: `GET /api/v1/chat/point/<request_id>/{crop,cutout,view}.jpg`. Um pedido com outra intenção qualquer segue como uma mensagem normal.
 
 ## Ferramentas
 

@@ -5,7 +5,8 @@ hotspot próximo). Aqui:
 
 1. reconstrói-se a vista das faces do cubo (point_view) e projeta-se o ponto;
 2. o SAM 3 recorta o objeto tocado (point_segmenter): máscara → polígono,
-   crop e cutout, guardados em memória por request_id durante 10 minutos;
+   crop e cutout, guardados em memória por request_id durante 10 minutos
+   para a legenda os mostrar (GET /api/v1/chat/point/<request_id>/…);
 3. o crop passa pelo Qwen3-VL-Embedding e vai ao kNN do índice de imagens,
    com prioridade às peças da visita (×1,15) e às que têm hotspot neste
    panorama (×1,3); se o toque caiu num hotspot, a peça dele é o candidato 1
@@ -20,14 +21,11 @@ candidatos e o escolhido.
 from __future__ import annotations
 
 import asyncio
-import base64
 import logging
 import math
 import re
-import socket
 import threading
 import time
-from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -241,7 +239,6 @@ class PointAskService:
             prompts=tuple(settings.POINT_CONCEPT_PROMPTS.split(",")), threshold=float(settings.POINT_CONCEPT_THRESHOLD),
         )
         self.assets = PointAssetStore(ttl_seconds=float(settings.POINT_ASSET_TTL_SECONDS))
-        self._vlm_client: Any | None = None
 
     @property
     def ready(self) -> bool:
@@ -408,55 +405,6 @@ class PointAskService:
                 )
         ordered = sorted(best.values(), key=lambda c: c.score, reverse=True)
         return ordered[: max(int(self.settings.POINT_CANDIDATES), 1)]
-
-    # --- 5. «Descreve-me o que vês» -----------------------------------------
-
-    def _vlm(self):
-        if self._vlm_client is None:
-            from openai import AsyncOpenAI
-
-            self._vlm_client = AsyncOpenAI(
-                api_key=self.settings.POINT_VLM_API_KEY or "no-key",
-                base_url=self.settings.POINT_VLM_BASE_URL.rstrip("/"),
-                timeout=float(self.settings.POINT_VLM_TIMEOUT_SECONDS),
-                max_retries=0,
-            )
-        return self._vlm_client
-
-    def _vlm_reachable(self, timeout: float = 1.0) -> bool:
-        """Liga ao porto do VLM antes do pedido: no WSL um porto sem ninguém à
-        escuta não recusa logo, fica pendurado até ao timeout de 30 s."""
-        parsed = urlparse(self.settings.POINT_VLM_BASE_URL)
-        host, port = parsed.hostname or "127.0.0.1", parsed.port or (443 if parsed.scheme == "https" else 80)
-        try:
-            with socket.create_connection((host, port), timeout=timeout):
-                return True
-        except OSError:
-            return False
-
-    async def describe_crop(self, crop_jpeg: bytes, *, prompt: str, system_prompt: str, on_delta=None) -> str:
-        """Descrição do recorte pelo modelo de visão (vLLM, API OpenAI), em stream."""
-        if not await asyncio.to_thread(self._vlm_reachable):
-            raise ConnectionError(f"modelo de visão sem resposta em {self.settings.POINT_VLM_BASE_URL}")
-        data_url = "data:image/jpeg;base64," + base64.b64encode(crop_jpeg).decode("ascii")
-        stream = await self._vlm().chat.completions.create(
-            model=self.settings.POINT_VLM_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": [{"type": "image_url", "image_url": {"url": data_url}}, {"type": "text", "text": prompt}]},
-            ],
-            max_tokens=220,
-            temperature=0.2,
-            stream=True,
-        )
-        parts: list[str] = []
-        async for chunk in stream:
-            delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
-            if delta:
-                parts.append(delta)
-                if on_delta is not None:
-                    await on_delta(delta)
-        return "".join(parts).strip()
 
 
 def compute_ray(request: PointRequest) -> tuple[float, float]:

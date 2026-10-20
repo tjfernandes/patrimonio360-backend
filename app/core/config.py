@@ -422,7 +422,7 @@ class Settings(BaseSettings):
     QUERY_LOG_PATH: str = "logs/evaluation/backend_queries.jsonl"
     FRONTEND_EVENT_LOG_PATH: str = "logs/evaluation/frontend_events.jsonl"
 
-    # «Apontar e perguntar» (metadata.intent point_and_ask / describe_point_crop):
+    # «Apontar e perguntar» (metadata.intent point_and_ask):
     # a vista reconstrói-se das faces do cubo da visita, o SAM 3 recorta o
     # objeto tocado, o Qwen3-VL-Embedding procura-o no índice de imagens e o
     # escolhido segue o fluxo describe_artifact. Desligado, a intenção segue
@@ -459,12 +459,7 @@ class Settings(BaseSettings):
     POINT_PANORAMA_BOOST: float = 1.0
     POINT_CANDIDATES: int = 3
     POINT_SEARCH_K: int = 24            # imagens pedidas ao kNN antes de agrupar por peça
-    POINT_ASSET_TTL_SECONDS: int = 600  # crop/cutout em memória, por request_id
-    # modelo de visão do «Descreve-me o que vês» (vLLM, API OpenAI; o servir_vlm.sh do caption_indexer)
-    POINT_VLM_BASE_URL: str = "http://127.0.0.1:8005/v1"
-    POINT_VLM_MODEL: str = "Qwen/Qwen3-VL-8B-Instruct-FP8"
-    POINT_VLM_API_KEY: str = ""
-    POINT_VLM_TIMEOUT_SECONDS: float = 30.0
+    POINT_ASSET_TTL_SECONDS: int = 600  # crop/cutout em memória, por request_id, para a legenda
     # pasta de depuração: guarda vista, crop e cutout de cada toque (só em testes)
     POINT_DEBUG_DIR: str = ""
 
