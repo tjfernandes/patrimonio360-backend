@@ -264,6 +264,19 @@ class TestRouterCompactSchema(unittest.TestCase):
         self.assertTrue(decision["carry_filters"])
         self.assertEqual(decision["reason"], "compact_schema")
 
+    def test_llm_router_keeps_elliptical_tour_scope_follow_up(self) -> None:
+        # o guardrail do âmbito da visita só desliga o seguimento quando a pergunta tem assunto próprio
+        decision, _ = self._route(True, {"mode": "rag", "intent": "refine", "is_follow_up": True,
+                                         "rewritten_query": "vestidos de seda nesta visita", "filters_delta": {}},
+                                  message="e nesta visita?")
+        self.assertTrue(decision["use_history_for_query"])
+        self.assertNotIn("guardrail_tour_scope_query", decision["reason"])
+        decision, _ = self._route(True, {"mode": "rag", "intent": "refine", "is_follow_up": True,
+                                         "rewritten_query": "vestidos de seda nesta visita", "filters_delta": {}},
+                                  message="o que há nesta visita?")
+        self.assertFalse(decision["use_history_for_query"])
+        self.assertIn("guardrail_tour_scope_query", decision["reason"])
+
     def test_full_schema_is_default(self) -> None:
         _decision, prompt = self._route(False, {"mode": "rag", "intent": "refine", "is_follow_up": True,
                                                 "use_history_for_query": True, "use_history_for_answer": True,
@@ -349,6 +362,29 @@ class TestDeterministicRouter(unittest.TestCase):
         self.assertEqual(decision["intent"], "refine")
         self.assertTrue(decision["use_history_for_query"])
         self.assertTrue(decision["carry_filters"])
+
+    def test_elliptical_tour_scope_is_a_follow_up(self) -> None:
+        # produção 2026-10-21: «Encontra vestidos de criança» → «E apenas nesta visita?» pesquisava «apenas»
+        history = [("user", "Encontra vestidos de criança"), ("assistant", "Encontrei 8 vestidos.")]
+        for message in ["E apenas nesta visita?", "e nesta visita?", "nesta visita", "quais estão nesta visita?",
+                        "e só os desta visita virtual?", "existem nesta visita?", "and in this tour?"]:
+            decision = self._route(message, history=history)
+            self.assertEqual(decision["intent"], "refine", message)
+            self.assertTrue(decision["use_history_for_query"], message)
+            self.assertTrue(decision["use_history_for_answer"], message)
+            self.assertEqual(decision["reason"], "deterministic_router:tour_scope_follow_up", message)
+
+    def test_tour_scope_with_its_own_subject_stays_standalone(self) -> None:
+        history = [("user", "Encontra vestidos de criança"), ("assistant", "Encontrei 8 vestidos.")]
+        for message in ["o que há nesta visita?", "Encontra retratos nesta visita", "que peças posso ver nesta visita?",
+                        "Consegues encontrar retratos nesta visita?", "what is in this tour?"]:
+            decision = self._route(message, history=history)
+            self.assertEqual(decision["intent"], "search", message)
+            self.assertFalse(decision["use_history_for_query"], message)
+            self.assertEqual(decision["reason"], "deterministic_router:tour_scope_query", message)
+        # sem conversa anterior, a elipse não tem de onde vir: pesquisa normal com âmbito
+        decision = self._route("e nesta visita?")
+        self.assertEqual((decision["intent"], decision["reason"]), ("search", "deterministic_router:no_previous_context"))
 
     def test_answer_only_follow_up(self) -> None:
         decision = self._route("explica melhor", history=[("user", "encontra vestidos"), ("assistant", "Encontrei 3.")])
