@@ -418,6 +418,17 @@ _TOUR_SCOPE_PATTERNS: tuple[str, ...] = (
     r"\b(?:in\s+the\s+)?(?:virtual|360|digital)\s+(?:tour|visit)\b",
 )
 
+# Palavras que, sozinhas, não fazem assunto: «E apenas nesta visita?», «quais
+# estão nesta visita?», «e só os desta visita?» são seguimentos (o assunto vem
+# da conversa); «o que há nesta visita?» («que») e «encontra retratos nesta
+# visita» («retratos») são autónomas.
+_TOUR_SCOPE_ELLIPSIS_TOKENS = frozenset(
+    "e entao agora apenas so os as o a um uma uns umas quais qual estao esta estas este estes esse essa esses essas "
+    "existem existe ha tem tambem mesmo mesma mesmos mesmas de do da dos das deste desta destes destas desse dessa "
+    "desses dessas deles delas algum alguns alguma algumas ver mostra mostrar encontra encontrar consegues podes me "
+    "and only just ones the those these which in this".split()
+)
+
 _INVENTORY_PREFIXES: tuple[str, ...] = (
     "cmag",
     "mj",
@@ -6955,7 +6966,9 @@ class ChatService:
         if not isinstance(sort_delta, dict):
             sort_delta = {}
 
-        if self._extract_tour_scope_expression(payload.message):
+        # a mesma regra da política de contexto: uma pergunta de âmbito da
+        # visita não é seguimento, salvo se for elíptica («e nesta visita?»)
+        if self._extract_tour_scope_expression(payload.message) and not self._is_elliptical_tour_scope_query(payload.message):
             is_follow_up = False
             use_history_for_query = False
             carry_filters = False
@@ -7747,6 +7760,26 @@ class ChatService:
 
         return None
 
+    def _is_elliptical_tour_scope_query(self, text: str) -> bool:
+        """Âmbito da visita sem assunto próprio: «E apenas nesta visita?»,
+        «e nesta visita?», «nesta visita», «quais estão nesta visita?». O
+        assunto está na conversa anterior, por isso é um seguimento. Tirada a
+        expressão da visita, o que sobra ou está vazio, ou começa por «e»/
+        «então»/«agora», ou só tem palavras de ligação. «O que há nesta
+        visita?» e «encontra retratos nesta visita» ficam autónomas.
+        Medido em produção (2026-10-21): «Encontra vestidos de criança» → «E
+        apenas nesta visita?» pesquisava «apenas» entre as peças da visita."""
+        expression = self._extract_tour_scope_expression(text)
+        if not expression:
+            return False
+        remainder = self._strip_tour_scope_expression_from_query(text, expression)
+        tokens = self._fold_query_text(remainder).split()
+        if not tokens:
+            return True
+        if tokens[0] in {"e", "entao", "agora", "and"}:
+            return True
+        return all(token in _TOUR_SCOPE_ELLIPSIS_TOKENS for token in tokens)
+
     def _strip_tour_scope_expression_from_query(
         self,
         text: str,
@@ -8461,6 +8494,19 @@ class ChatService:
             )
 
         if self._extract_tour_scope_expression(text):
+            # «E apenas nesta visita?» depois de «Encontra vestidos de criança»:
+            # o âmbito da visita vem na mensagem, o assunto vem da conversa.
+            # Antes (até 2026-10-21) esta regra ganhava sempre às referenciais
+            # e o resolver de seguimentos nunca corria: pesquisava-se «apenas».
+            if self._is_elliptical_tour_scope_query(text):
+                return _policy(
+                    is_follow_up=True,
+                    use_history_for_query=True,
+                    use_history_for_answer=True,
+                    carry_filters=True,
+                    carry_sort=True,
+                    reason="tour_scope_follow_up",
+                )
             return _policy(
                 is_follow_up=False,
                 use_history_for_query=False,
