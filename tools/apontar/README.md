@@ -11,6 +11,12 @@ O visitante toca num ponto do panorama e o backend diz que peça é. O frontend 
 
 Os recortes ficam em memória 10 minutos, só para a legenda os mostrar: `GET /api/v1/chat/point/<request_id>/{crop,cutout,view}.jpg`. Um pedido com outra intenção qualquer segue como uma mensagem normal.
 
+## Experiência: objetos pré-indexados por panorama («que peças há aqui?», 2026-10-26)
+
+Em vez de o visitante apontar e arriscar um «não encontrei», o backend sabe de antemão que peças identifica em cada panorama e onde estão. `tools/apontar/indexar_objetos_panorama.py` percorre 16 vistas por panorama (yaw de 45° em 45°, hfov 90°, pitches 0 e −30), recorta todas as instâncias do SAM 3 por conceito (`artwork, painting, sculpture, furniture, tapestry, garment, vase`), projeta a vista apertada de cada uma no nível fino, passa-a pelo Qwen3-VL-Embedding e vai ao kNN do índice de imagens. Fica quem tem cosseno ≥ 0,75 e ≥ 0,05 à frente da segunda peça; a mesma peça vista de duas vistas, ou duas peças no mesmo sítio, ficam reduzidas à de melhor score. Guarda centro (yaw, pitch), caixa e contorno em graus em `poi_tours/panorama-objects-<museu>.json`; `GET /api/v1/chat/tour/objects?museum_slug=&panorama_key=` serve-os (`app/services/panorama_objects.py`), com o `overlayId` do hotspot quando a peça já tem um. O prompt do frontend está em `tools/apontar/frontend_objetos_prompt.md`.
+
+Medido em 5 panoramas (3 do MNAA, 2 do MNT, 20 a 130 s cada, ao lado da produção): 644 recortes, 24 peças identificadas, 23 certas à vista (recorte ao lado da imagem da ficha); a duvidosa é um pormenor de um quadro a 0,761. A Fuga para o Egipto ficou a yaw 2,4°, onde o visitante lhe tinha tocado. Das 23 peças com hotspot nesses panoramas encontrou 7: as que faltam são sobretudo objetos pequenos em vitrinas (botões, bolsas, cartola, bacia e gomil) e peças que nunca foram a melhor correspondência de nenhum recorte.
+
 ## Ferramentas
 
 - `tools/apontar/descarregar_faces.py [museu…] [--completo]` aquece a cache das faces. Sem ela o primeiro toque num panorama demora 1 a 3 s a mais (tiles do VPS).
