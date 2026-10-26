@@ -246,6 +246,13 @@ def panorama_keys_for(args: argparse.Namespace, settings) -> list[str]:
             if key and key not in keys:
                 keys.append(key)
     if args.all:
+        # os mesmos panoramas do descarregar_faces.py (lugares da visita + POIs), mais os que já estão em cache
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from descarregar_faces import panoramas as tour_panoramas  # noqa: E402
+
+        for key in tour_panoramas(args.museum):
+            if key not in keys:
+                keys.append(key)
         media = Path(settings.point_tiles_cache_dir_resolved) / args.museum / "media"
         for path in sorted(media.glob("panorama_*_0")):
             key = path.name[:-2]
@@ -273,6 +280,7 @@ def main() -> int:
     parser.add_argument("--out", default=None, help="pasta dos poi_tours (por omissão a do backend)")
     parser.add_argument("--debug", default=None, help="pasta para as vistas com os contornos")
     parser.add_argument("--raw", default=None, help="ficheiro JSONL com todos os recortes, identificados ou não")
+    parser.add_argument("--skip-done", action="store_true", help="salta os panoramas que já estão no ficheiro de saída (retomar)")
     args = parser.parse_args()
 
     indexer = Indexer(args)
@@ -295,8 +303,13 @@ def main() -> int:
         "views": {"yaw_step": args.yaw_step, "hfov": args.hfov, "pitches": args.pitches, "width": args.width},
     })
     raw_file = open(args.raw, "a", encoding="utf-8") if args.raw else None
-    print(f"{len(keys)} panorama(s) de {args.museum} · limiar {args.threshold} · margem {args.margin}")
-    for key in keys:
+    if args.skip_done:
+        done = set(payload["panoramas"])
+        keys = [k for k in keys if k not in done]
+        print(f"{len(done)} panorama(s) já indexados, saltados")
+    print(f"{len(keys)} panorama(s) de {args.museum} · limiar {args.threshold} · margem {args.margin}", flush=True)
+    for index, key in enumerate(keys, start=1):
+        print(f"[{index}/{len(keys)}] {time.strftime('%H:%M:%S')}", end=" ", flush=True)
         try:
             entry, raw = indexer.index_panorama(key)
         except Exception as exc:  # noqa: BLE001
