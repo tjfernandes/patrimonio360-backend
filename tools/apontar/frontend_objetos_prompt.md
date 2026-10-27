@@ -108,4 +108,9 @@ Validação rápida: com a câmara em `yaw 2.41, pitch -2.5, hfov 100` e viewpor
 
 ### 7. Como testar
 
-Backend de teste do ramo numa instância local e, no panorama da Sala 52 do MNAA (`panorama_83D8666B_91ED_0BA2_41D9_9A5E8973B146`), esperar 4 contornos: Fuga para o Egipto (yaw 2,4), Triunfo das Artes (yaw 39), Retrato do Escultor francês Jacques Buirette (yaw 87) e Túmulo Alegórico de Joseph Addison (yaw -154). Na Sala das Bandeiras do MNT (`panorama_CFEC4CF2_E3BA_2A2E_41EB_E931E9C5BBD6`): 6, entre eles o Vestido de criança 3546 e o Retrato de família 26510. Virar a câmara de costas para a Fuga e confirmar que a seta aponta para o lado mais curto.
+Backend de teste do ramo numa instância local (o `backendBaseUrl` do frontend a apontar para ela). Todos os panoramas dos 6 museus com visita estão indexados (885 panoramas, 2823 objetos; 251 panoramas sem nenhum, onde o botão fica desativado). Casos para verificar:
+
+- Sala 52 do MNAA (`panorama_83D8666B_91ED_0BA2_41D9_9A5E8973B146`): 4 contornos, Fuga para o Egipto (yaw 2,4), Triunfo das Artes (yaw 39), Retrato do Escultor francês Jacques Buirette (yaw 87) e Túmulo Alegórico de Joseph Addison (yaw −154). Virar a câmara de costas para a Fuga e confirmar que a seta aponta para o lado mais curto.
+- Sala das Bandeiras do MNT (`panorama_CFEC4CF2_E3BA_2A2E_41EB_E931E9C5BBD6`): 6, entre eles o Vestido de criança 3546 e o Retrato de família 26510.
+- Um panorama do MJ sem objetos: botão desativado, sem erro.
+- Clique dentro de um contorno abre a ficha da peça certa; clique fora não faz nada de novo.
