@@ -136,6 +136,8 @@ def main() -> int:
     parser.add_argument("--vlm-model", default="Qwen/Qwen3-VL-8B-Instruct-FP8")
     parser.add_argument("--out", default=None, help="JSONL de saída (uma linha por vista)")
     parser.add_argument("--debug", default=None, help="pasta para as vistas com as caixas")
+    parser.add_argument("--workers", type=int, default=4, help="pedidos ao VLM em paralelo")
+    parser.add_argument("--skip-done", action="store_true", help="salta os panoramas que já têm todas as vistas no --out")
     args = parser.parse_args()
 
     boxer = Boxer(args)
@@ -156,27 +158,43 @@ def main() -> int:
         keys += [l.strip() for l in Path(args.panoramas_file).read_text().splitlines() if l.strip()]
     if not keys:
         parser.error("indica --panorama, --panoramas-file ou --calibrar")
-    out = open(args.out, "a", encoding="utf-8") if args.out else None
     cameras = build_cameras(args)
-    print(f"{len(keys)} panorama(s) de {args.museum} · {len(cameras)} vistas cada", flush=True)
-    for key in keys:
+    if args.skip_done and args.out and Path(args.out).exists():
+        counts: dict[str, int] = {}
+        for line in Path(args.out).read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                counts[json.loads(line)["panorama_key"]] = counts.get(json.loads(line)["panorama_key"], 0) + 1
+        done = {k for k, n in counts.items() if n >= len(cameras)}
+        keys = [k for k in keys if k not in done]
+        print(f"{len(done)} panorama(s) já com caixas, saltados", flush=True)
+    out = open(args.out, "a", encoding="utf-8") if args.out else None
+    print(f"{len(keys)} panorama(s) de {args.museum} · {len(cameras)} vistas cada · {args.workers} em paralelo", flush=True)
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(key: str, camera: Camera):
+        image = boxer.render(args.museum, key, camera)
+        boxes, _, _ = boxer.ask(image)
+        return camera, image, boxes
+
+    for index, key in enumerate(keys, start=1):
         started = time.perf_counter(); total = 0
-        for camera in cameras:
-            try:
-                image = boxer.render(args.museum, key, camera)
-                boxes, _, _ = boxer.ask(image)
-            except Exception as exc:  # noqa: BLE001
-                print(f"  {key} yaw {camera.yaw} pitch {camera.pitch}: FALHOU ({type(exc).__name__}: {exc})", flush=True)
-                continue
-            total += len(boxes)
-            if out:
-                out.write(json.dumps({"panorama_key": key, "view": {"yaw": camera.yaw, "pitch": camera.pitch, "hfov": camera.hfov,
-                                      "width": camera.width, "height": camera.height}, "boxes": boxes}, ensure_ascii=False) + "\n")
-                out.flush()
-            if args.debug and boxes:
-                folder = Path(args.debug) / args.museum / key; folder.mkdir(parents=True, exist_ok=True)
-                boxer.draw(image, boxes).save(folder / f"yaw{int(camera.yaw):+04d}_pitch{int(camera.pitch):+03d}_hfov{int(camera.hfov)}.jpg", quality=80)
-        print(f"  {key}: {total} caixas em {len(cameras)} vistas · {time.perf_counter() - started:.0f} s", flush=True)
+        with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
+            futures = [pool.submit(one, key, camera) for camera in cameras]
+            for camera, future in zip(cameras, futures):
+                try:
+                    camera, image, boxes = future.result()
+                except Exception as exc:  # noqa: BLE001
+                    print(f"  {key} yaw {camera.yaw} pitch {camera.pitch}: FALHOU ({type(exc).__name__}: {exc})", flush=True)
+                    continue
+                total += len(boxes)
+                if out:
+                    out.write(json.dumps({"panorama_key": key, "view": {"yaw": camera.yaw, "pitch": camera.pitch, "hfov": camera.hfov,
+                                          "width": camera.width, "height": camera.height}, "boxes": boxes}, ensure_ascii=False) + "\n")
+                    out.flush()
+                if args.debug and boxes:
+                    folder = Path(args.debug) / args.museum / key; folder.mkdir(parents=True, exist_ok=True)
+                    boxer.draw(image, boxes).save(folder / f"yaw{int(camera.yaw):+04d}_pitch{int(camera.pitch):+03d}_hfov{int(camera.hfov)}.jpg", quality=80)
+        print(f"  [{index}/{len(keys)}] {time.strftime('%H:%M:%S')} {key}: {total} caixas em {len(cameras)} vistas · {time.perf_counter() - started:.0f} s", flush=True)
     if out:
         out.close()
     return 0

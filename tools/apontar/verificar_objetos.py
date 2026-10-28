@@ -132,6 +132,11 @@ def main() -> int:
     parser.add_argument("--vlm-model", default="Qwen/Qwen3-VL-8B-Instruct-FP8")
     parser.add_argument("--threshold", type=float, default=0.75)
     parser.add_argument("--images-root", default=None, help="pasta onde vivem as imagens das fichas (por omissão, IMAGE_ASSET_ROOT)")
+    parser.add_argument("--min-knn", type=float, default=0.60,
+                        help="a candidata escolhida pelo VLM só é aceite se tiver hotspot neste panorama ou cosseno ≥ este valor "
+                             "(as escolhas erradas do piloto eram decoração do edifício a < 0,6)")
+    parser.add_argument("--workers", type=int, default=4, help="pedidos ao VLM em paralelo")
+    parser.add_argument("--skip-done", action="store_true", help="salta os panoramas já presentes no ficheiro de saída")
     args = parser.parse_args()
 
     from openai import OpenAI
@@ -150,16 +155,35 @@ def main() -> int:
     for r in rows:
         by_pano.setdefault(r["panorama_key"], []).append(r)
     out_dir = Path(args.out); out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"panorama-objects-{args.museum}.json"
     payload = {"museum_slug": args.museum, "verified": True, "panoramas": {}}
-    log = open(out_dir / f"verificacao_{args.museum}.jsonl", "w", encoding="utf-8")
-    for key, segs in by_pano.items():
+    if args.skip_done and out_path.exists():
+        try:
+            payload = json.loads(out_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+        before = len(by_pano)
+        by_pano = {k: v for k, v in by_pano.items() if k not in payload["panoramas"]}
+        print(f"{before - len(by_pano)} panorama(s) já verificados, saltados", flush=True)
+    log = open(out_dir / f"verificacao_{args.museum}.jsonl", "a", encoding="utf-8")
+    from concurrent.futures import ThreadPoolExecutor
+
+    def prepare(o: dict):
+        """As 5 candidatas a mostrar e as fotos; None se não há nada a perguntar."""
+        if o.get("accepted_by") or not o.get("artifact_id") or not o.get("crop"):
+            return None
+        cands = [c for c in (o.get("candidates") or []) if c.get("image_name")]
+        has_hot = any(c.get("hotspot") for c in cands)
+        if (o.get("score") or 0.0) < args.min_score and not has_hot:
+            return None
+        return cands
+
+    for index, (key, segs) in enumerate(by_pano.items(), start=1):
         started = time.perf_counter(); asked = accepted_vlm = 0
+        jobs = []
         for o in segs:
-            if o.get("accepted_by") or not o.get("artifact_id") or not o.get("crop"):
-                continue
-            cands = [c for c in (o.get("candidates") or []) if c.get("image_name")]
-            has_hot = any(c.get("hotspot") for c in cands)
-            if (o.get("score") or 0.0) < args.min_score and not has_hot:
+            cands = prepare(o)
+            if cands is None:
                 continue
             # as 5 a mostrar: as 3 melhores do índice e 2 peças com hotspot, as que mais se parecem
             # com o tipo que o VLM deu ao recorte («vlm:leque» → títulos com «leque»)
@@ -179,23 +203,33 @@ def main() -> int:
             cands5 = cands5[: args.max_candidates]
             photos = [catalogue_path(root, c["image_name"]) for c in cands5]
             pairs = [(c, p) for c, p in zip(cands5, photos) if p is not None]
-            if not pairs:
-                continue
-            try:
-                match, conf, reason, ms = ask(client, args.vlm_model, Path(o["crop"]), [p for _, p in pairs])
-            except Exception as exc:  # noqa: BLE001
-                print(f"  VLM falhou: {exc}"); continue
-            asked += 1
-            decision = {"panorama_key": key, "crop": o["crop"], "top": o.get("inventory_number"), "score": o.get("score"),
-                        "shown": [c["inventory_number"] for c, _ in pairs], "match": match, "confidence": conf, "reason": reason, "ms": round(ms)}
-            if match != "none" and conf >= args.min_confidence:
-                c = pairs[LETTERS.index(match)][0]
-                o.update({"artifact_id": c["artifact_id"], "inventory_number": c["inventory_number"], "title": c.get("title"),
-                          "image_name": c.get("image_name"), "accepted_by": "vlm", "vlm_confidence": conf, "vlm_reason": reason,
-                          "knn_score": c.get("score")})
-                accepted_vlm += 1
-                decision["accepted"] = c["inventory_number"]
-            log.write(json.dumps(decision, ensure_ascii=False) + "\n"); log.flush()
+            if pairs:
+                jobs.append((o, pairs))
+
+        def run(job):
+            o, pairs = job
+            return o, pairs, ask(client, args.vlm_model, Path(o["crop"]), [p for _, p in pairs])
+
+        with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
+            for future in [pool.submit(run, job) for job in jobs]:
+                try:
+                    o, pairs, (match, conf, reason, ms) = future.result()
+                except Exception as exc:  # noqa: BLE001
+                    print(f"  VLM falhou: {exc}", flush=True); continue
+                asked += 1
+                decision = {"panorama_key": key, "crop": o["crop"], "top": o.get("inventory_number"), "score": o.get("score"),
+                            "shown": [c["inventory_number"] for c, _ in pairs], "match": match, "confidence": conf, "reason": reason, "ms": round(ms)}
+                if match != "none" and conf >= args.min_confidence:
+                    c = pairs[LETTERS.index(match)][0]
+                    decision["chosen"] = c["inventory_number"]
+                    # o travão: com hotspot neste panorama, ou cosseno ≥ --min-knn
+                    if c.get("hotspot") or (c.get("score") or 0.0) >= args.min_knn:
+                        o.update({"artifact_id": c["artifact_id"], "inventory_number": c["inventory_number"], "title": c.get("title"),
+                                  "image_name": c.get("image_name"), "accepted_by": "vlm", "vlm_confidence": conf, "vlm_reason": reason,
+                                  "knn_score": c.get("score")})
+                        accepted_vlm += 1
+                        decision["accepted"] = c["inventory_number"]
+                log.write(json.dumps(decision, ensure_ascii=False) + "\n"); log.flush()
         # o mesmo fecho do indexador: por peça e por sítio, fica o melhor
         identified = [o for o in segs if o.get("accepted_by")]
         identified.sort(key=lambda o: (o.get("accepted_by") == "score", o.get("score") or 0.0), reverse=True)
@@ -215,8 +249,8 @@ def main() -> int:
                  "hotspot_pieces": sorted(hot), "hotspot_pieces_found": sorted(found), "elapsed_s": round(time.perf_counter() - started, 1),
                  "objects": [{k: v for k, v in o.items() if k not in {"view", "candidates", "crop"}} for o in final]}
         payload["panoramas"][key] = entry
-        print(f"  {key}: {len(segs)} recortes · VLM perguntado {asked}×, aceitou {accepted_vlm} · identificados {len(final)} {entry['by']}"
-              f" · hotspots {len(found)}/{len(hot)} · {entry['elapsed_s']} s", flush=True)
+        print(f"  [{index}/{len(by_pano)}] {time.strftime('%H:%M:%S')} {key}: {len(segs)} recortes · VLM perguntado {asked}×, aceitou {accepted_vlm}"
+              f" · identificados {len(final)} {entry['by']} · hotspots {len(found)}/{len(hot)} · {entry['elapsed_s']} s", flush=True)
         for o in final:
             if o.get("accepted_by") != "score":
                 print(f"      {o['inventory_number']!s:14} {o.get('accepted_by'):7} knn {o.get('knn_score') if o.get('accepted_by') == 'vlm' else o.get('score')} "
@@ -234,7 +268,7 @@ def main() -> int:
                             im = Image.open(p).convert("RGB"); im.thumbnail((cell, cell)); sheet.paste(im, (x, y + 24))
                     d.text((4, y + 6), f"{o['inventory_number']}  {o.get('accepted_by')}  {(o.get('title') or '')[:30]}  {o.get('vlm_reason', '')[:40]}", fill=(255, 255, 255))
                 sheet.save(folder / f"{args.museum}_{key[9:17]}.jpg", quality=80)
-        (out_dir / f"panorama-objects-{args.museum}.json").write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+        out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     log.close()
     return 0
 
