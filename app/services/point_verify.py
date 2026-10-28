@@ -31,6 +31,19 @@ logger = logging.getLogger(__name__)
 
 LETTERS = "ABCDE"
 
+# Par a par: o recorte e UMA candidata por pedido. Com a grelha de três, o
+# modelo projetava os pormenores do recorte na candidata mais parecida (um
+# medalhão oval com Ecce Homo «confirmado» num relicário hexagonal, 2026-10-28);
+# a pergunta sim/não por candidata, com as três em paralelo, acertou nos quatro
+# casos de teste e demora o mesmo (~0,4–0,7 s).
+PROMPT_PAIR_PT = (
+    "Duas imagens: a primeira é um recorte de uma peça fotografada numa sala de museu (pode estar atrás de vidro, de lado, "
+    "ou ser só parte da peça); a segunda é a fotografia de catálogo de UMA peça candidata. É exatamente a mesma peça "
+    "física? Compara a forma geral (oval, hexagonal, retangular…), o motivo representado (figura, cena, inscrição) e a "
+    "decoração. Peças do mesmo tipo mas diferentes não contam. "
+    'Responde só com JSON: {"same": true | false, "confidence": 0.0 a 1.0, "reason": "poucas palavras"}'
+)
+
 PROMPT_PT = (
     "A primeira imagem é um recorte de uma peça fotografada numa sala de museu (pode estar atrás de vidro, de lado, "
     "ou ser só parte da peça). A segunda imagem é uma grelha com fotografias de catálogo de peças candidatas, "
@@ -110,6 +123,37 @@ def grid_data_url(paths: list[Path], cell: int = 360) -> str:
     return _jpeg_data_url(grid)
 
 
+def photo_data_url(path: Path, max_side: int = 640) -> str | None:
+    from PIL import Image
+
+    try:
+        with Image.open(path) as im:
+            im = im.convert("RGB")
+            im.thumbnail((max_side, max_side))
+            return _jpeg_data_url(im)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def parse_pair(text: str) -> tuple[bool, float, str]:
+    """{"same": true|false, "confidence": …, "reason": …}; sem JSON lê-se um «sim»/«true» solto."""
+    found = re.search(r"\{.*\}", text or "", flags=re.S)
+    if not found:
+        return bool(re.search(r"\b(true|sim|yes)\b", (text or "").lower())), 0.0, (text or "")[:80]
+    try:
+        data = json.loads(found.group(0))
+    except json.JSONDecodeError:
+        return False, 0.0, (text or "")[:80]
+    same = data.get("same")
+    if isinstance(same, str):
+        same = same.strip().lower() in {"true", "sim", "yes"}
+    try:
+        confidence = float(data.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return bool(same), confidence, str(data.get("reason") or "")[:80]
+
+
 def parse_answer(text: str, count: int) -> tuple[int | None, float, str]:
     found = re.search(r"\{.*\}", text or "", flags=re.S)
     if not found:
@@ -156,25 +200,44 @@ class PointVerifier:
         except OSError:
             return False
 
+    async def _pair(self, crop_url: str, photo: Path) -> tuple[bool, float, str]:
+        photo_url = await asyncio.to_thread(photo_data_url, photo)
+        if photo_url is None:
+            return False, 0.0, "foto ilegível"
+        response = await self._vlm().chat.completions.create(
+            model=self.model, temperature=0.0, max_tokens=100,
+            messages=[{"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": crop_url}},
+                {"type": "image_url", "image_url": {"url": photo_url}},
+                {"type": "text", "text": PROMPT_PAIR_PT},
+            ]}],
+        )
+        text = (response.choices[0].message.content or "") if response.choices else ""
+        return parse_pair(text)
+
     async def verify(self, crop_jpeg: bytes, photos: list[Path]) -> VerifyResult:
+        """Uma pergunta sim/não por candidata, todas em paralelo. Exatamente um
+        «sim» → essa; vários → o de maior confiança (e, em empate, o primeiro,
+        que é o de maior cosseno); nenhum → None."""
         started = time.perf_counter()
         if not photos:
             return VerifyResult("error", None, 0.0, "sem fotos das candidatas", 0.0)
         if not await asyncio.to_thread(self.reachable):
             return VerifyResult("unavailable", None, 0.0, f"VLM sem resposta em {self.base_url}", (time.perf_counter() - started) * 1000)
-        try:
-            grid = await asyncio.to_thread(grid_data_url, photos)
-            response = await self._vlm().chat.completions.create(
-                model=self.model, temperature=0.0, max_tokens=120,
-                messages=[{"role": "user", "content": [
-                    {"type": "image_url", "image_url": {"url": crop_data_url(crop_jpeg)}},
-                    {"type": "image_url", "image_url": {"url": grid}},
-                    {"type": "text", "text": PROMPT_PT.format(letters=", ".join(LETTERS[: len(photos)]))},
-                ]}],
-            )
-            text = (response.choices[0].message.content or "") if response.choices else ""
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("point.verify.failed: %s: %s", type(exc).__name__, exc)
-            return VerifyResult("error", None, 0.0, f"{type(exc).__name__}", (time.perf_counter() - started) * 1000)
-        index, confidence, reason = parse_answer(text, len(photos))
-        return VerifyResult("ok", index, confidence, reason, (time.perf_counter() - started) * 1000)
+        crop_url = crop_data_url(crop_jpeg)
+        results = await asyncio.gather(*(self._pair(crop_url, p) for p in photos), return_exceptions=True)
+        answers: list[tuple[bool, float, str]] = []
+        for item in results:
+            if isinstance(item, BaseException):
+                logger.warning("point.verify.failed: %s: %s", type(item).__name__, item)
+                return VerifyResult("error", None, 0.0, f"{type(item).__name__}", (time.perf_counter() - started) * 1000)
+            answers.append(item)
+        yes = [(index, confidence, reason) for index, (same, confidence, reason) in enumerate(answers) if same]
+        elapsed = (time.perf_counter() - started) * 1000
+        if not yes:
+            reasons = "; ".join(f"{LETTERS[i]}: {r}" for i, (_, _, r) in enumerate(answers) if r)[:80]
+            return VerifyResult("ok", None, max((c for _, c, _ in answers), default=0.0), reasons, elapsed)
+        index, confidence, reason = max(yes, key=lambda item: (item[1], -item[0]))
+        if len(yes) > 1:
+            reason = f"{len(yes)} candidatas «sim»; {reason}"
+        return VerifyResult("ok", index, confidence, reason, elapsed)

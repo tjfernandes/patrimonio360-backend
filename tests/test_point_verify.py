@@ -13,7 +13,45 @@ from pathlib import Path
 
 from PIL import Image
 
-from app.services.point_verify import PointVerifier, grid_data_url, parse_answer, resolve_image_path
+from app.services.point_verify import PointVerifier, VerifyResult, grid_data_url, parse_answer, parse_pair, resolve_image_path
+
+
+class TestParsePair(unittest.TestCase):
+    def test_json_and_loose(self) -> None:
+        self.assertEqual(parse_pair('{"same": true, "confidence": 0.9, "reason": "mesma moldura"}'), (True, 0.9, "mesma moldura"))
+        self.assertEqual(parse_pair('```json\n{"same": false, "confidence": 0.95, "reason": "hexagonal vs oval"}\n```'), (False, 0.95, "hexagonal vs oval"))
+        self.assertEqual(parse_pair('{"same": "sim", "confidence": "0.7"}'), (True, 0.7, ""))
+        self.assertEqual(parse_pair("Não, são peças diferentes.")[0], False)
+        self.assertEqual(parse_pair("")[0], False)
+
+
+class TestPairwiseDecision(unittest.TestCase):
+    def _verifier(self, answers):
+        verifier = PointVerifier(base_url="http://127.0.0.1:1/v1", model="m")
+        verifier.reachable = lambda timeout=0.5: True   # type: ignore[method-assign]
+
+        async def pair(crop_url, photo):
+            return answers[photo.name]
+        verifier._pair = pair   # type: ignore[method-assign]
+        return verifier
+
+    def test_single_yes_wins(self) -> None:
+        verifier = self._verifier({"a.jpg": (False, 0.9, "oval vs hexagonal"), "b.jpg": (True, 0.8, "mesma cena"), "c.jpg": (False, 0.9, "x")})
+        result = asyncio.run(verifier.verify(b"\xff\xd8", [Path("a.jpg"), Path("b.jpg"), Path("c.jpg")]))
+        self.assertEqual((result.status, result.match, result.confidence), ("ok", 1, 0.8))
+
+    def test_no_yes_is_none_with_reasons(self) -> None:
+        verifier = self._verifier({"a.jpg": (False, 0.9, "oval vs hexagonal"), "b.jpg": (False, 0.95, "outra cena")})
+        result = asyncio.run(verifier.verify(b"\xff\xd8", [Path("a.jpg"), Path("b.jpg")]))
+        self.assertEqual((result.status, result.match), ("ok", None))
+        self.assertIn("oval vs hexagonal", result.reason)
+
+    def test_several_yes_takes_the_most_confident_then_the_first(self) -> None:
+        verifier = self._verifier({"a.jpg": (True, 0.8, "x"), "b.jpg": (True, 0.95, "y"), "c.jpg": (True, 0.95, "z")})
+        result = asyncio.run(verifier.verify(b"\xff\xd8", [Path("a.jpg"), Path("b.jpg"), Path("c.jpg")]))
+        self.assertEqual(result.match, 1)
+        self.assertTrue(result.reason.startswith("3 candidatas «sim»"))
+        self.assertIsInstance(result, VerifyResult)
 
 
 class TestParseAnswer(unittest.TestCase):
