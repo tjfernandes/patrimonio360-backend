@@ -285,11 +285,17 @@ class _LLM:
 class _FakePoint(PointAskService):
     """Sem GPU: a vista é sintética e o recorte é um retângulo à volta do ponto."""
 
-    def __init__(self, settings, *, fail_render=False):
+    def __init__(self, settings, *, fail_render=False, verify_result=None):
         self.settings = settings
         self.assets = PointAssetStore(ttl_seconds=60)
         self.fail_render = fail_render
         self.segmenter = SimpleNamespace(ready=True)
+        self.verify_result = verify_result   # VerifyResult devolvido pelo «VLM» falso
+        self.verify_calls: list[list[str]] = []
+
+    async def verify(self, crop_jpeg, candidates):
+        self.verify_calls.append([c.inventory_number for c in candidates])
+        return self.verify_result
 
     async def render(self, request, *, museum_slug):
         if self.fail_render:
@@ -320,13 +326,15 @@ class TestPointAndAsk(_Base):
         {"overlayId": "overlay_x", "panoramaKey": "panorama_outro", "inventoryIds": ["9 Pint"], "location": "Sala 1", "title": "Paisagem"},
     ]}
 
-    def _service(self, hits, *, llm_text="Esta pintura de Tiepolo mostra a Fuga para o Egipto.", fail_render=False, enabled=True):
+    def _service(self, hits, *, llm_text="Esta pintura de Tiepolo mostra a Fuga para o Egipto.", fail_render=False, enabled=True,
+                 verify_result=None):
         settings = self._settings(POINT_AND_ASK_ENABLED=enabled, CHAT_DESCRIBE_ARTIFACT_INTENT=True, CHAT_COMPACT_ANSWER_CONTEXT=True,
-                                  CHAT_STREAM_FINAL_ANSWER=True, POINT_MATCH_THRESHOLD=0.8, POINT_LOW_CONFIDENCE_FLOOR=0.45)
+                                  CHAT_STREAM_FINAL_ANSWER=True, POINT_MATCH_THRESHOLD=0.8, POINT_LOW_CONFIDENCE_FLOOR=0.45,
+                                  POINT_VERIFY_ENABLED=verify_result is not None)
         service = super()._service(settings, llm=_LLM(llm_text))
         service.opensearch_gateway = _Gateway(hits)
         service.embedding_provider = _Embedder()
-        service.point_ask_service = _FakePoint(settings, fail_render=fail_render)
+        service.point_ask_service = _FakePoint(settings, fail_render=fail_render, verify_result=verify_result)
         return service
 
     def _ask(self, service, *, intent="point_and_ask", message="O que é isto?", **point_overrides):
@@ -455,6 +463,68 @@ class TestPointAndAsk(_Base):
         self.assertTrue(response.reply.startswith("Não consegui reconstruir a vista"))
         self.assertEqual(self._stages(events), ["decided"])
         self.assertEqual(service.query_logger.events[-1]["status"], "error")
+
+    def test_verifier_confirms_a_runner_up(self) -> None:
+        # sem boosts: 1874 Pint 0,84 ≥ limiar 0,8 seria a escolhida; o VLM diz que é a 2.ª (14 Pint, cos 0,68)
+        from app.services.point_verify import VerifyResult
+
+        service = self._service(self.HITS, verify_result=VerifyResult("ok", 1, 0.95, "mesma moldura e cena", 700.0))
+        response, events = self._ask(service)
+        self.assertEqual(service.point_ask_service.verify_calls, [["1874 Pint", "14 Pint", "9 Pint"]])
+        decided = next(e["payload"] for e in events if e["type"] == "point" and e["payload"]["stage"] == "decided")
+        self.assertEqual((decided["chosen"]["artifact_id"], decided["confidence"]), ("raiz:14", "verified"))
+        self.assertEqual(decided["verify"]["status"], "ok")
+        self.assertEqual([c["inventory_number"] for c in decided["candidates"]], ["14 Pint", "1874 Pint", "9 Pint"])
+        self.assertEqual(response.artifact_results[0].inventory_number, "14 Pint")
+        self.assertNotIn("não é segura", service.llm_service.prompts[0])   # confirmada: sem «parece ser»
+        self.assertEqual(service.query_logger.events[-1]["point"]["verify"]["match"], 1)
+        self.assertIn("verify", service.query_logger.events[-1]["point"]["timings_ms"])
+
+    def test_verifier_says_none_keeps_the_similar_ones(self) -> None:
+        from app.services.point_verify import VerifyResult
+
+        service = self._service(self.HITS, verify_result=VerifyResult("ok", None, 0.9, "peças diferentes", 650.0))
+        response, events = self._ask(service)
+        self.assertTrue(response.reply.startswith("Não encontro esta peça no acervo. As mais parecidas"))
+        self.assertEqual([a.inventory_number for a in response.artifact_results], ["1874 Pint", "14 Pint", "9 Pint"])
+        self.assertIsNone(response.point["chosen"])
+        self.assertEqual(response.point["confidence"], "none")
+        self.assertFalse(any(e["type"] == "token" for e in events))
+        self.assertEqual(len(service.llm_service.prompts), 0)
+
+    def test_verifier_choice_below_score_gate_is_rejected(self) -> None:
+        from app.services.point_verify import VerifyResult
+
+        hits = [dict(h, score=0.70) for h in self.HITS]   # cos 0,40 para todas
+        service = self._service(hits, verify_result=VerifyResult("ok", 2, 0.9, "mesma cor", 600.0))
+        response, _ = self._ask(service)
+        # 9 Pint tem hotspot noutro panorama, não neste, e 0,40 < POINT_VERIFY_MIN_SCORE: a escolha não vale
+        self.assertIsNone(response.point["chosen"])
+        self.assertTrue(response.point["verify"]["rejected_by_score"])
+        self.assertTrue(response.reply.startswith("Não encontro esta peça no acervo"))
+
+    def test_verifier_choice_with_hotspot_in_panorama_passes_the_gate(self) -> None:
+        from app.services.point_verify import VerifyResult
+
+        hits = [dict(h, score=0.70) for h in self.HITS]   # cos 0,40; 1874 Pint tem hotspot neste panorama
+        service = self._service(hits, llm_text="É a Fuga para o Egipto.", verify_result=VerifyResult("ok", 0, 0.9, "mesma cena", 600.0))
+        response, _ = self._ask(service)
+        self.assertEqual((response.point["chosen"]["artifact_id"], response.point["confidence"]), ("raiz:1874", "verified"))
+
+    def test_verifier_unavailable_falls_back_to_the_scores(self) -> None:
+        from app.services.point_verify import VerifyResult
+
+        service = self._service(self.HITS, verify_result=VerifyResult("unavailable", None, 0.0, "VLM sem resposta", 3.0))
+        response, _ = self._ask(service)
+        self.assertEqual((response.point["chosen"]["artifact_id"], response.point["confidence"]), ("raiz:1874", "high"))
+        self.assertEqual(response.point["verify"]["status"], "unavailable")
+
+    def test_verifier_is_skipped_on_hotspot_match(self) -> None:
+        from app.services.point_verify import VerifyResult
+
+        service = self._service(self.HITS, verify_result=VerifyResult("ok", None, 0.9, "x", 1.0))
+        self._ask(service, hotspot_overlay_id=FUGA_OVERLAY)
+        self.assertEqual(service.point_ask_service.verify_calls, [])
 
     def test_crop_and_cutout_stay_available_for_the_caption(self) -> None:
         service = self._service(self.HITS)

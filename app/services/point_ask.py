@@ -162,7 +162,8 @@ class PointOutcome:
     cutout_url: str | None = None
     candidates: list[Candidate] = field(default_factory=list)
     chosen: Candidate | None = None
-    confidence: str | None = None      # «high» (≥ limiar), «low» (≥ chão) ou None
+    confidence: str | None = None      # «high» (≥ limiar), «verified» (VLM), «low» (≥ chão), «none» (VLM: nenhuma) ou None
+    verify: dict[str, Any] | None = None   # a resposta do VLM, quando POINT_VERIFY_ENABLED
     hotspot_match: bool = False
     timings_ms: dict[str, float] = field(default_factory=dict)
     error: str | None = None
@@ -174,6 +175,7 @@ class PointOutcome:
             "request_id": self.request.request_id,
             "chosen": {"artifact_id": self.chosen.artifact_id, "score": round(self.chosen.score, 3)} if self.chosen else None,
             "confidence": self.confidence,
+            "verify": self.verify,
             "hotspot_match": self.hotspot_match,
             "candidates": [c.payload() for c in self.candidates],
             "crop_url": self.crop_url,
@@ -200,6 +202,7 @@ class PointOutcome:
             "candidates": [{**c.payload(), "raw_score": c.raw_score, "in_tour": c.in_tour, "in_panorama": c.in_panorama} for c in self.candidates],
             "chosen": self.chosen.artifact_id if self.chosen else None,
             "confidence": self.confidence,
+            "verify": self.verify,
             "threshold": threshold,
             "timings_ms": {k: round(v, 1) for k, v in self.timings_ms.items()},
             "error": self.error,
@@ -239,10 +242,40 @@ class PointAskService:
             prompts=tuple(settings.POINT_CONCEPT_PROMPTS.split(",")), threshold=float(settings.POINT_CONCEPT_THRESHOLD),
         )
         self.assets = PointAssetStore(ttl_seconds=float(settings.POINT_ASSET_TTL_SECONDS))
+        self._verifier: Any | None = None
 
     @property
     def ready(self) -> bool:
         return self.segmenter.ready
+
+    # --- 4. a confirmação pelo modelo de visão ------------------------------
+
+    @property
+    def verifier(self):
+        if self._verifier is None:
+            from app.services.point_verify import PointVerifier
+
+            self._verifier = PointVerifier(
+                base_url=self.settings.POINT_VERIFY_BASE_URL, model=self.settings.POINT_VERIFY_MODEL,
+                api_key=self.settings.POINT_VERIFY_API_KEY, timeout_seconds=float(self.settings.POINT_VERIFY_TIMEOUT_SECONDS),
+            )
+        return self._verifier
+
+    async def verify(self, crop_jpeg: bytes, candidates: list[Candidate]):
+        """O VLM vê o recorte e as fotos das candidatas; devolve o VerifyResult
+        (match = índice em `candidates`, ou None) — «unavailable» sem VLM."""
+        from app.services.point_verify import resolve_image_path
+
+        root = self.settings.image_asset_root_resolved
+        photos = [resolve_image_path(root, c.image_name) for c in candidates]
+        usable = [(c, p) for c, p in zip(candidates, photos) if p is not None]
+        result = await self.verifier.verify(crop_jpeg, [p for _, p in usable])
+        if result.match is not None:
+            chosen = usable[result.match][0]
+            index = next(i for i, c in enumerate(candidates) if c is chosen)
+            from dataclasses import replace
+            result = replace(result, match=index)
+        return result
 
     def load(self) -> bool:
         ok = self.segmenter.load()

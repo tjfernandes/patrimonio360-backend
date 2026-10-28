@@ -462,6 +462,19 @@ class Settings(BaseSettings):
     POINT_ASSET_TTL_SECONDS: int = 600  # crop/cutout em memória, por request_id, para a legenda
     # pasta de depuração: guarda vista, crop e cutout de cada toque (só em testes)
     POINT_DEBUG_DIR: str = ""
+    # O modelo de visão confirma a peça entre as melhores candidatas (POINT_VERIFY_TOP_K):
+    # confirma uma → é essa, com certeza; nenhuma → «não encontro esta peça no acervo» e os
+    # cartões das parecidas. A escolha do VLM só vale se a candidata tiver cosseno ≥
+    # POINT_VERIFY_MIN_SCORE ou hotspot neste panorama (medido 2026-10-28: as escolhas
+    # erradas eram decoração do edifício abaixo de 0,6). Sem VLM a responder, o fluxo é o de sempre.
+    POINT_VERIFY_ENABLED: bool = False
+    POINT_VERIFY_BASE_URL: str = "http://127.0.0.1:8005/v1"
+    POINT_VERIFY_MODEL: str = "Qwen/Qwen3-VL-8B-Instruct-FP8"
+    POINT_VERIFY_API_KEY: str = ""
+    POINT_VERIFY_TIMEOUT_SECONDS: float = 6.0
+    POINT_VERIFY_TOP_K: int = 3
+    POINT_VERIFY_MIN_SCORE: float = 0.60
+    POINT_VERIFY_MIN_CONFIDENCE: float = 0.6
 
     # Ditado por voz no servidor (WebSocket /api/v1/speech/stream, faster-whisper).
     # Desligado: o modelo não carrega e o WebSocket recusa a ligação, e o
