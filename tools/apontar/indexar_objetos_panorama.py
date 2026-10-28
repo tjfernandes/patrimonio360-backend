@@ -193,8 +193,70 @@ class Indexer:
             return None
         top = candidates[0]
         runner_up = candidates[1].score if len(candidates) > 1 else 0.0
-        return {"artifact_id": top.artifact_id, "inventory_number": top.inventory_number, "title": top.title,
-                "score": round(top.score, 4), "runner_up_score": round(runner_up, 4), "image_name": top.image_name}
+        result = {"artifact_id": top.artifact_id, "inventory_number": top.inventory_number, "title": top.title,
+                  "score": round(top.score, 4), "runner_up_score": round(runner_up, 4), "image_name": top.image_name}
+        if getattr(self.args, "candidates", 0):
+            result["candidates"] = [
+                {"artifact_id": c.artifact_id, "inventory_number": c.inventory_number, "title": c.title,
+                 "score": round(c.score, 4), "image_name": c.image_name}
+                for c in candidates[: int(self.args.candidates)]
+            ]
+        if getattr(self.args, "save_crops", None):
+            folder = Path(self.args.save_crops) / self.museum / panorama_key
+            folder.mkdir(parents=True, exist_ok=True)
+            self._crop_counter = getattr(self, "_crop_counter", 0) + 1
+            path = folder / f"{self._crop_counter:04d}.jpg"
+            path.write_bytes(crop.crop_jpeg)
+            result["crop"] = str(path)
+        return result
+
+    def hotspot_pieces(self, panorama_key: str) -> list[dict]:
+        """As peças com hotspot neste panorama (ficha e primeira imagem), para
+        entrarem como candidatas mesmo que o kNN não as devolva (--hotspot-candidates)."""
+        if not getattr(self.args, "hotspot_candidates", False):
+            return []
+        cache = getattr(self, "_hotspot_cache", None)
+        if cache is None:
+            cache = self._hotspot_cache = {}
+        if panorama_key in cache:
+            return cache[panorama_key]
+        from app.services.tour_pois import get_tour_poi_store
+
+        inventories: list[str] = []
+        for entry in get_tour_poi_store().entries(self.museum) or []:
+            if str(entry.get("panoramaKey") or "") != panorama_key:
+                continue
+            ids = entry.get("inventoryIds")
+            for inv in ([ids] if isinstance(ids, str) else ids or []):
+                if str(inv).strip() and str(inv).strip() not in inventories:
+                    inventories.append(str(inv).strip())
+        pieces: list[dict] = []
+        if inventories:
+            try:
+                docs = asyncio.run(self.gateway.fetch_artifacts_by_inventory_numbers(
+                    museum_slug=self.museum, museum_id=self.museum, inventory_numbers=inventories, top_k=len(inventories) * 2))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("hotspots do panorama: fichas falharam (%s)", exc); docs = []
+            wanted = {self.nav.normalize_inventory_key(i) for i in inventories}
+            docs = [d for d in docs or [] if self.nav.normalize_inventory_key(str(d.get("inventory_number") or "")) in wanted]
+            ids = [str(d.get("artifact_id")) for d in docs]
+            images: dict[str, str] = {}
+            if ids:
+                try:
+                    hits = asyncio.run(self.gateway.fetch_images_by_artifact_ids(
+                        museum_slug=self.museum, museum_id=self.museum, artifact_ids=ids, per_artifact=1, max_total=len(ids)))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("hotspots do panorama: imagens falharam (%s)", exc); hits = []
+                for h in hits or []:
+                    aid = str(h.get("artifact_id") or "")
+                    name = str(h.get("local_path") or h.get("original_image_name") or "").replace("\\", "/").strip("/")
+                    if aid and name and aid not in images:
+                        images[aid] = name
+            for d in docs:
+                pieces.append({"artifact_id": str(d.get("artifact_id")), "inventory_number": str(d.get("inventory_number") or "") or None,
+                               "title": str(d.get("title") or "") or None, "image_name": images.get(str(d.get("artifact_id")))})
+        cache[panorama_key] = pieces
+        return pieces
 
     # --- um panorama -------------------------------------------------------
 
@@ -202,6 +264,7 @@ class Indexer:
         started = time.perf_counter()
         raw: list[dict] = []
         views: list[tuple[Camera, np.ndarray]] = []
+        hotspots = self.hotspot_pieces(panorama_key)
         for camera in self.cameras():
             view = project_view(self.store_for(camera), museum=self.museum, panorama_key=panorama_key, camera=camera, width=self.args.width)
             self._current_view = view.image
@@ -216,14 +279,35 @@ class Indexer:
                     polygon.append([round(unwrap(vy, yaw), 3), round(vp, 3)])
                 yaws, pitches = [p[0] for p in polygon], [p[1] for p in polygon]
                 match = self.identify(panorama_key, camera, hit.mask)
+                if match is not None and hotspots:
+                    # as peças com hotspot do panorama: marcadas nas candidatas e juntas às que faltam (sem score)
+                    hot_ids = {p["artifact_id"] for p in hotspots}
+                    match["top_is_hotspot"] = match["artifact_id"] in hot_ids
+                    cands = match.get("candidates") or []
+                    for c in cands:
+                        c["hotspot"] = c["artifact_id"] in hot_ids
+                    present = {c["artifact_id"] for c in cands}
+                    for p in hotspots:
+                        if p["artifact_id"] not in present:
+                            cands.append({**p, "score": None, "hotspot": True})
+                    match["candidates"] = cands
                 raw.append({
                     "view": {"yaw": camera.yaw, "pitch": camera.pitch}, "prompt": hit.prompt, "segment_score": round(hit.score, 3),
                     "area_fraction": round(hit.area_fraction, 4), "yaw": round(yaw, 3), "pitch": round(pitch, 3),
                     "bbox": {"yaw_min": min(yaws), "yaw_max": max(yaws), "pitch_min": min(pitches), "pitch_max": max(pitches)},
                     "polygon": polygon, **(match or {"artifact_id": None, "score": 0.0, "runner_up_score": 0.0}),
                 })
-        identified = [o for o in raw if o.get("artifact_id") and o["score"] >= self.args.threshold
-                      and (o["score"] - o["runner_up_score"]) >= self.args.margin]
+        hotspot_threshold = float(getattr(self.args, "hotspot_threshold", 0.70))
+        for o in raw:
+            if not o.get("artifact_id"):
+                o["accepted_by"] = None
+            elif o["score"] >= self.args.threshold and (o["score"] - o["runner_up_score"]) >= self.args.margin:
+                o["accepted_by"] = "score"
+            elif o.get("top_is_hotspot") and o["score"] >= hotspot_threshold:
+                o["accepted_by"] = "hotspot"   # a primeira candidata tem hotspot neste panorama: a margem não conta
+            else:
+                o["accepted_by"] = None
+        identified = [o for o in raw if o.get("accepted_by")]
         identified.sort(key=lambda o: o["score"], reverse=True)
         final: list[dict] = []
         for obj in identified:
@@ -343,6 +427,11 @@ def main() -> int:
     parser.add_argument("--narrow-pitches", default="0,-25,25")
     parser.add_argument("--boxes", default=None, help="JSONL do caixas_vlm.py: caixas do VLM → SAM por caixa")
     parser.add_argument("--no-concepts", action="store_true", help="sem SAM por conceito (só as caixas)")
+    parser.add_argument("--candidates", type=int, default=0, help="guardar as N primeiras candidatas de cada recorte no --raw")
+    parser.add_argument("--save-crops", default=None, help="pasta onde guardar o recorte (jpeg) de cada segmento")
+    parser.add_argument("--hotspot-candidates", action="store_true",
+                        help="as peças com hotspot do panorama entram como candidatas; se a 1.ª candidata tem hotspot, a margem não conta")
+    parser.add_argument("--hotspot-threshold", type=float, default=0.70)
     args = parser.parse_args()
 
     indexer = Indexer(args)
