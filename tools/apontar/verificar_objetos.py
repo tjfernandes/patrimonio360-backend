@@ -96,27 +96,53 @@ def grid_image(photos: list[Path], cell: int = 360) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-def ask(client, model: str, crop: Path, photos: list[Path]) -> tuple[str, float, str, float]:
-    content = [{"type": "image_url", "image_url": {"url": data_url(crop, 512)}},
-               {"type": "image_url", "image_url": {"url": grid_image(photos)}}]
-    content.append({"type": "text", "text": PROMPT.format(letters=", ".join(LETTERS[: len(photos)]))})
-    started = time.perf_counter()
-    response = client.chat.completions.create(model=model, temperature=0.0, max_tokens=120,
-                                              messages=[{"role": "user", "content": content}])
+PROMPT_PAIR = (
+    "Duas imagens: a primeira é um recorte de uma peça fotografada numa sala de museu (pode estar atrás de vidro, de lado, "
+    "ou ser só parte da peça); a segunda é a fotografia de catálogo de UMA peça candidata. É exatamente a mesma peça "
+    "física? Compara a forma geral (oval, hexagonal, retangular…), o motivo representado (figura, cena, inscrição) e a "
+    "decoração. Peças do mesmo tipo mas diferentes não contam. "
+    'Responde só com JSON: {"same": true | false, "confidence": 0.0 a 1.0, "reason": "poucas palavras"}'
+)
+
+
+def ask_pair(client, model: str, crop_url: str, photo: Path) -> tuple[bool, float, str]:
+    response = client.chat.completions.create(model=model, temperature=0.0, max_tokens=100, messages=[{"role": "user", "content": [
+        {"type": "image_url", "image_url": {"url": crop_url}},
+        {"type": "image_url", "image_url": {"url": data_url(photo)}},
+        {"type": "text", "text": PROMPT_PAIR}]}])
     text = response.choices[0].message.content or ""
     m = re.search(r"\{.*\}", text, flags=re.S)
-    match, conf, reason = "none", 0.0, text[:80]
-    if m:
-        try:
-            d = json.loads(m.group(0))
-            match = str(d.get("match") or "none").strip().upper()[:1]
-            conf = float(d.get("confidence") or 0.0)
-            reason = str(d.get("reason") or "")[:80]
-        except Exception:
-            pass
-    if match not in LETTERS[: len(photos)]:
-        match = "none"
-    return match, conf, reason, (time.perf_counter() - started) * 1000
+    if not m:
+        return False, 0.0, text[:80]
+    try:
+        d = json.loads(m.group(0))
+        same = d.get("same")
+        if isinstance(same, str):
+            same = same.strip().lower() in {"true", "sim", "yes"}
+        return bool(same), float(d.get("confidence") or 0.0), str(d.get("reason") or "")[:80]
+    except Exception:
+        return False, 0.0, text[:80]
+
+
+def ask(client, model: str, crop: Path, photos: list[Path]) -> tuple[str, float, str, float]:
+    """Par a par, as candidatas em paralelo (a grelha de três fazia o modelo
+    projetar os pormenores do recorte na candidata mais parecida, 2026-10-28).
+    Devolve a letra da escolhida (um só «sim», ou o «sim» de maior confiança) ou «none»."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    started = time.perf_counter()
+    crop_url = data_url(crop, 512)
+    with ThreadPoolExecutor(max_workers=max(1, len(photos))) as pool:
+        answers = list(pool.map(lambda p: ask_pair(client, model, crop_url, p), photos))
+    yes = [(i, c, r) for i, (s, c, r) in enumerate(answers) if s]
+    elapsed = (time.perf_counter() - started) * 1000
+    if not yes:
+        reasons = "; ".join(f"{LETTERS[i]}: {r}" for i, (_, _, r) in enumerate(answers) if r)[:80]
+        return "none", max((c for _, c, _ in answers), default=0.0), reasons, elapsed
+    i, conf, reason = max(yes, key=lambda t: (t[1], -t[0]))
+    if len(yes) > 1:
+        reason = f"{len(yes)} «sim»; {reason}"
+    return LETTERS[i], conf, reason, elapsed
 
 
 def main() -> int:
@@ -127,7 +153,7 @@ def main() -> int:
     parser.add_argument("--debug", default=None)
     parser.add_argument("--min-score", type=float, default=0.60)
     parser.add_argument("--min-confidence", type=float, default=0.6)
-    parser.add_argument("--max-candidates", type=int, default=5)
+    parser.add_argument("--max-candidates", type=int, default=4, help="par a par: 2 com hotspot + as melhores do índice")
     parser.add_argument("--vlm-url", default="http://127.0.0.1:8005/v1")
     parser.add_argument("--vlm-model", default="Qwen/Qwen3-VL-8B-Instruct-FP8")
     parser.add_argument("--threshold", type=float, default=0.75)
