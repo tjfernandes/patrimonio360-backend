@@ -84,6 +84,27 @@ class PointSegmenter:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(self._executor, self._segment_sync, image, int(x), int(y), min_area, max_area)
 
+    def segment_box_sync(self, image: np.ndarray, box: tuple[int, int, int, int]) -> Segment:
+        """A máscara do objeto dentro da caixa (x0, y0, x1, y1) em px: o prompt
+        por caixa do SAM, para as caixas que um detetor (o VLM) dá offline."""
+        if self._model is None or self._processor is None:
+            raise RuntimeError("SAM não carregado")
+        import torch
+
+        started = time.perf_counter()
+        pil = Image.fromarray(np.ascontiguousarray(image[..., :3]))
+        x0, y0, x1, y1 = (int(v) for v in box)
+        with self._lock:
+            inputs = self._processor(images=pil, input_boxes=[[[x0, y0, x1, y1]]], return_tensors="pt").to(self.device)
+            with torch.inference_mode():
+                outputs = self._model(**inputs, multimask_output=False)
+            masks = self._processor.post_process_masks(outputs.pred_masks.float().cpu(), inputs["original_sizes"])[0][0]
+            scores = outputs.iou_scores.float().cpu().numpy().ravel()
+        mask = masks.numpy().astype(bool)[0]
+        area = float(mask.mean())
+        return Segment(mask=mask, score=float(scores[0]), area_fraction=area, candidates=((float(scores[0]), area),),
+                       elapsed_ms=(time.perf_counter() - started) * 1000)
+
     def _segment_sync(self, image: np.ndarray, x: int, y: int, min_area: float = 0.01, max_area: float = 0.40) -> Segment:
         if self._model is None or self._processor is None:
             raise RuntimeError("SAM não carregado")

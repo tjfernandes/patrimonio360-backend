@@ -77,6 +77,45 @@ def bbox_iou(a: dict, b: dict) -> float:
     return float(inter / max(area_a + area_b - inter, 1e-9))
 
 
+def build_cameras(args: argparse.Namespace) -> list[Camera]:
+    """As vistas de um panorama: a grelha larga (hfov 90°, yaw de 45° em 45°)
+    e, com --narrow, uma grelha apertada (hfov 45°, de 22,5° em 22,5°) que
+    mostra os objetos pequenos com o quádruplo dos píxeis. O caixas_vlm.py usa
+    exatamente as mesmas, para as caixas baterem com as vistas."""
+    width = int(args.width)
+    height = int(round(width * 0.75))
+    cameras: list[Camera] = []
+
+    def grid(hfov: float, step: float, pitches: str) -> None:
+        for pitch in (float(p) for p in pitches.split(",") if p.strip()):
+            for i in range(int(round(360.0 / step))):
+                cameras.append(Camera(yaw=-180.0 + i * step, pitch=pitch, hfov=float(hfov), width=width, height=height))
+
+    grid(args.hfov, float(args.yaw_step), args.pitches)
+    if getattr(args, "narrow", False):
+        grid(args.narrow_hfov, float(args.narrow_step), args.narrow_pitches)
+    return cameras
+
+
+def camera_key(panorama_key: str, camera: Camera) -> str:
+    return f"{panorama_key}|{camera.yaw:.2f}|{camera.pitch:.2f}|{camera.hfov:.2f}"
+
+
+def load_boxes(path: str | None) -> dict[str, list[dict]]:
+    """caixas_vlm.py → {chave da vista: [{"box": [x0, y0, x1, y1], "label": …}, …]}."""
+    boxes: dict[str, list[dict]] = {}
+    if not path:
+        return boxes
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        view = row["view"]
+        camera = Camera(yaw=view["yaw"], pitch=view["pitch"], hfov=view["hfov"], width=view["width"], height=view["height"])
+        boxes.setdefault(camera_key(row["panorama_key"], camera), []).extend(row.get("boxes") or [])
+    return boxes
+
+
 class Indexer:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
@@ -85,8 +124,12 @@ class Indexer:
         self.point = PointAskService(self.settings)
         self.point.concepts.prompts = tuple(p.strip() for p in args.prompts.split(",") if p.strip())
         self.point.concepts.threshold = float(args.concept_threshold)
-        if not self.point.concepts.load():
+        self.use_concepts = not getattr(args, "no_concepts", False)
+        if self.use_concepts and not self.point.concepts.load():
             raise SystemExit(f"SAM 3 por conceito não carregou: {self.point.concepts.error}")
+        self.boxes = load_boxes(getattr(args, "boxes", None))
+        if self.boxes and not self.point.segmenter.load():
+            raise SystemExit(f"SAM 3 por caixa não carregou: {self.point.segmenter.error}")
         self.embedder = get_embedding_provider()._get_multimodal_embedder()
         self.gateway = get_opensearch_gateway()
         self.nav = TourNavigationService(self.settings)
@@ -95,26 +138,39 @@ class Indexer:
     # --- uma vista ---------------------------------------------------------
 
     def cameras(self) -> list[Camera]:
-        pitches = [float(p) for p in self.args.pitches.split(",") if p.strip()]
-        return [
-            Camera(yaw=float(yaw), pitch=pitch, hfov=float(self.args.hfov), width=self.args.width, height=self.height)
-            for pitch in pitches
-            for yaw in range(-180, 180, int(self.args.yaw_step))
-        ]
+        return build_cameras(self.args)
 
-    def segment_view(self, image: np.ndarray) -> list:
-        hits = self.point.concepts.instances_sync(image, min_area=self.args.min_area, max_area=self.args.max_area)
+    def segment_view(self, image: np.ndarray, *, panorama_key: str = "", camera: Camera | None = None) -> list:
+        from app.services.point_segmenter import ConceptHit
+
+        hits: list = []
+        if self.use_concepts:
+            hits.extend(self.point.concepts.instances_sync(image, min_area=self.args.min_area, max_area=self.args.max_area))
+        if camera is not None and self.boxes:
+            for entry in self.boxes.get(camera_key(panorama_key, camera), []):
+                try:
+                    segment = self.point.segmenter.segment_box_sync(image, tuple(entry["box"]))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("SAM por caixa falhou (%s)", exc)
+                    continue
+                if self.args.min_area <= segment.area_fraction <= self.args.max_area:
+                    hits.append(ConceptHit(mask=segment.mask, score=segment.score, prompt=f"vlm:{entry.get('label') or '?'}",
+                                           area_fraction=segment.area_fraction, elapsed_ms=segment.elapsed_ms))
         hits.sort(key=lambda h: h.score, reverse=True)
         kept: list = []
         for hit in hits:
-            # a mesma coisa vista por dois prompts («artwork» e «painting»): fica o melhor score
+            # a mesma coisa vista por dois prompts («artwork» e «painting»), ou por conceito e por caixa: fica o melhor score
             if any(mask_iou(hit.mask, other.mask) > 0.7 for other in kept):
                 continue
-            # cortado pela borda lateral da vista: a vista vizinha (45° ao lado) vê-o inteiro
+            # cortado pela borda lateral da vista: a vista vizinha vê-o inteiro
             if hit.mask[:, :3].any() or hit.mask[:, -3:].any():
                 continue
             kept.append(hit)
         return kept
+
+    def store_for(self, camera: Camera):
+        """Vistas apertadas (hfov < 60°) vêm das faces no nível fino."""
+        return self.point.zoom_faces if camera.hfov < 60.0 else self.point.faces
 
     def identify(self, panorama_key: str, camera: Camera, mask: np.ndarray) -> dict | None:
         try:
@@ -147,10 +203,10 @@ class Indexer:
         raw: list[dict] = []
         views: list[tuple[Camera, np.ndarray]] = []
         for camera in self.cameras():
-            view = project_view(self.point.faces, museum=self.museum, panorama_key=panorama_key, camera=camera, width=self.args.width)
+            view = project_view(self.store_for(camera), museum=self.museum, panorama_key=panorama_key, camera=camera, width=self.args.width)
             self._current_view = view.image
             views.append((camera, view.image))
-            for hit in self.segment_view(view.image):
+            for hit in self.segment_view(view.image, panorama_key=panorama_key, camera=camera):
                 ys, xs = np.nonzero(hit.mask)
                 cx, cy = float(xs.mean() + 0.5) / camera.width, float(ys.mean() + 0.5) / camera.height
                 yaw, pitch = ray_from_point(camera, cx, cy)
@@ -281,6 +337,12 @@ def main() -> int:
     parser.add_argument("--debug", default=None, help="pasta para as vistas com os contornos")
     parser.add_argument("--raw", default=None, help="ficheiro JSONL com todos os recortes, identificados ou não")
     parser.add_argument("--skip-done", action="store_true", help="salta os panoramas que já estão no ficheiro de saída (retomar)")
+    parser.add_argument("--narrow", action="store_true", help="também a grelha de vistas apertadas (objetos pequenos)")
+    parser.add_argument("--narrow-hfov", type=float, default=45.0)
+    parser.add_argument("--narrow-step", type=float, default=22.5)
+    parser.add_argument("--narrow-pitches", default="0,-25,25")
+    parser.add_argument("--boxes", default=None, help="JSONL do caixas_vlm.py: caixas do VLM → SAM por caixa")
+    parser.add_argument("--no-concepts", action="store_true", help="sem SAM por conceito (só as caixas)")
     args = parser.parse_args()
 
     indexer = Indexer(args)
