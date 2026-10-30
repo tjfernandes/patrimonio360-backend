@@ -148,28 +148,63 @@ async def answer_point_and_ask(
     await _fill_image_names(service, outcome, docs_by_id, museum_slug=museum_slug, museum_id=museum_id)
     await _emit_point(status_cb, {"stage": "candidates", "request_id": request.request_id, "candidates": [c.payload() for c in outcome.candidates]})
 
-    # 4. a decisão: acima do limiar, com certeza; entre o chão e o limiar,
-    # apresenta-se a mesma peça mas sem certeza («parece ser…»); abaixo, nada
+    # 4. a decisão. Com o VLM ligado (POINT_VERIFY_ENABLED) e a responder, é ele
+    # que decide entre as melhores candidatas: confirma uma → é essa, com
+    # certeza; nenhuma → «não encontro esta peça», com os cartões das parecidas.
+    # Sem VLM: acima do limiar, com certeza; entre o chão e o limiar, a mesma
+    # peça mas sem certeza («parece ser…»); abaixo, nada.
     floor = float(getattr(settings, "POINT_LOW_CONFIDENCE_FLOOR", 0.45))
-    if outcome.candidates and outcome.candidates[0].score >= threshold:
-        outcome.chosen, outcome.confidence = outcome.candidates[0], "high"
-    elif outcome.candidates and outcome.candidates[0].score >= min(floor, threshold):
-        outcome.chosen, outcome.confidence = outcome.candidates[0], "low"
+    verified = False
+    if bool(getattr(settings, "POINT_VERIFY_ENABLED", False)) and outcome.candidates and not outcome.hotspot_match and outcome.crop_jpeg:
+        verify_started = time.monotonic()
+        top_k = outcome.candidates[: max(int(getattr(settings, "POINT_VERIFY_TOP_K", 3)), 1)]
+        try:
+            result = await point.verify(outcome.crop_jpeg, top_k)
+        except Exception as exc:  # noqa: BLE001 — o VLM nunca trava o pedido
+            log_event(logger, logging.WARNING, "chat.point.verify.error", conversation_id=conversation_id, query_id=query_id, error=exc)
+            result = None
+        outcome.timings_ms["verify"] = (time.monotonic() - verify_started) * 1000
+        if result is not None:
+            outcome.verify = result.payload()
+            panorama_keys = nav.panorama_inventory_keys(museum_slug=museum_slug, museum_id=museum_id, panorama_key=request.panorama_key)
+            if result.status == "ok":
+                verified = True
+                if result.match is not None and result.confidence >= float(getattr(settings, "POINT_VERIFY_MIN_CONFIDENCE", 0.6)):
+                    chosen = top_k[result.match]
+                    in_panorama = bool(chosen.inventory_number) and nav.normalize_inventory_key(chosen.inventory_number) in panorama_keys
+                    if in_panorama or chosen.score >= float(getattr(settings, "POINT_VERIFY_MIN_SCORE", 0.6)):
+                        outcome.chosen = chosen
+                        outcome.confidence = "high" if chosen.score >= threshold else "verified"
+                        # a confirmada passa a primeira: é o primeiro cartão
+                        outcome.candidates = [chosen] + [c for c in outcome.candidates if c is not chosen]
+                    else:
+                        outcome.verify["rejected_by_score"] = True
+                        outcome.confidence = "none"
+                else:
+                    outcome.confidence = "none"
+    if not verified:
+        if outcome.candidates and outcome.candidates[0].score >= threshold:
+            outcome.chosen, outcome.confidence = outcome.candidates[0], "high"
+        elif outcome.candidates and outcome.candidates[0].score >= min(floor, threshold):
+            outcome.chosen, outcome.confidence = outcome.candidates[0], "low"
     outcome.timings_ms["decided"] = (time.monotonic() - started) * 1000
     await _emit_point(status_cb, outcome.decided_payload())
     log_event(
         logger, logging.INFO, "chat.point.decided", conversation_id=conversation_id, query_id=query_id,
-        chosen=outcome.chosen.artifact_id if outcome.chosen else None,
+        chosen=outcome.chosen.artifact_id if outcome.chosen else None, confidence=outcome.confidence,
         score=round(outcome.candidates[0].score, 3) if outcome.candidates else None, hotspot_match=outcome.hotspot_match,
+        verify=(outcome.verify or {}).get("status"), verify_match=(outcome.verify or {}).get("match"),
         candidates=len(outcome.candidates), elapsed_ms=round(outcome.timings_ms["decided"], 1),
     )
     candidate_results = await _candidate_results(service, outcome, docs_by_id, museum_slug=museum_slug, museum_id=museum_id)
     point_log = outcome.log_payload(threshold)
 
     if outcome.chosen is None:
+        # o VLM viu as candidatas e disse que nenhuma é a peça: «não encontro», mas as parecidas ficam nos cartões
+        key = "message.point_not_found_similar" if outcome.confidence == "none" and outcome.candidates else "message.point_not_found"
         return await _finish_without_piece(
             service, payload, state, outcome, status_cb=status_cb, conversation_id=conversation_id, query_id=query_id,
-            language=language, reply=translate("message.point_not_found", language), threshold=threshold, started=started,
+            language=language, reply=translate(key, language), threshold=threshold, started=started,
             candidate_results=candidate_results, point_log=point_log,
         )
 

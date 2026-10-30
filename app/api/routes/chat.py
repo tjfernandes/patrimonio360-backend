@@ -32,6 +32,12 @@ from app.services.chat_i18n import translate
 from app.services.tour_pois import get_tour_poi_store
 from app.services.tour_pois import normalize_slug as normalize_poi_slug
 from app.services.tour_pois import public_entry as public_poi_entry
+from app.services.panorama_objects import (
+    get_panorama_object_store,
+    hotspot_overlays_by_inventory,
+    normalize_inventory as normalize_object_inventory,
+    public_object as public_panorama_object,
+)
 
 router = APIRouter()
 SUPPORTED_MODEL_EXTENSIONS = {".glb", ".gltf", ".obj"}
@@ -260,6 +266,42 @@ async def get_tour_pois(museum_slug: str) -> JSONResponse:
         raise HTTPException(status_code=404, detail="Museu sem visita.")
     return JSONResponse(
         {"museum_slug": slug, "pois": [public_poi_entry(entry) for entry in entries]},
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@router.get("/tour/objects")
+async def get_tour_objects(museum_slug: str, panorama_key: str) -> JSONResponse:
+    """Os objetos identificados neste panorama, pré-indexados offline
+    (poi_tours/panorama-objects-<museu>.json): peça, confiança, centro (yaw,
+    pitch), caixa angular e contorno em graus. Experiência «que peças há
+    aqui?» (2026-10-26). Panorama sem indexação: `indexed: false` e lista vazia."""
+    slug = normalize_poi_slug(museum_slug)
+    if slug is None:
+        raise HTTPException(status_code=400, detail="museum_slug invalido.")
+    key = (panorama_key or "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="panorama_key obrigatorio.")
+    store = get_panorama_object_store()
+    museum = store.museum(slug)
+    if museum is None:
+        raise HTTPException(status_code=404, detail="Museu sem objetos indexados.")
+    entry = store.panorama(slug, key)
+    hotspots = hotspot_overlays_by_inventory(get_tour_poi_store().entries(slug), key)
+    objects = [
+        public_panorama_object(obj, hotspot_overlay_id=hotspots.get(normalize_object_inventory(obj.get("inventory_number"))))
+        for obj in ((entry or {}).get("objects") or [])
+        if isinstance(obj, dict)
+    ]
+    return JSONResponse(
+        {
+            "museum_slug": slug,
+            "panorama_key": key,
+            "indexed": entry is not None,
+            "generated_at": museum.get("generated_at"),
+            "segmented": int((entry or {}).get("segmented") or 0),
+            "objects": objects,
+        },
         headers={"Cache-Control": "public, max-age=300"},
     )
 

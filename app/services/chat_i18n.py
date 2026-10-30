@@ -35,6 +35,10 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "A procurar no acervo",
         "en": "Searching the collection",
     },
+    "message.point_not_found_similar": {
+        "pt": "Não encontro esta peça no acervo. As mais parecidas que tenho são estas.",
+        "en": "I cannot find this object in the collection. These are the closest ones I have.",
+    },
     "message.point_not_found": {
         "pt": "Não encontrei esta peça no acervo. Pode tentar outro ponto ou perguntar-me pelo nome da peça.",
         "en": "I could not find this object in the collection. Try another point or ask me for the object by name.",

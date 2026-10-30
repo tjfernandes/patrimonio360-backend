@@ -199,6 +199,35 @@ class ConceptSegmenter:
         return ConceptHit(mask=best.mask, score=best.score, prompt=best.prompt, area_fraction=best.area_fraction,
                           elapsed_ms=(time.perf_counter() - started) * 1000)
 
+    def instances_sync(self, image: np.ndarray, *, min_area: float = 0.003, max_area: float = 0.40) -> list[ConceptHit]:
+        """Todas as instâncias de todos os prompts numa vista, sem ponto: a
+        indexação offline dos objetos de um panorama (tools/apontar/
+        indexar_objetos_panorama.py). A mesma passagem em lote do find_sync."""
+        if self._model is None or self._processor is None:
+            return []
+        import torch
+
+        started = time.perf_counter()
+        pil = Image.fromarray(np.ascontiguousarray(image[..., :3]))
+        found: list[tuple[np.ndarray, float, str, float]] = []
+        with self._lock:
+            inputs = self._processor(images=[pil] * len(self.prompts), text=list(self.prompts), return_tensors="pt").to(self.device)
+            with torch.inference_mode():
+                outputs = self._model(**inputs)
+            results = self._processor.post_process_instance_segmentation(
+                outputs, threshold=self.threshold, mask_threshold=0.5, target_sizes=inputs.get("original_sizes").tolist()
+            )
+            for prompt, result in zip(self.prompts, results):
+                scores = result["scores"].float().cpu().numpy().ravel()
+                masks = result["masks"]
+                for index in range(len(scores)):
+                    mask = masks[index].cpu().numpy().astype(bool)
+                    area = float(mask.mean())
+                    if min_area <= area <= max_area:
+                        found.append((mask, float(scores[index]), prompt, area))
+        elapsed = (time.perf_counter() - started) * 1000
+        return [ConceptHit(mask=m, score=s, prompt=p, area_fraction=a, elapsed_ms=elapsed) for m, s, p, a in found]
+
 
 def choose_mask(
     scores: list[float], areas: list[float], *, min_area: float = 0.01, max_area: float = 0.40, contains: list[bool] | None = None
