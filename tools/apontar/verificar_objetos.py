@@ -158,7 +158,7 @@ def main() -> int:
     parser.add_argument("--vlm-model", default="Qwen/Qwen3-VL-8B-Instruct-FP8")
     parser.add_argument("--threshold", type=float, default=0.75)
     parser.add_argument("--images-root", default=None, help="pasta onde vivem as imagens das fichas (por omissão, IMAGE_ASSET_ROOT)")
-    parser.add_argument("--min-knn", type=float, default=0.60,
+    parser.add_argument("--min-knn", type=float, default=0.65,
                         help="a candidata escolhida pelo VLM só é aceite se tiver hotspot neste panorama ou cosseno ≥ este valor "
                              "(as escolhas erradas do piloto eram decoração do edifício a < 0,6)")
     parser.add_argument("--workers", type=int, default=4, help="pedidos ao VLM em paralelo")
