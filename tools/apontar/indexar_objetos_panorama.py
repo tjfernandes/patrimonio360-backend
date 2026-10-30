@@ -77,6 +77,45 @@ def bbox_iou(a: dict, b: dict) -> float:
     return float(inter / max(area_a + area_b - inter, 1e-9))
 
 
+def build_cameras(args: argparse.Namespace) -> list[Camera]:
+    """As vistas de um panorama: a grelha larga (hfov 90°, yaw de 45° em 45°)
+    e, com --narrow, uma grelha apertada (hfov 45°, de 22,5° em 22,5°) que
+    mostra os objetos pequenos com o quádruplo dos píxeis. O caixas_vlm.py usa
+    exatamente as mesmas, para as caixas baterem com as vistas."""
+    width = int(args.width)
+    height = int(round(width * 0.75))
+    cameras: list[Camera] = []
+
+    def grid(hfov: float, step: float, pitches: str) -> None:
+        for pitch in (float(p) for p in pitches.split(",") if p.strip()):
+            for i in range(int(round(360.0 / step))):
+                cameras.append(Camera(yaw=-180.0 + i * step, pitch=pitch, hfov=float(hfov), width=width, height=height))
+
+    grid(args.hfov, float(args.yaw_step), args.pitches)
+    if getattr(args, "narrow", False):
+        grid(args.narrow_hfov, float(args.narrow_step), args.narrow_pitches)
+    return cameras
+
+
+def camera_key(panorama_key: str, camera: Camera) -> str:
+    return f"{panorama_key}|{camera.yaw:.2f}|{camera.pitch:.2f}|{camera.hfov:.2f}"
+
+
+def load_boxes(path: str | None) -> dict[str, list[dict]]:
+    """caixas_vlm.py → {chave da vista: [{"box": [x0, y0, x1, y1], "label": …}, …]}."""
+    boxes: dict[str, list[dict]] = {}
+    if not path:
+        return boxes
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        view = row["view"]
+        camera = Camera(yaw=view["yaw"], pitch=view["pitch"], hfov=view["hfov"], width=view["width"], height=view["height"])
+        boxes.setdefault(camera_key(row["panorama_key"], camera), []).extend(row.get("boxes") or [])
+    return boxes
+
+
 class Indexer:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
@@ -85,8 +124,12 @@ class Indexer:
         self.point = PointAskService(self.settings)
         self.point.concepts.prompts = tuple(p.strip() for p in args.prompts.split(",") if p.strip())
         self.point.concepts.threshold = float(args.concept_threshold)
-        if not self.point.concepts.load():
+        self.use_concepts = not getattr(args, "no_concepts", False)
+        if self.use_concepts and not self.point.concepts.load():
             raise SystemExit(f"SAM 3 por conceito não carregou: {self.point.concepts.error}")
+        self.boxes = load_boxes(getattr(args, "boxes", None))
+        if self.boxes and not self.point.segmenter.load():
+            raise SystemExit(f"SAM 3 por caixa não carregou: {self.point.segmenter.error}")
         self.embedder = get_embedding_provider()._get_multimodal_embedder()
         self.gateway = get_opensearch_gateway()
         self.nav = TourNavigationService(self.settings)
@@ -95,26 +138,39 @@ class Indexer:
     # --- uma vista ---------------------------------------------------------
 
     def cameras(self) -> list[Camera]:
-        pitches = [float(p) for p in self.args.pitches.split(",") if p.strip()]
-        return [
-            Camera(yaw=float(yaw), pitch=pitch, hfov=float(self.args.hfov), width=self.args.width, height=self.height)
-            for pitch in pitches
-            for yaw in range(-180, 180, int(self.args.yaw_step))
-        ]
+        return build_cameras(self.args)
 
-    def segment_view(self, image: np.ndarray) -> list:
-        hits = self.point.concepts.instances_sync(image, min_area=self.args.min_area, max_area=self.args.max_area)
+    def segment_view(self, image: np.ndarray, *, panorama_key: str = "", camera: Camera | None = None) -> list:
+        from app.services.point_segmenter import ConceptHit
+
+        hits: list = []
+        if self.use_concepts:
+            hits.extend(self.point.concepts.instances_sync(image, min_area=self.args.min_area, max_area=self.args.max_area))
+        if camera is not None and self.boxes:
+            for entry in self.boxes.get(camera_key(panorama_key, camera), []):
+                try:
+                    segment = self.point.segmenter.segment_box_sync(image, tuple(entry["box"]))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("SAM por caixa falhou (%s)", exc)
+                    continue
+                if self.args.min_area <= segment.area_fraction <= self.args.max_area:
+                    hits.append(ConceptHit(mask=segment.mask, score=segment.score, prompt=f"vlm:{entry.get('label') or '?'}",
+                                           area_fraction=segment.area_fraction, elapsed_ms=segment.elapsed_ms))
         hits.sort(key=lambda h: h.score, reverse=True)
         kept: list = []
         for hit in hits:
-            # a mesma coisa vista por dois prompts («artwork» e «painting»): fica o melhor score
+            # a mesma coisa vista por dois prompts («artwork» e «painting»), ou por conceito e por caixa: fica o melhor score
             if any(mask_iou(hit.mask, other.mask) > 0.7 for other in kept):
                 continue
-            # cortado pela borda lateral da vista: a vista vizinha (45° ao lado) vê-o inteiro
+            # cortado pela borda lateral da vista: a vista vizinha vê-o inteiro
             if hit.mask[:, :3].any() or hit.mask[:, -3:].any():
                 continue
             kept.append(hit)
         return kept
+
+    def store_for(self, camera: Camera):
+        """Vistas apertadas (hfov < 60°) vêm das faces no nível fino."""
+        return self.point.zoom_faces if camera.hfov < 60.0 else self.point.faces
 
     def identify(self, panorama_key: str, camera: Camera, mask: np.ndarray) -> dict | None:
         try:
@@ -137,8 +193,70 @@ class Indexer:
             return None
         top = candidates[0]
         runner_up = candidates[1].score if len(candidates) > 1 else 0.0
-        return {"artifact_id": top.artifact_id, "inventory_number": top.inventory_number, "title": top.title,
-                "score": round(top.score, 4), "runner_up_score": round(runner_up, 4), "image_name": top.image_name}
+        result = {"artifact_id": top.artifact_id, "inventory_number": top.inventory_number, "title": top.title,
+                  "score": round(top.score, 4), "runner_up_score": round(runner_up, 4), "image_name": top.image_name}
+        if getattr(self.args, "candidates", 0):
+            result["candidates"] = [
+                {"artifact_id": c.artifact_id, "inventory_number": c.inventory_number, "title": c.title,
+                 "score": round(c.score, 4), "image_name": c.image_name}
+                for c in candidates[: int(self.args.candidates)]
+            ]
+        if getattr(self.args, "save_crops", None):
+            folder = Path(self.args.save_crops) / self.museum / panorama_key
+            folder.mkdir(parents=True, exist_ok=True)
+            self._crop_counter = getattr(self, "_crop_counter", 0) + 1
+            path = folder / f"{self._crop_counter:04d}.jpg"
+            path.write_bytes(crop.crop_jpeg)
+            result["crop"] = str(path)
+        return result
+
+    def hotspot_pieces(self, panorama_key: str) -> list[dict]:
+        """As peças com hotspot neste panorama (ficha e primeira imagem), para
+        entrarem como candidatas mesmo que o kNN não as devolva (--hotspot-candidates)."""
+        if not getattr(self.args, "hotspot_candidates", False):
+            return []
+        cache = getattr(self, "_hotspot_cache", None)
+        if cache is None:
+            cache = self._hotspot_cache = {}
+        if panorama_key in cache:
+            return cache[panorama_key]
+        from app.services.tour_pois import get_tour_poi_store
+
+        inventories: list[str] = []
+        for entry in get_tour_poi_store().entries(self.museum) or []:
+            if str(entry.get("panoramaKey") or "") != panorama_key:
+                continue
+            ids = entry.get("inventoryIds")
+            for inv in ([ids] if isinstance(ids, str) else ids or []):
+                if str(inv).strip() and str(inv).strip() not in inventories:
+                    inventories.append(str(inv).strip())
+        pieces: list[dict] = []
+        if inventories:
+            try:
+                docs = asyncio.run(self.gateway.fetch_artifacts_by_inventory_numbers(
+                    museum_slug=self.museum, museum_id=self.museum, inventory_numbers=inventories, top_k=len(inventories) * 2))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("hotspots do panorama: fichas falharam (%s)", exc); docs = []
+            wanted = {self.nav.normalize_inventory_key(i) for i in inventories}
+            docs = [d for d in docs or [] if self.nav.normalize_inventory_key(str(d.get("inventory_number") or "")) in wanted]
+            ids = [str(d.get("artifact_id")) for d in docs]
+            images: dict[str, str] = {}
+            if ids:
+                try:
+                    hits = asyncio.run(self.gateway.fetch_images_by_artifact_ids(
+                        museum_slug=self.museum, museum_id=self.museum, artifact_ids=ids, per_artifact=1, max_total=len(ids)))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("hotspots do panorama: imagens falharam (%s)", exc); hits = []
+                for h in hits or []:
+                    aid = str(h.get("artifact_id") or "")
+                    name = str(h.get("local_path") or h.get("original_image_name") or "").replace("\\", "/").strip("/")
+                    if aid and name and aid not in images:
+                        images[aid] = name
+            for d in docs:
+                pieces.append({"artifact_id": str(d.get("artifact_id")), "inventory_number": str(d.get("inventory_number") or "") or None,
+                               "title": str(d.get("title") or "") or None, "image_name": images.get(str(d.get("artifact_id")))})
+        cache[panorama_key] = pieces
+        return pieces
 
     # --- um panorama -------------------------------------------------------
 
@@ -146,11 +264,12 @@ class Indexer:
         started = time.perf_counter()
         raw: list[dict] = []
         views: list[tuple[Camera, np.ndarray]] = []
+        hotspots = self.hotspot_pieces(panorama_key)
         for camera in self.cameras():
-            view = project_view(self.point.faces, museum=self.museum, panorama_key=panorama_key, camera=camera, width=self.args.width)
+            view = project_view(self.store_for(camera), museum=self.museum, panorama_key=panorama_key, camera=camera, width=self.args.width)
             self._current_view = view.image
             views.append((camera, view.image))
-            for hit in self.segment_view(view.image):
+            for hit in self.segment_view(view.image, panorama_key=panorama_key, camera=camera):
                 ys, xs = np.nonzero(hit.mask)
                 cx, cy = float(xs.mean() + 0.5) / camera.width, float(ys.mean() + 0.5) / camera.height
                 yaw, pitch = ray_from_point(camera, cx, cy)
@@ -160,14 +279,35 @@ class Indexer:
                     polygon.append([round(unwrap(vy, yaw), 3), round(vp, 3)])
                 yaws, pitches = [p[0] for p in polygon], [p[1] for p in polygon]
                 match = self.identify(panorama_key, camera, hit.mask)
+                if match is not None and hotspots:
+                    # as peças com hotspot do panorama: marcadas nas candidatas e juntas às que faltam (sem score)
+                    hot_ids = {p["artifact_id"] for p in hotspots}
+                    match["top_is_hotspot"] = match["artifact_id"] in hot_ids
+                    cands = match.get("candidates") or []
+                    for c in cands:
+                        c["hotspot"] = c["artifact_id"] in hot_ids
+                    present = {c["artifact_id"] for c in cands}
+                    for p in hotspots:
+                        if p["artifact_id"] not in present:
+                            cands.append({**p, "score": None, "hotspot": True})
+                    match["candidates"] = cands
                 raw.append({
                     "view": {"yaw": camera.yaw, "pitch": camera.pitch}, "prompt": hit.prompt, "segment_score": round(hit.score, 3),
                     "area_fraction": round(hit.area_fraction, 4), "yaw": round(yaw, 3), "pitch": round(pitch, 3),
                     "bbox": {"yaw_min": min(yaws), "yaw_max": max(yaws), "pitch_min": min(pitches), "pitch_max": max(pitches)},
                     "polygon": polygon, **(match or {"artifact_id": None, "score": 0.0, "runner_up_score": 0.0}),
                 })
-        identified = [o for o in raw if o.get("artifact_id") and o["score"] >= self.args.threshold
-                      and (o["score"] - o["runner_up_score"]) >= self.args.margin]
+        hotspot_threshold = float(getattr(self.args, "hotspot_threshold", 0.70))
+        for o in raw:
+            if not o.get("artifact_id"):
+                o["accepted_by"] = None
+            elif o["score"] >= self.args.threshold and (o["score"] - o["runner_up_score"]) >= self.args.margin:
+                o["accepted_by"] = "score"
+            elif o.get("top_is_hotspot") and o["score"] >= hotspot_threshold:
+                o["accepted_by"] = "hotspot"   # a primeira candidata tem hotspot neste panorama: a margem não conta
+            else:
+                o["accepted_by"] = None
+        identified = [o for o in raw if o.get("accepted_by")]
         identified.sort(key=lambda o: o["score"], reverse=True)
         final: list[dict] = []
         for obj in identified:
@@ -281,6 +421,17 @@ def main() -> int:
     parser.add_argument("--debug", default=None, help="pasta para as vistas com os contornos")
     parser.add_argument("--raw", default=None, help="ficheiro JSONL com todos os recortes, identificados ou não")
     parser.add_argument("--skip-done", action="store_true", help="salta os panoramas que já estão no ficheiro de saída (retomar)")
+    parser.add_argument("--narrow", action="store_true", help="também a grelha de vistas apertadas (objetos pequenos)")
+    parser.add_argument("--narrow-hfov", type=float, default=45.0)
+    parser.add_argument("--narrow-step", type=float, default=22.5)
+    parser.add_argument("--narrow-pitches", default="0,-25,25")
+    parser.add_argument("--boxes", default=None, help="JSONL do caixas_vlm.py: caixas do VLM → SAM por caixa")
+    parser.add_argument("--no-concepts", action="store_true", help="sem SAM por conceito (só as caixas)")
+    parser.add_argument("--candidates", type=int, default=0, help="guardar as N primeiras candidatas de cada recorte no --raw")
+    parser.add_argument("--save-crops", default=None, help="pasta onde guardar o recorte (jpeg) de cada segmento")
+    parser.add_argument("--hotspot-candidates", action="store_true",
+                        help="as peças com hotspot do panorama entram como candidatas; se a 1.ª candidata tem hotspot, a margem não conta")
+    parser.add_argument("--hotspot-threshold", type=float, default=0.70)
     args = parser.parse_args()
 
     indexer = Indexer(args)
