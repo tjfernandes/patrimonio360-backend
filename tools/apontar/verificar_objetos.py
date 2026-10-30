@@ -195,10 +195,16 @@ def main() -> int:
     from concurrent.futures import ThreadPoolExecutor
 
     def prepare(o: dict):
-        """As 5 candidatas a mostrar e as fotos; None se não há nada a perguntar."""
-        if o.get("accepted_by") or not o.get("artifact_id") or not o.get("crop"):
+        """As 5 candidatas a mostrar e as fotos; None se não há nada a perguntar.
+        Os já aceites pelo indexador (cosseno ≥ limiar ou hotspot) também passam pelo VLM:
+        até 2026-10-30 eram saltados, e um medalhão oval ficou como o painel 1247 Pint a 0,76."""
+        if not o.get("artifact_id") or not o.get("crop"):
             return None
         cands = [c for c in (o.get("candidates") or []) if c.get("image_name")]
+        if o.get("accepted_by"):
+            if not any(c["artifact_id"] == o["artifact_id"] for c in cands):
+                cands.insert(0, {k: o.get(k) for k in ("artifact_id", "inventory_number", "title", "score", "image_name")})
+            return cands
         has_hot = any(c.get("hotspot") for c in cands)
         if (o.get("score") or 0.0) < args.min_score and not has_hot:
             return None
@@ -243,13 +249,19 @@ def main() -> int:
                 except Exception as exc:  # noqa: BLE001
                     print(f"  VLM falhou: {exc}", flush=True); continue
                 asked += 1
+                pre = o.get("accepted_by")
                 decision = {"panorama_key": key, "crop": o["crop"], "top": o.get("inventory_number"), "score": o.get("score"),
+                            "pre_accepted": pre,
                             "shown": [c["inventory_number"] for c, _ in pairs], "match": match, "confidence": conf, "reason": reason, "ms": round(ms)}
+                if pre:
+                    # o indexador já o tinha aceite; só fica se o VLM confirmar
+                    o["accepted_by"] = None; o["rejected_by_vlm"] = pre
                 if match != "none" and conf >= args.min_confidence:
                     c = pairs[LETTERS.index(match)][0]
                     decision["chosen"] = c["inventory_number"]
                     # o travão: com hotspot neste panorama, ou cosseno ≥ --min-knn
                     if c.get("hotspot") or (c.get("score") or 0.0) >= args.min_knn:
+                        o.pop("rejected_by_vlm", None)
                         o.update({"artifact_id": c["artifact_id"], "inventory_number": c["inventory_number"], "title": c.get("title"),
                                   "image_name": c.get("image_name"), "accepted_by": "vlm", "vlm_confidence": conf, "vlm_reason": reason,
                                   "knn_score": c.get("score")})
