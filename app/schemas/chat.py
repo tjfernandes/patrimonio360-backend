@@ -404,6 +404,16 @@ class TourNavigationTarget(BaseModel):
     inventory_id: str
     location: str | None = None
     title: str | None = None
+    # De onde vem o alvo: "hotspot" (mapa dos POIs da visita) ou "object" (peça
+    # sem hotspot que a indexação offline localizou num panorama,
+    # poi_tours/panorama-objects-<museu>.json; TOUR_OBJECT_TARGETS_ENABLED).
+    # Num alvo "object" o overlay_id é sintético («object:<object_id>», não
+    # existe na visita) e yaw/pitch (graus; yaw cresce para a direita, pitch
+    # para cima) dizem para onde virar a câmara; score é o cosseno da identificação.
+    source: Literal["hotspot", "object"] = "hotspot"
+    yaw: float | None = None
+    pitch: float | None = None
+    score: float | None = None
 
 
 class ChatSearchScope(BaseModel):

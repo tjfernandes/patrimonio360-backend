@@ -92,6 +92,7 @@ from app.services.opensearch_client import OpenSearchGateway, get_opensearch_gat
 from app.services.model_retrieval import ModelRetrievalService, get_model_retrieval_service
 from app.services.query_logger import QueryLogger, get_query_logger, utc_timestamp
 from app.services.tour_navigation import TourNavigationService, get_tour_navigation_service
+from app.services.panorama_objects import PanoramaObjectStore, get_panorama_object_store, object_navigation_target
 
 StatusCallback = Callable[[dict[str, Any]], Awaitable[None]]
 logger = logging.getLogger(__name__)
@@ -677,6 +678,7 @@ class ChatService:
         self.query_logger = query_logger or get_query_logger()
         self._reranker_service = reranker_service
         self._vl_reranker_service = vl_reranker_service
+        self._panorama_object_store: PanoramaObjectStore | None = None
 
     def _get_reranker_service(self) -> Any:
         if self._reranker_service is None:
@@ -2739,6 +2741,7 @@ class ChatService:
                     "has_navigation_target": True,
                     "panorama_id": target.panorama_key,
                     "overlay_id": target.overlay_id,
+                    "source": target.source,
                 }
             )
         return entries
@@ -5898,10 +5901,9 @@ class ChatService:
                 )
                 facts = [intro]
 
-        targets = self.tour_navigation_service.resolve_targets(
+        targets = self._resolve_target_dicts(
             museum_slug=museum_slug, museum_id=museum_id,
             inventories=[self._doc_inventory(d) for d in cards_docs if self._doc_inventory(d)],
-            limit=max(len(cards_docs), 1),
         ) if cards_docs else []
         described = {
             "known": bool(cards_docs) or total_all > 0, "scope": "catalogue", "room": None,
@@ -6407,15 +6409,10 @@ class ChatService:
         ) if docs else []
         wanted_inventories = {self._normalize_inventory_key(self._doc_inventory(doc)) for doc in docs}
         navigation_targets = [
-            TourNavigationTarget(
-                overlay_id=str(target.get("overlay_id") or ""),
-                panorama_key=str(target.get("panorama_key") or ""),
-                inventory_id=str(target.get("inventory_id") or ""),
-                location=target.get("location"),
-                title=target.get("title"),
-            )
+            built
             for target in described.get("targets") or []
             if self._normalize_inventory_key(str(target.get("inventory_id") or "")) in wanted_inventories
+            and (built := self._navigation_target_from_dict(target)) is not None
         ]
 
         router_decision: dict[str, object] = {
@@ -9262,11 +9259,8 @@ class ChatService:
             return navigation_lookup
 
         try:
-            navigation_targets_raw = self.tour_navigation_service.resolve_targets(
-                museum_slug=museum_slug,
-                museum_id=museum_id,
-                inventories=inventories,
-                limit=max(len(inventories), 1),
+            navigation_targets_raw = self._resolve_target_dicts(
+                museum_slug=museum_slug, museum_id=museum_id, inventories=inventories,
             )
         except Exception:
             return navigation_lookup
@@ -9287,15 +9281,7 @@ class ChatService:
         artifact_id = str(art.get("artifact_id") or "")
         inv = str(art.get("inventory_number") or "").strip() or None
         nav = navigation_lookup.get(inv or "") if inv else None
-        nav_target = None
-        if nav:
-            nav_target = TourNavigationTarget(
-                overlay_id=str(nav.get("overlay_id") or ""),
-                panorama_key=str(nav.get("panorama_key") or ""),
-                inventory_id=str(nav.get("inventory_id") or ""),
-                location=nav.get("location"),
-                title=nav.get("title"),
-            )
+        nav_target = self._navigation_target_from_dict(nav) if nav else None
         related_images = (
             (images_by_artifact or {}).get(artifact_id)
             or self._build_related_artifact_images(art)
@@ -9790,6 +9776,78 @@ class ChatService:
 
         return enriched
 
+    def _get_panorama_object_store(self) -> PanoramaObjectStore:
+        store = getattr(self, "_panorama_object_store", None)
+        if store is None:
+            store = get_panorama_object_store()
+            if store.directory != self.settings.poi_tours_dir_resolved:
+                store = PanoramaObjectStore(self.settings.poi_tours_dir_resolved)
+            self._panorama_object_store = store
+        return store
+
+    def _resolve_target_dicts(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        inventories: list[str],
+    ) -> list[dict[str, Any]]:
+        """Alvos de «Ver na tour» para estes n.ºs de inventário: os hotspots do
+        mapa dos POIs e, para as peças sem hotspot, a posição em que a
+        indexação offline as localizou num panorama (TOUR_OBJECT_TARGETS_ENABLED;
+        só localizações definitivas, ver PanoramaObjectStore.locate)."""
+        inventories = [str(i or "").strip() for i in inventories if str(i or "").strip()]
+        if not inventories:
+            return []
+        nav = self.tour_navigation_service
+        resolved = list(
+            nav.resolve_targets(
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                inventories=inventories,
+                limit=max(len(inventories), 1),
+            )
+        )
+        if not getattr(self.settings, "TOUR_OBJECT_TARGETS_ENABLED", False):
+            return resolved
+        covered = {nav.normalize_inventory_key(str(t.get("inventory_id") or "")) for t in resolved}
+        min_score = float(getattr(self.settings, "TOUR_OBJECT_TARGETS_MIN_SCORE", 0.80))
+        try:
+            store = self._get_panorama_object_store()
+        except Exception:  # sem pasta de objetos não se perde o resto
+            return resolved
+        for inventory in inventories:
+            key = nav.normalize_inventory_key(inventory)
+            if not key or key in covered:
+                continue
+            covered.add(key)
+            located = store.locate(museum_slug, inventory, min_score=min_score)
+            if located is None:
+                continue
+            location = nav.panorama_room(museum_slug=museum_slug, museum_id=museum_id, panorama_key=located["panorama_key"])
+            resolved.append(object_navigation_target(located, inventory_id=inventory, location=location))
+        return resolved
+
+    @staticmethod
+    def _navigation_target_from_dict(item: dict[str, Any]) -> TourNavigationTarget | None:
+        overlay_id = str(item.get("overlay_id") or "").strip()
+        panorama_key = str(item.get("panorama_key") or "").strip()
+        inventory_id = str(item.get("inventory_id") or "").strip()
+        if not overlay_id or not panorama_key or not inventory_id:
+            return None
+        source = "object" if item.get("source") == "object" else "hotspot"
+        return TourNavigationTarget(
+            overlay_id=overlay_id,
+            panorama_key=panorama_key,
+            inventory_id=inventory_id,
+            location=str(item.get("location") or "").strip() or None,
+            title=str(item.get("title") or "").strip() or None,
+            source=source,
+            yaw=item.get("yaw") if isinstance(item.get("yaw"), (int, float)) else None,
+            pitch=item.get("pitch") if isinstance(item.get("pitch"), (int, float)) else None,
+            score=item.get("score") if isinstance(item.get("score"), (int, float)) else None,
+        )
+
     def _resolve_navigation_targets(
         self,
         *,
@@ -9806,29 +9864,12 @@ class ChatService:
         if not inventories:
             return []
 
-        resolved = self.tour_navigation_service.resolve_targets(
-            museum_slug=museum_slug,
-            museum_id=museum_id,
-            inventories=inventories,
-            limit=max(len(inventories), 1),
-        )
-
+        resolved = self._resolve_target_dicts(museum_slug=museum_slug, museum_id=museum_id, inventories=inventories)
         targets: list[TourNavigationTarget] = []
         for item in resolved:
-            overlay_id = str(item.get("overlay_id") or "").strip()
-            panorama_key = str(item.get("panorama_key") or "").strip()
-            inventory_id = str(item.get("inventory_id") or "").strip()
-            if not overlay_id or not panorama_key or not inventory_id:
-                continue
-            targets.append(
-                TourNavigationTarget(
-                    overlay_id=overlay_id,
-                    panorama_key=panorama_key,
-                    inventory_id=inventory_id,
-                    location=str(item.get("location") or "").strip() or None,
-                    title=str(item.get("title") or "").strip() or None,
-                )
-            )
+            target = self._navigation_target_from_dict(item)
+            if target is not None:
+                targets.append(target)
         return targets
 
     # ----- O modelo escolhe os cartões (CHAT_MODEL_SELECTS_CARDS) ----- #
