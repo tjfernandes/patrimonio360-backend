@@ -475,6 +475,14 @@ class Settings(BaseSettings):
     POINT_VERIFY_TOP_K: int = 3
     POINT_VERIFY_MIN_SCORE: float = 0.60
     POINT_VERIFY_MIN_CONFIDENCE: float = 0.6
+    # «Ver na tour» também para as peças sem hotspot que a indexação offline
+    # localizou num panorama (poi_tours/panorama-objects-<museu>.json). Só as
+    # localizações definitivas: confirmadas pelo VLM ou por hotspot, ou aceites
+    # só pelo cosseno com score ≥ TOUR_OBJECT_TARGETS_MIN_SCORE (os ficheiros
+    # dos museus ainda sem verificação, 2026-10-27). O alvo leva yaw/pitch e a
+    # visita vira a câmara para a peça (2026-10-31).
+    TOUR_OBJECT_TARGETS_ENABLED: bool = False
+    TOUR_OBJECT_TARGETS_MIN_SCORE: float = 0.80
 
     # Ditado por voz no servidor (WebSocket /api/v1/speech/stream, faster-whisper).
     # Desligado: o modelo não carrega e o WebSocket recusa a ligação, e o

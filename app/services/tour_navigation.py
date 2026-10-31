@@ -227,6 +227,17 @@ class TourNavigationService:
                     found.append(entry.inventory_id)
         return found
 
+    def panorama_room(self, *, museum_slug: str, museum_id: str | None, panorama_key: str) -> str | None:
+        """Nome da zona de um panorama: o lugar da visita a que pertence, senão
+        a `location` dos seus hotspots; None se o panorama é desconhecido."""
+        self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)
+        museum_key = (museum_slug or "").strip().lower()
+        panorama = (panorama_key or "").strip()
+        place_index = self._panorama_place.get(museum_key, {}).get(panorama)
+        if place_index is not None:
+            return str(self._places[museum_key][place_index]["room"])
+        return next((e.location for e in self._panorama_index.get(museum_key, {}).get(panorama, []) if e.location), None)
+
     def panorama_inventory_keys(self, *, museum_slug: str, museum_id: str | None, panorama_key: str) -> set[str]:
         """N.ºs (normalizados) das peças com hotspot no panorama."""
         self._ensure_loaded(museum_slug=museum_slug, museum_id=museum_id)

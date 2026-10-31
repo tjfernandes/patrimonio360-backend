@@ -6,8 +6,15 @@
  * comando `navigateToArtifact` (o handler antigo, que abre a janela da peça).
  *
  * Comando (postMessage do widget):
- *   { type: "navigateToArtifact", mode: "focus", overlayId, panoramaKey, inventoryId? }
- *   ou { type: "focusArtifact", overlayId, panoramaKey }
+ *   { type: "navigateToArtifact", mode: "focus", overlayId, panoramaKey, inventoryId?, yaw?, pitch? }
+ *   ou { type: "focusArtifact", overlayId, panoramaKey, yaw?, pitch? }
+ *
+ * Desde 2026-10-31 o alvo pode ser uma peça SEM hotspot, localizada offline no
+ * panorama pelo backend (navigation_targets com source "object": overlayId
+ * sintético «object:…» que a visita não conhece, mais yaw/pitch em graus, yaw
+ * a crescer para a direita e pitch para cima, como os hotspots). Nesse caso a
+ * visita vai ao panorama e vira a câmara para yaw/pitch; não há ícone para
+ * pulsar. Sem yaw/pitch (frontend antigo) fica só a mudança de panorama.
  *
  * O que faz: fecha janelas abertas (e o painel de boas-vindas, se ainda
  * estiver à frente), vai para o panorama com a câmara virada
@@ -28,7 +35,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "2026-09-28.1";
+  var VERSION = "2026-10-31.1";
   var HIGHLIGHT_MS = 10000;   // duração do destaque
   var PERIOD_MS = 1300;       // período da pulsação
   var SCALE_MAX = 1.65;       // tamanho máximo relativo ao original
@@ -435,6 +442,15 @@
     if (!panorama) { log("panorama desconhecido:", panoramaKey); return false; }
     var overlay = overlayId ? rp[overlayId] : null;
     var spot = overlay ? overlaySpot(rp, overlay) : null;
+    if (!spot) {
+      // peça sem hotspot localizada offline: o comando diz para onde olhar
+      var yawIn = typeof data.yaw === "number" ? data.yaw : parseFloat(data.yaw);
+      var pitchIn = typeof data.pitch === "number" ? data.pitch : parseFloat(data.pitch);
+      if (isFinite(yawIn) && isFinite(pitchIn)) {
+        spot = { item: null, yaw: yawIn, pitch: pitchIn };
+        log("alvo sem hotspot; câmara para yaw/pitch", yawIn, pitchIn);
+      }
+    }
     var title = getLabel(panorama);
 
     stopHighlight();
@@ -473,10 +489,10 @@
       if (now.media === panorama) {
         clearInterval(wait);
         aimAtSpot(rp, spot);
-        startHighlight(rp, overlay, spot, now.index);
+        if (spot.item) startHighlight(rp, overlay, spot, now.index);
         try {
           window.P360TourEventBridge && window.P360TourEventBridge.postNavigationCompleted &&
-            window.P360TourEventBridge.postNavigationCompleted({ panoramaId: panoramaKey, overlayId: overlayId, title: getLabel(overlay), source: "assistant_navigation" });
+            window.P360TourEventBridge.postNavigationCompleted({ panoramaId: panoramaKey, overlayId: overlayId, title: overlay ? getLabel(overlay) : null, source: "assistant_navigation" });
         } catch (e) {}
       } else if (performance.now() - started > WAIT_MEDIA_MS) {
         clearInterval(wait); log("o panorama não ficou ativo a tempo");
