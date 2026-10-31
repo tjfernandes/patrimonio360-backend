@@ -113,7 +113,7 @@ for museum in sys.argv[1:]:
 
     # 1. script de foco, logo a seguir ao script.js do 3DVista
     if "tour-focus-artifact.js" in html:
-        novo = re.sub(r'<script src="\.\./tour-focus-artifact\.js\?v=\d+"></script>', FOCUS, html)
+        novo = re.sub(r'<script src="\.\./tour-focus-artifact\.js\?v=[\w-]+"></script>', FOCUS, html)
         if novo != html: feito.append("foco (v atualizado)")
         html = novo
     else:
@@ -126,7 +126,7 @@ for museum in sys.argv[1:]:
 
     # 2. ponte de eventos, a seguir ao script de foco
     if "tour-event-bridge.js" not in html:
-        m = re.search(r'[ \t]*<script src="\.\./tour-focus-artifact\.js\?v=\d+"></script>\n', html)
+        m = re.search(r'[ \t]*<script src="\.\./tour-focus-artifact\.js\?v=[\w-]+"></script>\n', html)
         indent = re.match(r"[ \t]*", m.group(0)).group(0)
         html = html[:m.end()] + indent + BRIDGE + "\n" + html[m.end():]
         feito.append("ponte (inserida)")
