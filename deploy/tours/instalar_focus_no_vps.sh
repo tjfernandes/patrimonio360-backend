@@ -26,6 +26,7 @@
 # marca p360-embed-handler) fica como está, para não mexer no que já funciona.
 #
 #   deploy/tours/instalar_focus_no_vps.sh [mnt mnsr mnaz mj cmag mnaa]
+#   FOCUS_LOCAL=1 deploy/tours/instalar_focus_no_vps.sh   # cópia local do tour-focus-artifact.js
 #
 # Uma visita nova não traz nada disto: o CMAG foi publicado a 2026-09-18 e até
 # 2026-09-20 o «Ver na tour» não fazia nada e os hotspots não avisavam a app,
@@ -45,9 +46,15 @@ V=$(date +%s)
 # em que a cópia de 18/09, com o ícone pintado de verde, substituiu a de 28/09).
 # Por isso vai-se buscar a versão do frontend; a cópia local só serve se o
 # GitHub não responder, e nesse caso avisa-se.
+# FOCUS_LOCAL=1 instala a cópia deste repositório mesmo assim: para quando a
+# alteração nasce aqui (2026-10-31: yaw/pitch para peças sem hotspot) e o
+# frontend ainda não a copiou para tour-scripts/. Enquanto não copiar, uma
+# corrida sem FOCUS_LOCAL volta a pôr a versão do frontend.
 FOCUS_JS="$HERE/tour-focus-artifact.js"
 TMP_FOCUS=$(mktemp)
-if gh api repos/tjfernandes/patrimonio360-frontend/contents/tour-scripts/tour-focus-artifact.js \
+if [ "${FOCUS_LOCAL:-0}" = "1" ]; then
+  echo "FOCUS_LOCAL=1: instalo a cópia local ($(grep -o 'VERSION = "[^"]*"' "$FOCUS_JS")); copia-a para tour-scripts/ no frontend"
+elif gh api repos/tjfernandes/patrimonio360-frontend/contents/tour-scripts/tour-focus-artifact.js \
      -H "Accept: application/vnd.github.raw" > "$TMP_FOCUS" 2>/dev/null && grep -q 'var VERSION' "$TMP_FOCUS"; then
   FOCUS_JS="$TMP_FOCUS"
   if ! cmp -s "$TMP_FOCUS" "$HERE/tour-focus-artifact.js"; then
