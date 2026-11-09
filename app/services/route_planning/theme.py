@@ -88,6 +88,8 @@ class ThemeFacets:
     avoid: list[str] = field(default_factory=list)
     rooms: list[str] = field(default_factory=list)
     national_treasure: bool = False   # «tesouros nacionais»: só peças com o selo (filtro duro)
+    categories: list[str] = field(default_factory=list)   # «pinturas», «esculturas»: categoria do catálogo (filtro duro)
+    llm_theme_text: str = ""          # paráfrase do LLM: só para o título; a pesquisa usa as palavras do visitante
     source: str = "rules"
 
     def has_visual(self) -> bool:
@@ -123,6 +125,8 @@ class ThemeFacets:
                 out.append({"kind": singular, "label": value})
         for value in self.rooms:
             out.append({"kind": "room", "label": value})
+        for value in self.categories:
+            out.append({"kind": "category", "label": value})
         if self.national_treasure:
             out.append({"kind": "national_treasure", "label": "Tesouro Nacional"})
         if not out and self.free_text:
@@ -242,6 +246,34 @@ def _year_range(folded: str) -> tuple[int, int] | None:
     return None
 
 
+# palavra do visitante (dobrada) -> categoria do catálogo (catalogue.category.text, match «and»)
+CATEGORY_WORDS: dict[str, str] = {
+    "pintura": "Pintura", "pinturas": "Pintura", "quadro": "Pintura", "quadros": "Pintura", "tela": "Pintura", "telas": "Pintura",
+    "painting": "Pintura", "paintings": "Pintura",
+    "escultura": "Escultura", "esculturas": "Escultura", "estatua": "Escultura", "estatuas": "Escultura", "estatuaria": "Escultura",
+    "sculpture": "Escultura", "sculptures": "Escultura", "statue": "Escultura", "statues": "Escultura",
+    "mobiliario": "Mobiliário", "mobilia": "Mobiliário", "movel": "Mobiliário", "moveis": "Mobiliário", "furniture": "Mobiliário",
+    "ourivesaria": "Ourivesaria", "joia": "Ourivesaria", "joias": "Ourivesaria", "joalharia": "Ourivesaria", "jewellery": "Ourivesaria", "jewelry": "Ourivesaria",
+    "ceramica": "Cerâmica", "ceramicas": "Cerâmica", "louca": "Cerâmica", "loucas": "Cerâmica", "ceramics": "Cerâmica",
+    "texteis": "Têxteis", "textil": "Têxteis", "tapecaria": "Têxteis", "tapecarias": "Têxteis", "tecido": "Têxteis", "tecidos": "Têxteis", "textiles": "Têxteis", "tapestry": "Têxteis", "tapestries": "Têxteis",
+    "desenho": "Desenho", "desenhos": "Desenho", "gravura": "Desenho", "gravuras": "Desenho", "drawing": "Desenho", "drawings": "Desenho",
+    "traje": "Traje e Adereços", "trajes": "Traje e Adereços", "vestuario": "Traje e Adereços", "indumentaria": "Traje e Adereços", "roupa": "Traje e Adereços", "roupas": "Traje e Adereços",
+    "costume": "Traje e Adereços", "costumes": "Traje e Adereços", "clothing": "Traje e Adereços",
+    "arma": "Armas", "armas": "Armas", "armaria": "Armas", "weapon": "Armas", "weapons": "Armas",
+}
+_CATEGORY_RE = re.compile(r"\b(" + "|".join(sorted(CATEGORY_WORDS, key=len, reverse=True)) + r")\b")
+
+
+def rule_categories(folded: str) -> list[str]:
+    """«pinturas», «esculturas», «móveis» -> categorias do catálogo, pela ordem do pedido."""
+    out: list[str] = []
+    for match in _CATEGORY_RE.finditer(folded):
+        category = CATEGORY_WORDS[match.group(1)]
+        if category not in out:
+            out.append(category)
+    return out
+
+
 def rule_facets(text: str, *, vocabulary: dict[str, list[str]] | None = None) -> ThemeFacets:
     vocab = vocabulary if vocabulary is not None else load_vocabulary()
     folded = fold(text)
@@ -256,6 +288,7 @@ def rule_facets(text: str, *, vocabulary: dict[str, list[str]] | None = None) ->
     facets.centuries = _centuries(folded)
     facets.year_range = _year_range(folded)
     facets.national_treasure = bool(re.search(r"\btesouros? naciona(?:l|is)\b|\bnational treasures?\b", folded))
+    facets.categories = rule_categories(folded)
     stops = re.search(r"\b([0-9]{1,2})\s+(?:paragens|paragem|pecas|peca|obras|obra|stops|stop|pieces|objetos|objectos)\b", folded)
     if stops:
         facets.stops_requested = int(stops.group(1))
@@ -289,6 +322,7 @@ def unexplained_words(text: str, *, vocabulary: dict[str, list[str]] | None = No
     for kind in ("pigments", "colors", "techniques", "materials", "styles", "iconography", "motifs"):
         _matched, remaining = _match_terms(remaining, _term_index(vocab.get(VOCAB_KEYS[kind], [])))
     remaining = re.sub(r"\btesouros? naciona(?:l|is)\b|\bnational treasures?\b", " ", remaining)
+    remaining = _CATEGORY_RE.sub(" ", remaining)
     remaining = _THEME_FILLER_RE.sub(" ", remaining)
     remaining = re.sub(r"\b([ivx]+|[0-9]+)\b", " ", remaining)
     return [word for word in remaining.split() if len(word) >= 3]
@@ -297,6 +331,7 @@ def unexplained_words(text: str, *, vocabulary: dict[str, list[str]] | None = No
 def strip_request_words(text: str) -> str:
     """«Faz-me um percurso sobre azul-cobalto no século XVII» -> «azul-cobalto no século XVII»."""
     raw = (text or "").strip().rstrip("?!. ")
+    raw = re.sub(r"(?i)\b(?:de\s+)?(?:meia[- ]hora|uma hora|half an hour|an hour|one hour)\b", " ", raw).strip()
     folded_tokens = fold(raw).split()
     kept: list[str] = []
     # mantém as palavras do pedido original (com acentos) que não são palavras de pedido
@@ -321,7 +356,7 @@ def strip_request_words(text: str) -> str:
 
 
 def theme_title(facets: ThemeFacets, language: str | None = None) -> str:
-    text = facets.free_text or facets.theme_text
+    text = facets.llm_theme_text or facets.free_text or facets.theme_text
     text = text.strip()
     if not text:
         text = "Percurso" if not (language or "").startswith("en") else "Route"
@@ -455,6 +490,8 @@ def merge_llm_facets(
             setattr(facets, key, [str(v).strip() for v in values if str(v).strip()][:10])
     theme_text = parsed.get("theme_text")
     if isinstance(theme_text, str) and theme_text.strip() and len(theme_text.strip()) <= 120:
-        facets.free_text = theme_text.strip()
+        # só para o título: a pesquisa continua com as palavras do visitante (a paráfrase de
+        # «astronautas», «a exploração espacial», puxava peças dos Descobrimentos)
+        facets.llm_theme_text = theme_text.strip()
     facets.source = "rules+llm"
     return facets

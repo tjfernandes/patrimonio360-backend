@@ -64,6 +64,10 @@ class RouteStopSearch:
             filters.append({"term": {"room": room}})
         if facets is not None and getattr(facets, "national_treasure", False):
             filters.append({"term": {"national_treasure": True}})
+        categories = [c for c in (getattr(facets, "categories", None) or []) if c] if facets is not None else []
+        if categories:
+            # match no subcampo de texto: apanha «Escultura/Arquitectura» e «escultura funerária: tumulária»
+            filters.append({"bool": {"should": [{"match": {"catalogue.category.text": {"query": c, "operator": "and"}}} for c in categories], "minimum_should_match": 1}})
         return filters
 
     @staticmethod

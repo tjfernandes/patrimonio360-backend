@@ -80,6 +80,10 @@ def explain(stop: dict[str, Any], facets: ThemeFacets, *, year_tolerance: int = 
                 why.append(value)
     if getattr(facets, "national_treasure", False) and stop.get("national_treasure"):
         why.append("Tesouro Nacional")
+    doc_category = fold(str((stop.get("catalogue") or {}).get("category") or ""))
+    for category in getattr(facets, "categories", None) or []:
+        if fold(category) and fold(category) in doc_category and category not in why:
+            why.append(category)
     catalogue = stop.get("catalogue") or {}
     window = facets.year_window(0)
     if window is not None:

@@ -15,7 +15,7 @@ from app.services.route_planning import planner
 from app.services.route_planning.graph import TourGraph
 from app.services.route_planning.candidates import Candidate, explain
 from app.services.route_planning.store import RouteStore
-from app.services.route_planning.theme import ThemeFacets, is_route_request, merge_llm_facets, rule_facets, strip_request_words, unexplained_words
+from app.services.route_planning.theme import ThemeFacets, is_route_request, merge_llm_facets, rule_facets, strip_request_words, theme_title, unexplained_words
 from app.services.route_planning import service as route_service
 from tests.test_tour_location import _Base
 
@@ -120,6 +120,28 @@ class TestTheme(unittest.TestCase):
         self.assertEqual(strip_request_words("Faz-me um percurso sobre azul-cobalto no século XVII"), "azul-cobalto século XVII")
         self.assertEqual(strip_request_words("Quero um roteiro de pintura religiosa"), "pintura religiosa")
 
+    def test_categories_from_request(self) -> None:
+        facets = rule_facets("Leva-me a ver pintura flamenga do século XVI", vocabulary=VOCAB)
+        self.assertEqual(facets.categories, ["Pintura"])
+        self.assertEqual(facets.centuries, [16])
+        self.assertEqual([f["label"] for f in facets.labels()], ["século XVI", "Pintura"])
+        self.assertEqual(rule_facets("Quero ver esculturas e móveis", vocabulary=VOCAB).categories, ["Escultura", "Mobiliário"])
+        self.assertEqual(rule_facets("Faz-me um percurso sobre azul-cobalto", vocabulary=VOCAB).categories, [])
+        self.assertEqual(unexplained_words("Faz-me um percurso de pinturas do século XVI", vocabulary=VOCAB), [])
+
+    def test_duration_phrases_leave_the_theme(self) -> None:
+        facets = rule_facets("Quero um percurso de meia hora sobre retratos", vocabulary=VOCAB)
+        self.assertEqual(facets.time_budget_min, 30)
+        self.assertEqual(facets.free_text, "retratos")
+        self.assertEqual(strip_request_words("Faz-me um percurso de uma hora sobre prata"), "prata")
+
+    def test_llm_paraphrase_only_titles(self) -> None:
+        message = "Faz-me um percurso sobre astronautas"
+        facets = rule_facets(message, vocabulary=VOCAB)
+        merged = merge_llm_facets(facets, {"theme_text": "Astronautas e a exploração espacial", "facets": {}}, vocabulary=VOCAB, message=message)
+        self.assertEqual(merged.free_text, "astronautas")                       # a pesquisa fica com as palavras do visitante
+        self.assertEqual(theme_title(merged), "Astronautas e a exploração espacial")
+
     def test_unexplained_words(self) -> None:
         # tudo explicado pelas regras: o LLM não é chamado
         self.assertEqual(unexplained_words("Faz-me um percurso sobre azul-cobalto no século XVII", vocabulary=VOCAB), [])
@@ -136,7 +158,8 @@ class TestTheme(unittest.TestCase):
         self.assertEqual(merged.centuries, [17])          # 99 fora
         self.assertEqual(merged.styles, ["barroco"])
         self.assertEqual(merged.stops_requested, 4)
-        self.assertEqual(merged.free_text, "louça azul")
+        self.assertEqual(merged.llm_theme_text, "louça azul")
+        self.assertEqual(merged.free_text, "louça")                      # a pesquisa fica com as palavras do visitante
         self.assertEqual(merged.source, "rules+llm")
 
     def test_merge_llm_grounded_in_message(self) -> None:
@@ -187,7 +210,7 @@ class TestTheme(unittest.TestCase):
         self.assertEqual(merged.motifs, ["animais"])
         self.assertEqual(merged.colors, [])
         self.assertEqual(merged.iconography, [])
-        self.assertEqual(merged.free_text, "azulejos com animais")
+        self.assertEqual(merged.llm_theme_text, "azulejos com animais")
 
     def test_labels_without_duplicates(self) -> None:
         facets = ThemeFacets(colors=["dourado"], techniques=["dourado", "talha dourada"])
@@ -387,7 +410,8 @@ class TestService(_Base):
         # o JSON do tema não cabe nos 200 tokens do chat: vai com orçamento próprio
         self.assertEqual(llm.kwargs.get("max_tokens"), 600)
         assert response.route is not None
-        self.assertEqual(response.route.theme.text, "faiança azul")
+        self.assertEqual(response.route.title, "Faiança azul")
+        self.assertEqual(response.route.theme.text, "faiança bichos")
         self.assertLessEqual(len(response.route.stops), 3)
 
     def test_llm_skipped_when_rules_explain_everything(self) -> None:
