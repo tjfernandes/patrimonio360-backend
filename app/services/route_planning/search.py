@@ -62,6 +62,8 @@ class RouteStopSearch:
             filters.append({"range": {"catalogue.end_year": {"gte": start}}})
         if room:
             filters.append({"term": {"room": room}})
+        if facets is not None and getattr(facets, "national_treasure", False):
+            filters.append({"term": {"national_treasure": True}})
         return filters
 
     @staticmethod
@@ -130,6 +132,12 @@ class RouteStopSearch:
             "query": {"bool": {"filter": filters, "should": should, "minimum_should_match": 1}},
         }
         return self._hits(self.client.search(index=self.stops_index, body=body))
+
+    def all_filtered(self, *, filters: list[dict[str, Any]], size: int) -> list[tuple[str, float, dict[str, Any]]]:
+        """Todas as paragens que passam os filtros duros, pela ordem da visita (ramo «treasures»)."""
+        body = {"size": size, "_source": STOP_SOURCE_FIELDS, "query": {"bool": {"filter": filters}}, "sort": [{"playlist_index": "asc"}]}
+        hits = self._hits(self.client.search(index=self.stops_index, body=body))
+        return [(a, 1.0, d) for a, _s, d in hits]
 
     def artifact_ids(self, *, filters: list[dict[str, Any]], limit: int = 5000) -> list[str]:
         """As peças com paragem que passam os filtros (para restringir o ramo de imagem)."""

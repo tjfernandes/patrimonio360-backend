@@ -251,6 +251,7 @@ async def plan_route(
         embed_text = getattr(embedding_provider, "embed_text", None) if embedding_provider is not None else None
         embed_image_text = getattr(embedding_provider, "embed_multimodal_text_query", None) if embedding_provider is not None else None
         weights = {
+            "treasures": 1.0,
             "lexical": float(getattr(s, "ROUTE_WEIGHT_LEXICAL", 1.0)),
             "semantic": float(getattr(s, "ROUTE_WEIGHT_SEMANTIC", 1.0)),
             "image": float(getattr(s, "ROUTE_WEIGHT_IMAGE", 0.7)),

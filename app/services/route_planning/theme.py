@@ -54,9 +54,10 @@ _NEGATIVE_RE = re.compile(r"\b(?:ver na tour|onde estou|em que sala)\b")
 _REQUEST_WORDS_RE = re.compile(
     r"\b(?:faz|faz-me|faze-me|fazes|podes fazer|cria|cria-me|prepara|prepara-me|sugere|sugere-me|quero|queria|gostava de|gostaria de|"
     r"da-me|da me|monta|monta-me|organiza|planeia|planeia-me|mostra-me|mostra me|leva-me|leva me|leve-me|guia-me|"
+    r"leva|leve|levas|guia|conduz|acompanha|mostra|mostre|ensina|apresenta|take|guide|walk|show|"
     r"um|uma|o|a|de|do|da|dos|das|em|no|na|nos|nas|com|sobre|por|para|pelo|pela|pelos|pelas|ao|aos|que|e|"
     r"percurso|percursos|roteiro|roteiros|itinerario|visita guiada|visita|guiada|passeio|tematico|tematica|tema|temático|temática|"
-    r"museu|exposicao|salas|sala|pecas|peca|obras|obra|ver|veja|vejo|visitar|conhecer|dedicado|dedicada|ligado|ligada|relacionado|relacionada|"
+    r"museu|exposicao|salas|sala|pecas|peca|obras|obra|ver|veja|vejo|visitar|conhecer|dedicado|dedicada|ligado|ligada|relacionado|relacionada|os|as|"
     r"make|create|plan|give|me|i|want|would|like|to|see|a|an|the|of|on|about|through|around|tour|route|itinerary|guided|please|por favor|"
     r"minutos|minuto|minutes|minute|min|paragens|paragem|stops|stop)\b"
 )
@@ -86,6 +87,7 @@ class ThemeFacets:
     must_include: list[str] = field(default_factory=list)
     avoid: list[str] = field(default_factory=list)
     rooms: list[str] = field(default_factory=list)
+    national_treasure: bool = False   # «tesouros nacionais»: só peças com o selo (filtro duro)
     source: str = "rules"
 
     def has_visual(self) -> bool:
@@ -121,6 +123,8 @@ class ThemeFacets:
                 out.append({"kind": singular, "label": value})
         for value in self.rooms:
             out.append({"kind": "room", "label": value})
+        if self.national_treasure:
+            out.append({"kind": "national_treasure", "label": "Tesouro Nacional"})
         if not out and self.free_text:
             out.append({"kind": "theme", "label": self.free_text})
         return out
@@ -241,8 +245,11 @@ def rule_facets(text: str, *, vocabulary: dict[str, list[str]] | None = None) ->
     for kind in ("pigments", "colors", "techniques", "materials", "styles", "iconography", "motifs"):
         matched, remaining = _match_terms(remaining, _term_index(vocab.get(VOCAB_KEYS[kind], [])))
         setattr(facets, kind, matched)
+    # «século xvii» também está na lista de estilos do vocabulário: a época fica só em centuries
+    facets.styles = [s for s in facets.styles if not re.match(r"^(seculo|sec)\b", fold(s))]
     facets.centuries = _centuries(folded)
     facets.year_range = _year_range(folded)
+    facets.national_treasure = bool(re.search(r"\btesouros? naciona(?:l|is)\b|\bnational treasures?\b", folded))
     stops = re.search(r"\b([0-9]{1,2})\s+(?:paragens|paragem|pecas|peca|obras|obra|stops|stop|pieces|objetos|objectos)\b", folded)
     if stops:
         facets.stops_requested = int(stops.group(1))

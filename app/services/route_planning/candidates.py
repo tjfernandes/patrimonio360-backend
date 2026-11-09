@@ -62,8 +62,11 @@ def _doc_values(stop: dict[str, Any], dotted: str) -> list[str]:
     return [fold(str(node))]
 
 
-def explain(stop: dict[str, Any], facets: ThemeFacets) -> list[str]:
-    """Facetas do tema que esta paragem satisfaz, para o «porquê» do cartão."""
+def explain(stop: dict[str, Any], facets: ThemeFacets, *, year_tolerance: int = 0) -> list[str]:
+    """Facetas do tema que esta paragem satisfaz, para o «porquê» do cartão.
+
+    Época: dentro do século pedido sai «séc. XVII»; só dentro da folga dos
+    filtros (`year_tolerance`) sai a data da ficha, para o visitante ver porque entrou."""
     why: list[str] = []
     for kind, fields in ATTRIBUTE_FIELDS.items():
         wanted = [v for v in getattr(facets, kind, []) if v]
@@ -75,19 +78,28 @@ def explain(stop: dict[str, Any], facets: ThemeFacets) -> list[str]:
         for value in wanted:
             if fold(value) in present and value not in why:
                 why.append(value)
+    if getattr(facets, "national_treasure", False) and stop.get("national_treasure"):
+        why.append("Tesouro Nacional")
     catalogue = stop.get("catalogue") or {}
     window = facets.year_window(0)
     if window is not None:
         start, end = catalogue.get("start_year"), catalogue.get("end_year")
-        if isinstance(start, (int, float)) and isinstance(end, (int, float)) and start <= window[1] and end >= window[0]:
-            if facets.centuries:
+        if isinstance(start, (int, float)) and isinstance(end, (int, float)):
+            strict = start <= window[1] and end >= window[0]
+            loose = facets.year_window(year_tolerance)
+            within_tolerance = loose is not None and start <= loose[1] and end >= loose[0]
+            if strict and facets.centuries:
                 centuries = [c for c in facets.centuries if (c - 1) * 100 <= end and c * 100 - 1 >= start]
                 for century_number in centuries[:2]:
                     label = f"séc. {_ROMAN_BY_NUMBER.get(century_number, century_number)}"
                     if label not in why:
                         why.append(label)
-            else:
-                label = str(catalogue.get("date_or_period") or f"{int(start)}–{int(end)}")
+            elif strict or within_tolerance:
+                raw = str(catalogue.get("date_or_period") or "").strip()
+                if raw.isdigit() and 1 <= int(raw) <= 21:
+                    label = f"séc. {_ROMAN_BY_NUMBER.get(int(raw), raw)}"   # a ficha diz só o século («18»)
+                else:
+                    label = raw or (f"{int(start)}–{int(end)}" if start != end else str(int(start)))
                 if label not in why:
                     why.append(label)
     return why
@@ -151,6 +163,10 @@ async def find_candidates(
             log_event(logger, logging.WARNING, "route.candidates.embed_error", kind="image", error=exc)
 
     tasks = [run("lexical", lambda: search.lexical(query_text=query_text, filters=filters, size=branch_size))]
+    if getattr(facets, "national_treasure", False):
+        # «tesouros nacionais» sem mais facetas: o filtro duro já escolhe; a ordem
+        # vem da visita (todas as peças com selo entram, pela playlist)
+        tasks.append(run("treasures", lambda: search.all_filtered(filters=filters, size=max(branch_size, 60))))
     if text_embedding:
         tasks.append(run("semantic", lambda: search.semantic(embedding=text_embedding, filters=filters, size=branch_size)))
     if facets.has_visual() and weights.get("attributes", 0) > 0:
@@ -185,7 +201,7 @@ async def find_candidates(
             stop=stop,
             fusion_score=float(result.fusion_score),
             sources={name: {"rank": prov.rank, "score": prov.score} for name, prov in result.sources.items()},
-            why=explain(stop, facets),
+            why=explain(stop, facets, year_tolerance=year_tolerance),
             look_for=_look_for(stop),
         ))
     diagnostics["fused"] = len(fused)
