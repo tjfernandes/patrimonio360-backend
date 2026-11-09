@@ -300,9 +300,14 @@ def theme_title(facets: ThemeFacets, language: str | None = None) -> str:
     return text[:1].upper() + text[1:] if text else text
 
 
-# Quantos valores sem apoio no pedido o LLM pode acrescentar por faceta quando
-# as regras não apanharam nada (frases leigas: «bichos» -> animais).
+# Valores sem apoio no pedido que o LLM pode acrescentar quando nem as regras nem
+# o próprio LLM ancoraram nada (frases leigas: «bichos» -> animais): no máximo
+# LLM_UNGROUNDED_TOTAL no total e LLM_UNGROUNDED_PER_KIND por faceta, pela ordem
+# abaixo — as cores e os pigmentos ficam para o fim porque são o que o 9B mais
+# acrescenta por conta própria («azul e branco» em qualquer pedido de azulejos).
+LLM_UNGROUNDED_TOTAL = 3
 LLM_UNGROUNDED_PER_KIND = 2
+LLM_UNGROUNDED_ORDER = ("motifs", "iconography", "styles", "materials", "techniques", "colors", "pigments")
 _TIME_MENTION_RE = re.compile(r"\d|\bsec\b|\bseculos?\b|\bcentur|\banos?\b|\bantig")
 
 
@@ -321,21 +326,29 @@ def _lay_values(folded_message: str, vocab: dict[str, Any]) -> set[str]:
     return out
 
 
+def _same_stem(a: str, b: str) -> bool:
+    """«douradas»/«dourado», «animais»/«animal»: prefixo comum de pelo menos 5 letras
+    e a menos de 3 do fim da palavra mais curta; «azul»/«azulejo» não passa."""
+    if a == b:
+        return True
+    shorter = min(len(a), len(b))
+    common = 0
+    for x, y in zip(a, b):
+        if x != y:
+            break
+        common += 1
+    return common >= max(5, shorter - 2)
+
+
 def _grounded(canonical: str, message_tokens: set[str], lay_values: set[str]) -> bool:
     """O valor do LLM tem apoio no pedido: vem de um termo leigo presente, ou todas as
-    suas palavras com 4+ letras aparecem no pedido (ou são prefixo/radical de uma)."""
+    suas palavras com 4+ letras aparecem no pedido (ou partilham o radical com uma)."""
     if canonical in lay_values:
         return True
     tokens = [t for t in fold(canonical).split() if len(t) >= 4]
     if not tokens:
         return False
-    for token in tokens:
-        if token in message_tokens:
-            continue
-        if any((len(token) >= 5 and word.startswith(token)) or (len(word) >= 5 and token.startswith(word)) for word in message_tokens):
-            continue
-        return False
-    return True
+    return all(any(_same_stem(token, word) for word in message_tokens) for token in tokens)
 
 
 def merge_llm_facets(
@@ -348,35 +361,46 @@ def merge_llm_facets(
     """Junta ao que as regras apanharam o que o LLM devolveu — só valores do vocabulário e só o que falta.
 
     Com o `message` em mão, o LLM só acrescenta valores com apoio no pedido (o 9B
-    «completa» o tema com meia dúzia de facetas que o visitante não disse); sem apoio
-    só entram quando as regras não apanharam nada, e no máximo LLM_UNGROUNDED_PER_KIND
-    por faceta. Séculos e anos do LLM só entram se o pedido fala de época."""
+    «completa» o tema com meia dúzia de facetas que o visitante não disse). Sem
+    nenhum apoio — nem das regras nem do LLM — ele pode traduzir a frase leiga, mas
+    só LLM_UNGROUNDED_TOTAL valores, pela ordem LLM_UNGROUNDED_ORDER. Séculos e anos
+    do LLM só entram se o pedido fala de época."""
     if not isinstance(parsed, dict):
         return facets
     vocab = vocabulary if vocabulary is not None else load_vocabulary()
     data = parsed.get("facets") if isinstance(parsed.get("facets"), dict) else parsed
     ground = message is not None
-    rules_found = facets.has_visual() or facets.is_temporal() or facets.national_treasure
     folded_message = fold(message or "")
     message_tokens = set(folded_message.split())
     lay_values = _lay_values(folded_message, vocab) if ground else set()
+    proposed: dict[str, list[str]] = {}
     for kind, key in VOCAB_KEYS.items():
         index = _term_index(vocab.get(key, []))
         values = data.get(kind) if isinstance(data, dict) else None
         if not isinstance(values, list):
             continue
         current = list(getattr(facets, kind))
-        ungrounded = 0
+        clean: list[str] = []
         for value in values:
             canonical = index.get(fold(str(value)))
-            if not canonical or canonical in current or (kind == "colors" and canonical in facets.pigments):
-                continue
-            if ground and not _grounded(canonical, message_tokens, lay_values):
-                if rules_found or ungrounded >= LLM_UNGROUNDED_PER_KIND:
-                    continue
-                ungrounded += 1
-            current.append(canonical)
-        setattr(facets, kind, current)
+            if canonical and canonical not in current and canonical not in clean and not (kind == "colors" and canonical in facets.pigments):
+                clean.append(canonical)
+        proposed[kind] = clean
+    anchored = False
+    for kind, clean in proposed.items():
+        accepted = [v for v in clean if not ground or _grounded(v, message_tokens, lay_values)]
+        if accepted:
+            anchored = True
+            setattr(facets, kind, list(getattr(facets, kind)) + accepted)
+    if ground and not anchored and not (facets.has_visual() or facets.is_temporal() or facets.national_treasure):
+        budget = LLM_UNGROUNDED_TOTAL
+        for kind in LLM_UNGROUNDED_ORDER:
+            picks = proposed.get(kind, [])[:LLM_UNGROUNDED_PER_KIND][:budget]
+            if picks:
+                setattr(facets, kind, list(getattr(facets, kind)) + picks)
+                budget -= len(picks)
+            if budget <= 0:
+                break
     time_ok = not ground or bool(_TIME_MENTION_RE.search(folded_message))
     centuries = data.get("centuries") if isinstance(data, dict) else None
     if isinstance(centuries, list) and not facets.centuries and time_ok:

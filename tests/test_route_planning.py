@@ -148,9 +148,26 @@ class TestTheme(unittest.TestCase):
         message = "Leva-me a ver coisas com bichos"
         facets = rule_facets(message, vocabulary=VOCAB)
         self.assertFalse(facets.has_visual())
-        merged = merge_llm_facets(facets, {"facets": {"motifs": ["animais", "flores", "geométrico"], "centuries": [17]}}, vocabulary=VOCAB, message=message)
-        self.assertEqual(merged.motifs, ["animais", "flores"])
+        merged = merge_llm_facets(
+            facets,
+            {"facets": {"colors": ["azul", "branco"], "motifs": ["animais", "flores", "geométrico"], "iconography": ["cena de caça"], "centuries": [17]}},
+            vocabulary=VOCAB, message=message,
+        )
+        self.assertEqual(merged.motifs, ["animais", "flores"])      # 2 por faceta
+        self.assertEqual(merged.iconography, ["cena de caça"])      # 3 no total…
+        self.assertEqual(merged.colors, [])                         # …e as cores ficam para o fim
         self.assertEqual(merged.centuries, [])
+
+    def test_merge_llm_stem_grounding_blocks_translations(self) -> None:
+        # «douradas» ancora «dourado» e «talha dourada» não (falta «talha»); havendo algo ancorado,
+        # as traduções do LLM (prata, religiosa) já não entram
+        message = "Quero um percurso sobre coisas douradas"
+        facets = rule_facets(message, vocabulary=VOCAB)
+        merged = merge_llm_facets(facets, {"facets": {"colors": ["dourado"], "materials": ["prata"], "techniques": ["talha dourada"], "iconography": ["religiosa"]}}, vocabulary=VOCAB, message=message)
+        self.assertEqual(merged.colors, ["dourado"])
+        self.assertEqual(merged.materials, [])
+        self.assertEqual(merged.techniques, [])
+        self.assertEqual(merged.iconography, [])
 
 
 class TestPlanner(unittest.TestCase):
