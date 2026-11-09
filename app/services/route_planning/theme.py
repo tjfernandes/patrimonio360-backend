@@ -329,11 +329,13 @@ def theme_title(facets: ThemeFacets, language: str | None = None) -> str:
 
 
 # Valores sem apoio no pedido que o LLM pode acrescentar quando nem as regras nem
-# o próprio LLM ancoraram nada (frases leigas: «bichos» -> animais): no máximo
-# LLM_UNGROUNDED_TOTAL no total e LLM_UNGROUNDED_PER_KIND por faceta, pela ordem
-# abaixo — as cores e os pigmentos ficam para o fim porque são o que o 9B mais
-# acrescenta por conta própria («azul e branco» em qualquer pedido de azulejos).
-LLM_UNGROUNDED_TOTAL = 3
+# o próprio LLM ancoraram nada: no máximo LLM_UNGROUNDED_TOTAL no total e
+# LLM_UNGROUNDED_PER_KIND por faceta, pela ordem abaixo — as cores e os pigmentos
+# ficam para o fim porque são o que o 9B mais acrescenta por conta própria.
+# Por omissão 0: a tradução leiga já chega pela paráfrase do LLM («azulejos com
+# bichos» -> theme_text «azulejos com animais» ancora «animais»), e com orçamento
+# «astronautas» virava um percurso de estrelas e cerâmica em vez de «não há».
+LLM_UNGROUNDED_TOTAL = 0
 LLM_UNGROUNDED_PER_KIND = 2
 LLM_UNGROUNDED_ORDER = ("motifs", "iconography", "styles", "materials", "techniques", "colors", "pigments")
 _TIME_MENTION_RE = re.compile(r"\d|\bsec\b|\bseculos?\b|\bcentur|\banos?\b|\bantig")
@@ -385,6 +387,7 @@ def merge_llm_facets(
     *,
     vocabulary: dict[str, list[str]] | None = None,
     message: str | None = None,
+    ungrounded_budget: int = LLM_UNGROUNDED_TOTAL,
 ) -> ThemeFacets:
     """Junta ao que as regras apanharam o que o LLM devolveu — só valores do vocabulário e só o que falta.
 
@@ -425,8 +428,8 @@ def merge_llm_facets(
         if accepted:
             anchored = True
             setattr(facets, kind, list(getattr(facets, kind)) + accepted)
-    if ground and not anchored and not (facets.has_visual() or facets.is_temporal() or facets.national_treasure):
-        budget = LLM_UNGROUNDED_TOTAL
+    if ground and ungrounded_budget > 0 and not anchored and not (facets.has_visual() or facets.is_temporal() or facets.national_treasure):
+        budget = ungrounded_budget
         for kind in LLM_UNGROUNDED_ORDER:
             picks = proposed.get(kind, [])[:LLM_UNGROUNDED_PER_KIND][:budget]
             if picks:

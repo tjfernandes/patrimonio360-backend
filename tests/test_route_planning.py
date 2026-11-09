@@ -151,16 +151,24 @@ class TestTheme(unittest.TestCase):
         self.assertEqual(merged.styles, [])
         self.assertEqual(merged.centuries, [17])
 
-    def test_merge_llm_lay_phrasing_when_rules_find_nothing(self) -> None:
-        # «bichos» não está no vocabulário: o LLM pode traduzir, mas no máximo dois valores
-        # sem apoio por faceta, e sem inventar época quando o pedido não fala dela
+    def test_merge_llm_nothing_anchored_adds_nothing(self) -> None:
+        # «astronautas» não ancora nada: sem facetas, o percurso acaba em «não há» em vez de estrelas
+        message = "Faz-me um percurso sobre astronautas"
+        facets = rule_facets(message, vocabulary=VOCAB)
+        merged = merge_llm_facets(facets, {"theme_text": "astronautas", "facets": {"motifs": ["geométrico"], "materials": ["madeira"]}}, vocabulary=VOCAB, message=message)
+        self.assertFalse(merged.has_visual())
+        self.assertEqual(merged.free_text, "astronautas")
+
+    def test_merge_llm_lay_phrasing_with_budget(self) -> None:
+        # com orçamento (desligado por omissão), a tradução entra: no máximo dois valores
+        # sem apoio por faceta, três no total, e sem inventar época quando o pedido não fala dela
         message = "Leva-me a ver coisas com bichos"
         facets = rule_facets(message, vocabulary=VOCAB)
         self.assertFalse(facets.has_visual())
         merged = merge_llm_facets(
             facets,
             {"facets": {"colors": ["azul", "branco"], "motifs": ["animais", "flores", "geométrico"], "iconography": ["cena de caça"], "centuries": [17]}},
-            vocabulary=VOCAB, message=message,
+            vocabulary=VOCAB, message=message, ungrounded_budget=3,
         )
         self.assertEqual(merged.motifs, ["animais", "flores"])      # 2 por faceta
         self.assertEqual(merged.iconography, ["cena de caça"])      # 3 no total…
