@@ -1,0 +1,42 @@
+{
+  "_descricao": "Temas de percurso para avaliar a recuperação de paragens (tools/percursos/avaliar_temas.py). 30 temas × {mnaz, mnaa}. Em `judgments` o anotador (Tiago) dá a relevância graduada 0/1/2 por paragem (chave = stop_id da paragem best_placement, como no índice cultural_heritage_tour_stops_v1): 2 = a peça é claramente do tema; 1 = encaixa em parte (uma faceta sim, outra não; ou ténue); 0 = não é. O pool a anotar sai de `avaliar_temas.py pool` (união do top-20 das quatro variantes), em benchmarks/percursos/pool-<museu>.csv; o que não for anotado conta como 0. Facetas esperadas em `expect` são só uma ajuda à anotação.",
+  "_versao": "2026-11-09",
+  "graded": {"0": "irrelevante", "1": "parcial", "2": "relevante"},
+  "museums": ["mnaz", "mnaa"],
+  "themes": [
+    {"id": "t01", "text": "azul-cobalto no século XVII", "expect": ["pigmento azul-cobalto", "séc. XVII"]},
+    {"id": "t02", "text": "azul e branco", "expect": ["cores azul e branco"]},
+    {"id": "t03", "text": "peças com animais", "expect": ["motivo animais / figuras de animais"]},
+    {"id": "t04", "text": "cenas de caça", "expect": ["iconografia caça"]},
+    {"id": "t05", "text": "cenas religiosas", "expect": ["iconografia religiosa"]},
+    {"id": "t06", "text": "a Virgem e o Menino", "expect": ["iconografia mariana"]},
+    {"id": "t07", "text": "santos e mártires", "expect": ["iconografia religiosa, hagiografia"]},
+    {"id": "t08", "text": "mitologia clássica", "expect": ["iconografia mitológica"]},
+    {"id": "t09", "text": "flores e plantas", "expect": ["motivo vegetalista / flores"]},
+    {"id": "t10", "text": "padrões geométricos", "expect": ["motivo geométrico"]},
+    {"id": "t11", "text": "dourado", "expect": ["cor dourado / talha dourada / ouro"]},
+    {"id": "t12", "text": "policromia viva", "expect": ["muitas cores"]},
+    {"id": "t13", "text": "século XVI", "expect": ["séc. XVI"]},
+    {"id": "t14", "text": "século XVIII", "expect": ["séc. XVIII"]},
+    {"id": "t15", "text": "arte do século XX", "expect": ["séc. XX"]},
+    {"id": "t16", "text": "barroco", "expect": ["estilo barroco"]},
+    {"id": "t17", "text": "influência oriental", "expect": ["chinoiserie, porcelana chinesa, Oriente"]},
+    {"id": "t18", "text": "a Expansão e as viagens marítimas", "expect": ["navios, mapas, Oriente, África, Brasil"]},
+    {"id": "t19", "text": "retratos", "expect": ["iconografia retrato"]},
+    {"id": "t20", "text": "paisagens", "expect": ["iconografia paisagem"]},
+    {"id": "t21", "text": "cenas do quotidiano", "expect": ["iconografia costumes"]},
+    {"id": "t22", "text": "figuras femininas", "expect": ["figuras: mulheres"]},
+    {"id": "t23", "text": "crianças e anjos", "expect": ["putti, anjos, meninos"]},
+    {"id": "t24", "text": "pedra e mármore", "expect": ["material pedra / escultura em pedra"]},
+    {"id": "t25", "text": "madeira entalhada", "expect": ["material madeira, talha"]},
+    {"id": "t26", "text": "prata e ourivesaria", "expect": ["material prata / ourivesaria"]},
+    {"id": "t27", "text": "têxteis e bordados", "expect": ["tapeçaria, bordado, tecido"]},
+    {"id": "t28", "text": "peças monumentais", "expect": ["escala parede / grande"]},
+    {"id": "t29", "text": "peças pequenas e delicadas", "expect": ["escala pequena"]},
+    {"id": "t30", "text": "inscrições e legendas", "expect": ["texto visível na peça"]}
+  ],
+  "judgments": {
+    "mnaz": {},
+    "mnaa": {}
+  }
+}

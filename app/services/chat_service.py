@@ -2989,12 +2989,34 @@ class ChatService:
         # «Ver na tour»: o frontend diz a intenção e a peça; não há nada a
         # decidir nem a pesquisar. Antes da libertação automática, que veria
         # «Sapatos (par)/Feminino (4270)» como uma pesquisa nova.
+        route_planning = bool(getattr(self.settings, "CHAT_ROUTE_PLANNING", False))
         if (
             selected
             and bool(getattr(self.settings, "CHAT_DESCRIBE_ARTIFACT_INTENT", False))
             and self._metadata_intent(metadata) == "describe_artifact"
         ):
-            return await self._answer_describe_artifact(payload, selected=selected, status_cb=status_cb)
+            prompt_builder = None
+            if route_planning and isinstance((metadata or {}).get("route_stop"), dict):
+                # Narração de uma paragem do percurso: o mesmo fluxo, com o prompt
+                # da paragem (tema, posição, transição, observações do VLM).
+                from app.services.route_planning.service import log_route_stop_narrated, route_stop_prompt_builder
+
+                prompt_builder = route_stop_prompt_builder(
+                    self, metadata=metadata, selected=selected, language=payload.language, museum_name=payload.museum_name
+                )
+                await log_route_stop_narrated(self, metadata=metadata, conversation_id=payload.conversation_id)
+            return await self._answer_describe_artifact(
+                payload, selected=selected, status_cb=status_cb, prompt_builder=prompt_builder
+            )
+        # Percursos temáticos (CHAT_ROUTE_PLANNING): intenção explícita do widget
+        # ou por regras («faz-me um percurso sobre…»). Antes da peça selecionada
+        # e do router: o pedido não é uma pesquisa.
+        if route_planning and (payload.response_format is None or payload.response_format.type == "text"):
+            from app.services.route_planning.service import maybe_answer_route
+
+            route_response = await maybe_answer_route(self, payload, status_cb=status_cb)
+            if route_response is not None:
+                return route_response
         status: str | None = None
         subject: dict[str, Any] | None = None
         if not selected and bool(getattr(self.settings, "CHAT_IMPLICIT_ARTIFACT_CONTEXT", False)):
@@ -3094,6 +3116,7 @@ class ChatService:
         log_extra: dict[str, Any] | None = None,
         prompt_subject: str | None = None,
         uncertain_percent: int | None = None,
+        prompt_builder: Callable[[str], str] | None = None,
     ) -> ChatMessageResponse:
         """Intenção «describe_artifact» (CHAT_DESCRIBE_ARTIFACT_INTENT).
 
@@ -3165,13 +3188,18 @@ class ChatService:
         if not docs:
             reply = translate("message.describe_artifact_not_found", language)
         else:
-            prompt = build_describe_artifact_prompt(
-                museum_name=museum_name,
-                user_message=prompt_subject or payload.message,
-                card_context=self._format_docs_compact(docs=docs, description_chars=900),
-                language=language,
-                uncertain_percent=uncertain_percent,
-            )
+            card_context = self._format_docs_compact(docs=docs, description_chars=900)
+            if prompt_builder is not None:
+                # paragem de um percurso temático (CHAT_ROUTE_PLANNING): prompt próprio, mesmas regras do cartão
+                prompt = prompt_builder(card_context)
+            else:
+                prompt = build_describe_artifact_prompt(
+                    museum_name=museum_name,
+                    user_message=prompt_subject or payload.message,
+                    card_context=card_context,
+                    language=language,
+                    uncertain_percent=uncertain_percent,
+                )
             self._rag_debug_json(
                 "rag.final_prompt",
                 {
@@ -3644,6 +3672,15 @@ class ChatService:
             query_text=payload.message,
             museum_id=self._resolve_museum_id(payload),
         )
+        if (
+            bool(getattr(self.settings, "CHAT_ROUTER_MODE", "llm") != "deterministic")
+            and bool(getattr(self.settings, "CHAT_ROUTE_PLANNING", False))
+            and str(router_decision.get("intent") or "") == "plan_route"
+        ):
+            # o router LLM reconheceu um pedido de percurso que as regras não apanharam
+            from app.services.route_planning.service import answer_route
+
+            return await answer_route(self, payload, status_cb=status_cb, reason="router")
         rewritten_query = str(router_decision.get("rewritten_query", payload.message)).strip()
         original_message = (payload.message or "").strip()
         current_museum_id = self._resolve_museum_id(payload)
@@ -6829,7 +6866,12 @@ class ChatService:
             "additionalProperties": False,
             "properties": {
                 "mode": {"type": "string", "enum": ["rag", "llm_only"]},
-                "intent": {"type": "string", "enum": ["overview", "search", "refine", "fallback"]},
+                "intent": {
+                    "type": "string",
+                    # «plan_route» só com CHAT_ROUTE_PLANNING: pedido de percurso temático ambíguo para as regras
+                    "enum": ["overview", "search", "refine", "fallback"]
+                    + (["plan_route"] if bool(getattr(self.settings, "CHAT_ROUTE_PLANNING", False)) else []),
+                },
                 "is_follow_up": {"type": "boolean"},
                 "use_history_for_query": {"type": "boolean"},
                 "use_history_for_answer": {"type": "boolean"},

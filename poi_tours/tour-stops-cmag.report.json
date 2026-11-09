@@ -1,0 +1,43 @@
+{
+ "museum_slug": "cmag",
+ "generated_at": "2026-11-09T11:53:01+00:00",
+ "thresholds": {
+  "objects_min_score": 0.7,
+  "objects_min_score_no_vlm": 0.8,
+  "objects_file_has_vlm": false
+ },
+ "records": 200,
+ "pieces": 127,
+ "pieces_with_catalogue": 126,
+ "pieces_with_photo": 123,
+ "pieces_without_photo": 4,
+ "pieces_from_hotspots": 47,
+ "pieces_only_objects": 80,
+ "pieces_with_dates": 111,
+ "national_treasures": 4,
+ "objects_seen": 250,
+ "objects_kept": 168,
+ "panoramas_with_stops": 55,
+ "panoramas_unknown": [],
+ "rooms": {
+  "Atelier": 38,
+  "Quarto": 21,
+  "Escritório": 16,
+  "Vitrina das Porcelanas": 11,
+  "Exposição Temporária": 11,
+  "Corredor": 7,
+  "Sala de Jantar": 5,
+  "Sala Wucai": 4,
+  "Cozinha": 3,
+  "Sala do Colecionador": 3,
+  "Entrada Casa Malhoa": 2,
+  "Entrada do Atelier": 2,
+  "Sala do Bargueño": 2,
+  "Escadas": 1,
+  "Exterior": 1
+ },
+ "unresolved_inventories": {
+  "hotspot CMAG 799": 1
+ },
+ "inventory_collisions": {}
+}

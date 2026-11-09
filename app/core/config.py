@@ -483,6 +483,28 @@ class Settings(BaseSettings):
     # visita vira a câmara para a peça (2026-10-31).
     TOUR_OBJECT_TARGETS_ENABLED: bool = False
     TOUR_OBJECT_TARGETS_MIN_SCORE: float = 0.80
+    # Percursos temáticos gerados em conversa (2026-11-09, app/services/route_planning/).
+    # Tudo atrás de CHAT_ROUTE_PLANNING: com a flag desligada nenhuma resposta muda.
+    CHAT_ROUTE_PLANNING: bool = False
+    ROUTE_STOPS_INDEX: str = "cultural_heritage_tour_stops_v1"   # paragens enriquecidas (indexer)
+    ROUTE_THEME_LLM: bool = True          # o LLM completa as facetas que as regras não apanharam (JSON)
+    ROUTE_CANDIDATES: int = 40            # candidatos depois da fusão
+    ROUTE_BRANCH_SIZE: int = 40           # resultados pedidos a cada ramo
+    ROUTE_RRF_K: int = 60
+    ROUTE_WEIGHT_LEXICAL: float = 1.0     # BM25 em enriched_text + descrição
+    ROUTE_WEIGHT_SEMANTIC: float = 1.0    # kNN em enriched_embedding
+    ROUTE_WEIGHT_IMAGE: float = 0.7       # texto→imagem, só nas peças com paragem
+    ROUTE_WEIGHT_ATTRIBUTES: float = 1.0  # listas fechadas do VLM/catálogo que batem nas facetas
+    ROUTE_MIN_FUSION_SCORE: float = 0.012 # ≈ um ramo de peso 1 na posição 20; abaixo não é «relevante»
+    ROUTE_MIN_CANDIDATES: int = 3         # menos do que isto -> route: null e explicação
+    ROUTE_DEFAULT_STOPS: int = 6
+    ROUTE_MIN_STOPS: int = 3
+    ROUTE_MAX_STOPS: int = 10
+    ROUTE_MINUTES_PER_STOP: float = 2.5
+    ROUTE_YEAR_TOLERANCE: int = 25        # folga dos filtros duros de século/ano
+    ROUTE_DIVERSITY_WEIGHT: float = 0.35  # bónus por sala/categoria/século novos na escolha gulosa
+    ROUTE_PATH_COST_WEIGHT: float = 0.02  # custo por salto no grafo a partir da última paragem
+    ROUTE_TTL_SECONDS: int = 7200         # cache dos percursos por route_id
 
     # Ditado por voz no servidor (WebSocket /api/v1/speech/stream, faster-whisper).
     # Desligado: o modelo não carrega e o WebSocket recusa a ligação, e o
