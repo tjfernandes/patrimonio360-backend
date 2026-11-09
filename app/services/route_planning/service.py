@@ -390,7 +390,27 @@ async def _artifact_cards(chat: Any, *, museum_slug: str, museum_id: str, stops:
             cards[artifact_id] = _minimal_card(stop_docs[artifact_id], museum_id)
         else:
             cards[artifact_id].in_tour = True
+        card = cards[artifact_id]
+        if not (card.title or "").strip():
+            # fichas sem título (raiz/MatrizNet): o cartão da paragem não pode ficar vazio
+            card.title = _fallback_title(stop_docs[artifact_id], card)
     return cards
+
+
+def _fallback_title(stop: dict[str, Any], card: ArtifactResult) -> str:
+    catalogue = stop.get("catalogue") or {}
+    for value in (stop.get("title"), catalogue.get("title")):
+        if value and str(value).strip():
+            return str(value).strip()
+    category = (card.category or catalogue.get("category") or "").strip()
+    number = (card.inventory_number or stop.get("inventory_number") or "").strip()
+    if category and number:
+        return f"{category} (inv. {number})"
+    if category:
+        return category
+    if number:
+        return f"Peça inv. {number}"
+    return "Peça sem título"
 
 
 def _plan_payload(

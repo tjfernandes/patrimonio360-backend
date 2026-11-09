@@ -422,6 +422,17 @@ class TestService(_Base):
         assert response.route is not None
         self.assertEqual([f.label for f in response.route.theme.facets], ["azul-cobalto"])
 
+    def test_stop_card_without_title_gets_fallback(self) -> None:
+        service = self._route_service()
+        for stop in self.stops:
+            stop["title"] = None
+            stop["catalogue"]["title"] = None
+        response = asyncio.run(service.handle_message(self._request("Faz-me um percurso sobre azul-cobalto")))
+        assert response.route is not None
+        for stop in response.route.stops:
+            self.assertTrue(stop.artifact.title)
+            self.assertIn("inv.", stop.artifact.title)
+
     def test_no_route_when_few_candidates(self) -> None:
         service = self._route_service()
         service._route_search = _FakeSearch(self.stops[:2])
