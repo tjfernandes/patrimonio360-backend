@@ -127,7 +127,13 @@ class ThemeFacets:
             out.append({"kind": "national_treasure", "label": "Tesouro Nacional"})
         if not out and self.free_text:
             out.append({"kind": "theme", "label": self.free_text})
-        return out
+        seen: set[str] = set()
+        unique: list[dict[str, str]] = []
+        for item in out:
+            if item["label"] not in seen:
+                seen.add(item["label"])
+                unique.append(item)
+        return unique
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -371,7 +377,12 @@ def merge_llm_facets(
     data = parsed.get("facets") if isinstance(parsed.get("facets"), dict) else parsed
     ground = message is not None
     folded_message = fold(message or "")
-    message_tokens = set(folded_message.split())
+    # o theme_text do LLM é uma paráfrase curta do pedido em que o 9B é fiel
+    # («azulejos com representações de animais» para «azulejos com bichos»):
+    # também ancora, para a tradução leiga não se perder
+    theme_text = parsed.get("theme_text")
+    folded_theme = fold(theme_text) if isinstance(theme_text, str) and len(theme_text.strip()) <= 120 else ""
+    message_tokens = set(folded_message.split()) | set(folded_theme.split())
     lay_values = _lay_values(folded_message, vocab) if ground else set()
     proposed: dict[str, list[str]] = {}
     for kind, key in VOCAB_KEYS.items():

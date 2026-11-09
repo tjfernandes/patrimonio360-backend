@@ -158,6 +158,24 @@ class TestTheme(unittest.TestCase):
         self.assertEqual(merged.colors, [])                         # …e as cores ficam para o fim
         self.assertEqual(merged.centuries, [])
 
+    def test_merge_llm_theme_text_anchors_lay_translation(self) -> None:
+        # a paráfrase do LLM («azulejos com animais») ancora «animais»; o resto cai
+        message = "Leva-me a ver azulejos com bichos"
+        facets = rule_facets(message, vocabulary=VOCAB)
+        merged = merge_llm_facets(
+            facets,
+            {"theme_text": "azulejos com animais", "facets": {"colors": ["azul", "branco"], "motifs": ["animais", "flores"], "iconography": ["cena de caça"]}},
+            vocabulary=VOCAB, message=message,
+        )
+        self.assertEqual(merged.motifs, ["animais"])
+        self.assertEqual(merged.colors, [])
+        self.assertEqual(merged.iconography, [])
+        self.assertEqual(merged.free_text, "azulejos com animais")
+
+    def test_labels_without_duplicates(self) -> None:
+        facets = ThemeFacets(colors=["dourado"], techniques=["dourado", "talha dourada"])
+        self.assertEqual([f["label"] for f in facets.labels()], ["dourado", "talha dourada"])
+
     def test_merge_llm_stem_grounding_blocks_translations(self) -> None:
         # «douradas» ancora «dourado» e «talha dourada» não (falta «talha»); havendo algo ancorado,
         # as traduções do LLM (prata, religiosa) já não entram
