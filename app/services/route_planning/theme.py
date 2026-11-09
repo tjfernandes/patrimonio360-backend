@@ -272,6 +272,28 @@ def rule_facets(text: str, *, vocabulary: dict[str, list[str]] | None = None) ->
     return facets
 
 
+_THEME_FILLER_RE = re.compile(
+    r"\b(seculo|seculos|sec|century|centuries|anos?|entre|e|a|o|um|uma|uns|umas|de|do|da|dos|das|em|no|na|nos|nas|com|sem|sobre|"
+    r"por|para|ate|desde|que|the|of|in|on|with|from|and|or|to|at|by|for)\b"
+)
+
+
+def unexplained_words(text: str, *, vocabulary: dict[str, list[str]] | None = None) -> list[str]:
+    """Palavras do pedido que nem as palavras de pedido, nem o vocabulário, nem a época
+    ou o selo explicam. Vazia, o LLM não tem nada a acrescentar ao tema («azul-cobalto
+    no século XVII», «tesouros nacionais») e a chamada poupa-se; com «bichos» ou
+    «vestidos» de fora, vale a pena pedir-lhe a tradução leiga."""
+    vocab = vocabulary if vocabulary is not None else load_vocabulary()
+    remaining = fold(strip_request_words(text))
+    # a mesma ordem de rule_facets: os pigmentos antes das cores, senão «azul» come «azul-cobalto»
+    for kind in ("pigments", "colors", "techniques", "materials", "styles", "iconography", "motifs"):
+        _matched, remaining = _match_terms(remaining, _term_index(vocab.get(VOCAB_KEYS[kind], [])))
+    remaining = re.sub(r"\btesouros? naciona(?:l|is)\b|\bnational treasures?\b", " ", remaining)
+    remaining = _THEME_FILLER_RE.sub(" ", remaining)
+    remaining = re.sub(r"\b([ivx]+|[0-9]+)\b", " ", remaining)
+    return [word for word in remaining.split() if len(word) >= 3]
+
+
 def strip_request_words(text: str) -> str:
     """«Faz-me um percurso sobre azul-cobalto no século XVII» -> «azul-cobalto no século XVII»."""
     raw = (text or "").strip().rstrip("?!. ")

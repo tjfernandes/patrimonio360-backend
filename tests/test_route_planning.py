@@ -15,7 +15,7 @@ from app.services.route_planning import planner
 from app.services.route_planning.graph import TourGraph
 from app.services.route_planning.candidates import Candidate, explain
 from app.services.route_planning.store import RouteStore
-from app.services.route_planning.theme import ThemeFacets, is_route_request, merge_llm_facets, rule_facets, strip_request_words
+from app.services.route_planning.theme import ThemeFacets, is_route_request, merge_llm_facets, rule_facets, strip_request_words, unexplained_words
 from app.services.route_planning import service as route_service
 from tests.test_tour_location import _Base
 
@@ -119,6 +119,15 @@ class TestTheme(unittest.TestCase):
     def test_strip_request_words(self) -> None:
         self.assertEqual(strip_request_words("Faz-me um percurso sobre azul-cobalto no século XVII"), "azul-cobalto século XVII")
         self.assertEqual(strip_request_words("Quero um roteiro de pintura religiosa"), "pintura religiosa")
+
+    def test_unexplained_words(self) -> None:
+        # tudo explicado pelas regras: o LLM não é chamado
+        self.assertEqual(unexplained_words("Faz-me um percurso sobre azul-cobalto no século XVII", vocabulary=VOCAB), [])
+        self.assertEqual(unexplained_words("Faz-me um percurso pelos tesouros nacionais", vocabulary=VOCAB), [])
+        self.assertEqual(unexplained_words("Quero um percurso de 20 minutos entre 1600 e 1700 sobre flores", vocabulary=VOCAB), [])
+        # palavras leigas ou fora do vocabulário: vale a pena perguntar ao LLM
+        self.assertEqual(unexplained_words("Leva-me a ver azulejos com bichos", vocabulary=VOCAB), ["azulejos", "bichos"])
+        self.assertEqual(unexplained_words("Faz-me um percurso de 15 minutos sobre vestidos com flores", vocabulary=VOCAB), ["vestidos"])
 
     def test_merge_llm_only_vocabulary(self) -> None:
         facets = rule_facets("percurso sobre louça", vocabulary=VOCAB)
@@ -364,13 +373,22 @@ class TestService(_Base):
     def test_explicit_intent_and_llm_theme(self) -> None:
         llm = _ThemeLLM({"theme_text": "faiança azul", "facets": {"colors": ["azul"]}, "stops_requested": 3})
         service = self._route_service(llm=llm)
-        response = asyncio.run(service.handle_message(self._request("peças de faiança", metadata={"session_id": "s1", "intent": "plan_route"})))
+        # «bichos» não está no vocabulário: o LLM é chamado para traduzir
+        response = asyncio.run(service.handle_message(self._request("peças de faiança com bichos", metadata={"session_id": "s1", "intent": "plan_route"})))
         self.assertEqual(llm.calls, 1)
         # o JSON do tema não cabe nos 200 tokens do chat: vai com orçamento próprio
         self.assertEqual(llm.kwargs.get("max_tokens"), 600)
         assert response.route is not None
         self.assertEqual(response.route.theme.text, "faiança azul")
         self.assertLessEqual(len(response.route.stops), 3)
+
+    def test_llm_skipped_when_rules_explain_everything(self) -> None:
+        llm = _ThemeLLM({"theme_text": "azul", "facets": {"colors": ["azul", "branco"], "motifs": ["geométrico"]}})
+        service = self._route_service(llm=llm)
+        response = asyncio.run(service.handle_message(self._request("Faz-me um percurso sobre azul-cobalto")))
+        self.assertEqual(llm.calls, 0)
+        assert response.route is not None
+        self.assertEqual([f.label for f in response.route.theme.facets], ["azul-cobalto"])
 
     def test_no_route_when_few_candidates(self) -> None:
         service = self._route_service()

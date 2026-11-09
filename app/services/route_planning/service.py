@@ -36,7 +36,7 @@ from app.services.route_planning.candidates import Candidate, find_candidates
 from app.services.route_planning.graph import TourGraph, get_tour_graph_store
 from app.services.route_planning.search import RouteStopSearch
 from app.services.route_planning.store import StoredRoute, get_route_store
-from app.services.route_planning.theme import ThemeFacets, fold, is_route_request, load_vocabulary, merge_llm_facets, rule_facets, theme_title
+from app.services.route_planning.theme import ThemeFacets, fold, is_route_request, load_vocabulary, merge_llm_facets, rule_facets, theme_title, unexplained_words
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +198,11 @@ async def interpret_theme(chat: Any, message: str, *, museum_name: str | None, l
         return facets
     llm = getattr(chat, "llm_service", None)
     if llm is None:
+        return facets
+    if (facets.has_visual() or facets.is_temporal() or facets.national_treasure) and not unexplained_words(message, vocabulary=vocabulary):
+        # as regras explicam cada palavra do pedido: o LLM só acrescentaria facetas a mais
+        # (e, nos «tesouros nacionais», gastava 8 s a enumerar o vocabulário inteiro)
+        log_event(logger, logging.INFO, "route.theme.rules_only", theme=facets.free_text)
         return facets
     system_prompt, user_prompt = build_theme_prompt(user_message=message, museum_name=museum_name, vocabulary=vocabulary, language=language)
     try:
