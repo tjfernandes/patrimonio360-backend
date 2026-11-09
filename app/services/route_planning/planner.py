@@ -216,7 +216,8 @@ def annotate_transitions(stops: list[PlannedStop], *, graph: TourGraph | None, s
 def estimate_minutes(stops: list[PlannedStop], *, minutes_per_stop: float) -> int:
     hops = sum(s.hops_from_previous or 0 for s in stops)
     focos = sum(len(s.also_here) for s in stops)
-    total = len(stops) * minutes_per_stop + focos * (minutes_per_stop / 3) + hops * 0.25
+    # ~2,5 min por paragem, um terço por foco extra, e ~10 s por salto entre panoramas
+    total = len(stops) * minutes_per_stop + focos * (minutes_per_stop / 3) + hops * 0.15
     return max(1, int(round(total)))
 
 
