@@ -201,7 +201,8 @@ async def interpret_theme(chat: Any, message: str, *, museum_name: str | None, l
         return facets
     system_prompt, user_prompt = build_theme_prompt(user_message=message, museum_name=museum_name, vocabulary=vocabulary, language=language)
     try:
-        response = await llm.generate(message=user_prompt, response_format=ResponseFormatObject(type="json_object"), system_prompt=system_prompt)
+        max_tokens = int(getattr(_settings(chat), "ROUTE_THEME_MAX_TOKENS", 600) or 0) or None
+        response = await llm.generate(message=user_prompt, response_format=ResponseFormatObject(type="json_object"), system_prompt=system_prompt, max_tokens=max_tokens)
     except (LLMServiceError, Exception) as exc:  # noqa: BLE001 — sem LLM ficam as regras
         log_event(logger, logging.WARNING, "route.theme.llm_error", error=exc)
         return facets

@@ -231,6 +231,7 @@ class _ThemeLLM:
 
     async def generate(self, **kwargs):
         self.calls += 1
+        self.kwargs = kwargs
 
         class _R:
             parsed_json = self.parsed
@@ -308,6 +309,8 @@ class TestService(_Base):
         service = self._route_service(llm=llm)
         response = asyncio.run(service.handle_message(self._request("peças de faiança", metadata={"session_id": "s1", "intent": "plan_route"})))
         self.assertEqual(llm.calls, 1)
+        # o JSON do tema não cabe nos 200 tokens do chat: vai com orçamento próprio
+        self.assertEqual(llm.kwargs.get("max_tokens"), 600)
         assert response.route is not None
         self.assertEqual(response.route.theme.text, "faiança azul")
         self.assertLessEqual(len(response.route.stops), 3)

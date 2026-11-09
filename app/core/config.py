@@ -488,6 +488,7 @@ class Settings(BaseSettings):
     CHAT_ROUTE_PLANNING: bool = False
     ROUTE_STOPS_INDEX: str = "cultural_heritage_tour_stops_v1"   # paragens enriquecidas (indexer)
     ROUTE_THEME_LLM: bool = True          # o LLM completa as facetas que as regras não apanharam (JSON)
+    ROUTE_THEME_MAX_TOKENS: int = 600     # o JSON do tema não cabe nos LLM_MAX_TOKENS_JSON do chat (200 cortava-o)
     ROUTE_CANDIDATES: int = 40            # candidatos depois da fusão
     ROUTE_BRANCH_SIZE: int = 40           # resultados pedidos a cada ramo
     ROUTE_RRF_K: int = 60
