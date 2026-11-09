@@ -300,29 +300,90 @@ def theme_title(facets: ThemeFacets, language: str | None = None) -> str:
     return text[:1].upper() + text[1:] if text else text
 
 
-def merge_llm_facets(facets: ThemeFacets, parsed: dict[str, Any] | None, *, vocabulary: dict[str, list[str]] | None = None) -> ThemeFacets:
-    """Junta ao que as regras apanharam o que o LLM devolveu — só valores do vocabulário e só o que falta."""
+# Quantos valores sem apoio no pedido o LLM pode acrescentar por faceta quando
+# as regras não apanharam nada (frases leigas: «bichos» -> animais).
+LLM_UNGROUNDED_PER_KIND = 2
+_TIME_MENTION_RE = re.compile(r"\d|\bsec\b|\bseculos?\b|\bcentur|\banos?\b|\bantig")
+
+
+def _lay_values(folded_message: str, vocab: dict[str, Any]) -> set[str]:
+    """Valores canónicos que os termos leigos do vocabulário presentes no pedido autorizam."""
+    out: set[str] = set()
+    padded = f" {folded_message} "
+    for entry in vocab.get("lay_keywords", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        term = fold(str(entry.get("term", "")))
+        if term and f" {term} " in padded:
+            for key in VOCAB_KEYS.values():
+                for value in entry.get(key, []) or []:
+                    out.add(str(value).strip().lower())
+    return out
+
+
+def _grounded(canonical: str, message_tokens: set[str], lay_values: set[str]) -> bool:
+    """O valor do LLM tem apoio no pedido: vem de um termo leigo presente, ou todas as
+    suas palavras com 4+ letras aparecem no pedido (ou são prefixo/radical de uma)."""
+    if canonical in lay_values:
+        return True
+    tokens = [t for t in fold(canonical).split() if len(t) >= 4]
+    if not tokens:
+        return False
+    for token in tokens:
+        if token in message_tokens:
+            continue
+        if any((len(token) >= 5 and word.startswith(token)) or (len(word) >= 5 and token.startswith(word)) for word in message_tokens):
+            continue
+        return False
+    return True
+
+
+def merge_llm_facets(
+    facets: ThemeFacets,
+    parsed: dict[str, Any] | None,
+    *,
+    vocabulary: dict[str, list[str]] | None = None,
+    message: str | None = None,
+) -> ThemeFacets:
+    """Junta ao que as regras apanharam o que o LLM devolveu — só valores do vocabulário e só o que falta.
+
+    Com o `message` em mão, o LLM só acrescenta valores com apoio no pedido (o 9B
+    «completa» o tema com meia dúzia de facetas que o visitante não disse); sem apoio
+    só entram quando as regras não apanharam nada, e no máximo LLM_UNGROUNDED_PER_KIND
+    por faceta. Séculos e anos do LLM só entram se o pedido fala de época."""
     if not isinstance(parsed, dict):
         return facets
     vocab = vocabulary if vocabulary is not None else load_vocabulary()
     data = parsed.get("facets") if isinstance(parsed.get("facets"), dict) else parsed
+    ground = message is not None
+    rules_found = facets.has_visual() or facets.is_temporal() or facets.national_treasure
+    folded_message = fold(message or "")
+    message_tokens = set(folded_message.split())
+    lay_values = _lay_values(folded_message, vocab) if ground else set()
     for kind, key in VOCAB_KEYS.items():
         index = _term_index(vocab.get(key, []))
         values = data.get(kind) if isinstance(data, dict) else None
         if not isinstance(values, list):
             continue
         current = list(getattr(facets, kind))
+        ungrounded = 0
         for value in values:
             canonical = index.get(fold(str(value)))
-            if canonical and canonical not in current and not (kind == "colors" and canonical in facets.pigments):
-                current.append(canonical)
+            if not canonical or canonical in current or (kind == "colors" and canonical in facets.pigments):
+                continue
+            if ground and not _grounded(canonical, message_tokens, lay_values):
+                if rules_found or ungrounded >= LLM_UNGROUNDED_PER_KIND:
+                    continue
+                ungrounded += 1
+            current.append(canonical)
         setattr(facets, kind, current)
+    time_ok = not ground or bool(_TIME_MENTION_RE.search(folded_message))
     centuries = data.get("centuries") if isinstance(data, dict) else None
-    if isinstance(centuries, list) and not facets.centuries:
+    if isinstance(centuries, list) and not facets.centuries and time_ok:
         clean = sorted({int(c) for c in centuries if isinstance(c, (int, float)) and 1 <= int(c) <= 21})
         facets.centuries = clean
     years = data.get("year_range") if isinstance(data, dict) else None
-    if isinstance(years, (list, tuple)) and len(years) == 2 and not facets.year_range and all(isinstance(y, (int, float)) for y in years):
+    if isinstance(years, (list, tuple)) and len(years) == 2 and not facets.year_range and time_ok and all(isinstance(y, (int, float)) for y in years):
         facets.year_range = (int(min(years)), int(max(years)))
     if facets.stops_requested is None and isinstance(parsed.get("stops_requested"), (int, float)):
         facets.stops_requested = int(parsed["stops_requested"])

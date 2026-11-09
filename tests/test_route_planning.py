@@ -130,6 +130,28 @@ class TestTheme(unittest.TestCase):
         self.assertEqual(merged.free_text, "louça azul")
         self.assertEqual(merged.source, "rules+llm")
 
+    def test_merge_llm_grounded_in_message(self) -> None:
+        # com o pedido em mão e regras com resultado, o LLM só acrescenta o que o visitante disse:
+        # «azul» está em «azul-cobalto»; geométrico, animais, barroco e o século XVIII caem
+        message = "Faz-me um percurso sobre azul-cobalto no século XVII"
+        facets = rule_facets(message, vocabulary=VOCAB)
+        merged = merge_llm_facets(facets, {"facets": {"colors": ["azul", "branco"], "motifs": ["geométrico", "animais"], "styles": ["barroco"], "centuries": [18]}}, vocabulary=VOCAB, message=message)
+        self.assertEqual(merged.colors, ["azul"])
+        self.assertEqual(merged.pigments, ["azul-cobalto"])
+        self.assertEqual(merged.motifs, [])
+        self.assertEqual(merged.styles, [])
+        self.assertEqual(merged.centuries, [17])
+
+    def test_merge_llm_lay_phrasing_when_rules_find_nothing(self) -> None:
+        # «bichos» não está no vocabulário: o LLM pode traduzir, mas no máximo dois valores
+        # sem apoio por faceta, e sem inventar época quando o pedido não fala dela
+        message = "Leva-me a ver coisas com bichos"
+        facets = rule_facets(message, vocabulary=VOCAB)
+        self.assertFalse(facets.has_visual())
+        merged = merge_llm_facets(facets, {"facets": {"motifs": ["animais", "flores", "geométrico"], "centuries": [17]}}, vocabulary=VOCAB, message=message)
+        self.assertEqual(merged.motifs, ["animais", "flores"])
+        self.assertEqual(merged.centuries, [])
+
 
 class TestPlanner(unittest.TestCase):
     def setUp(self) -> None:

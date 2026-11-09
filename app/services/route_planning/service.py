@@ -215,7 +215,7 @@ async def interpret_theme(chat: Any, message: str, *, museum_name: str | None, l
             parsed = json.loads(text[text.find("{"): text.rfind("}") + 1]) if "{" in text else None
         except Exception:  # noqa: BLE001
             parsed = None
-    return merge_llm_facets(facets, parsed if isinstance(parsed, dict) else None, vocabulary=vocabulary)
+    return merge_llm_facets(facets, parsed if isinstance(parsed, dict) else None, vocabulary=vocabulary, message=message)
 
 
 # --------------------------------------------------------------------------- #
