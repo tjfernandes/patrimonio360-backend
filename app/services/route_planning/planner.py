@@ -26,7 +26,9 @@ from app.services.route_planning.graph import TourGraph
 
 @dataclass
 class PlannerSettings:
-    default_stops: int = 6
+    default_stops: int = 8            # sem número nem duração: piso do k por omissão
+    default_fraction: float = 0.6     # k = round(relevantes × fração), entre default_stops e default_max_stops
+    default_max_stops: int = 20
     min_stops: int = 3
     max_stops: int = 50
     minutes_per_stop: float = 2.5
@@ -49,11 +51,16 @@ class PlannedStop:
         return str(self.candidate.get("panorama_key") or "")
 
 
-def choose_k(*, stops_requested: int | None, time_budget_min: int | None, settings: PlannerSettings) -> int:
+def choose_k(*, stops_requested: int | None, time_budget_min: int | None, settings: PlannerSettings, relevant_count: int | None = None) -> int:
+    """Número de paragens: o pedido («5 paragens», «uma hora») manda; sem pedido, cresce com os
+    candidatos relevantes — round(relevantes × fração) entre default_stops e default_max_stops."""
     if stops_requested:
         k = int(stops_requested)
     elif time_budget_min:
         k = int(math.floor(float(time_budget_min) / max(settings.minutes_per_stop, 0.5)))
+    elif relevant_count is not None:
+        k = int(round(relevant_count * settings.default_fraction))
+        k = max(settings.default_stops, min(settings.default_max_stops, k))
     else:
         k = settings.default_stops
     return max(settings.min_stops, min(settings.max_stops, k))
@@ -261,7 +268,7 @@ def plan(
     info: dict[str, Any] = {"candidate_count": len(candidates), "relevant_count": len(pool)}
     if len(pool) < settings.min_candidates:
         return None, info
-    k = choose_k(stops_requested=stops_requested, time_budget_min=time_budget_min, settings=settings)
+    k = choose_k(stops_requested=stops_requested, time_budget_min=time_budget_min, settings=settings, relevant_count=len(pool))
     info["k"] = k
     chosen = select_stops(pool, k=k, graph=graph, start_panorama=start_panorama, settings=settings, temporal=temporal)
     ordered = order_stops(chosen, graph=graph, start_panorama=start_panorama)

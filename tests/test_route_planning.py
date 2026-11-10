@@ -244,6 +244,15 @@ class TestPlanner(unittest.TestCase):
 
     def test_choose_k(self) -> None:
         self.assertEqual(planner.choose_k(stops_requested=None, time_budget_min=None, settings=self.settings), 6)
+        # sem pedido explícito, k cresce com os candidatos relevantes: round(n × 0,6) entre 8 e 20
+        default = planner.PlannerSettings()
+        self.assertEqual(planner.choose_k(stops_requested=None, time_budget_min=None, settings=default, relevant_count=5), 8)
+        self.assertEqual(planner.choose_k(stops_requested=None, time_budget_min=None, settings=default, relevant_count=12), 8)
+        self.assertEqual(planner.choose_k(stops_requested=None, time_budget_min=None, settings=default, relevant_count=20), 12)
+        self.assertEqual(planner.choose_k(stops_requested=None, time_budget_min=None, settings=default, relevant_count=80), 20)
+        # pedidos explícitos não mudam com os candidatos
+        self.assertEqual(planner.choose_k(stops_requested=5, time_budget_min=None, settings=default, relevant_count=80), 5)
+        self.assertEqual(planner.choose_k(stops_requested=None, time_budget_min=10, settings=default, relevant_count=80), 4)
         self.assertEqual(planner.choose_k(stops_requested=2, time_budget_min=None, settings=self.settings), 3)
         self.assertEqual(planner.choose_k(stops_requested=15, time_budget_min=None, settings=self.settings), 10)
         # por omissão o teto é 50: «uma hora» dá 24 paragens, 60 pedidas ficam em 50

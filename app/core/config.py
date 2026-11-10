@@ -498,7 +498,9 @@ class Settings(BaseSettings):
     ROUTE_WEIGHT_ATTRIBUTES: float = 1.0  # listas fechadas do VLM/catálogo que batem nas facetas
     ROUTE_MIN_FUSION_SCORE: float = 0.012 # ≈ um ramo de peso 1 na posição 20; abaixo não é «relevante»
     ROUTE_MIN_CANDIDATES: int = 3         # menos do que isto -> route: null e explicação
-    ROUTE_DEFAULT_STOPS: int = 6
+    ROUTE_DEFAULT_STOPS: int = 8          # sem número nem duração: mínimo do k por omissão
+    ROUTE_DEFAULT_FRACTION: float = 0.6   # … k = round(candidatos relevantes × fração), entre DEFAULT_STOPS e DEFAULT_MAX_STOPS
+    ROUTE_DEFAULT_MAX_STOPS: int = 20
     ROUTE_MIN_STOPS: int = 3
     ROUTE_MAX_STOPS: int = 50             # teto; há menos quando o tema não dá para tantas
     ROUTE_MINUTES_PER_STOP: float = 2.5

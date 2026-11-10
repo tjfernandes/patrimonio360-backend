@@ -53,7 +53,9 @@ def _settings(chat: Any) -> Any:
 def _planner_settings(chat: Any) -> planner.PlannerSettings:
     s = _settings(chat)
     return planner.PlannerSettings(
-        default_stops=int(getattr(s, "ROUTE_DEFAULT_STOPS", 6)),
+        default_stops=int(getattr(s, "ROUTE_DEFAULT_STOPS", 8)),
+        default_fraction=float(getattr(s, "ROUTE_DEFAULT_FRACTION", 0.6)),
+        default_max_stops=int(getattr(s, "ROUTE_DEFAULT_MAX_STOPS", 20)),
         min_stops=int(getattr(s, "ROUTE_MIN_STOPS", 3)),
         max_stops=int(getattr(s, "ROUTE_MAX_STOPS", 50)),
         minutes_per_stop=float(getattr(s, "ROUTE_MINUTES_PER_STOP", 2.5)),
