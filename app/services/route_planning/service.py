@@ -128,6 +128,12 @@ async def maybe_answer_route(chat: Any, payload: ChatMessageRequest, *, status_c
     """Resposta de percurso se o pedido o for (metadata.intent ou regras); senão None."""
     metadata = payload.metadata if isinstance(payload.metadata, dict) else {}
     explicit = str(metadata.get("intent") or "").strip().lower() == "plan_route"
+    describing = isinstance(metadata.get("route_stop"), dict) or str(metadata.get("intent") or "").strip().lower() == "describe_artifact"
+    if describing and not explicit:
+        # «Ver na tour» de uma paragem: o frontend pode reenviar o texto do pedido original
+        # («Faz um percurso com…»); isso é a narração da paragem, não um percurso novo
+        log_event(logger, logging.INFO, "route.skip.describe_metadata", has_route_stop=isinstance(metadata.get("route_stop"), dict), intent=metadata.get("intent"))
+        return None
     if not explicit and not is_route_request(payload.message or ""):
         return None
     return await answer_route(chat, payload, status_cb=status_cb, reason="metadata_intent" if explicit else "rules")
@@ -552,14 +558,14 @@ async def adjust_route(chat: Any, *, route_id: str, action: str, room: str | Non
 # --------------------------------------------------------------------------- #
 
 
-def route_stop_prompt_builder(chat: Any, *, metadata: dict[str, Any] | None, selected: dict[str, Any] | None, language: str | None, museum_name: str | None) -> Callable[[str], str] | None:
-    """Construtor do prompt da paragem para `_answer_describe_artifact`, se o pedido vier com metadata.route_stop."""
+def _route_stop_entry(chat: Any, metadata: dict[str, Any] | None) -> tuple[Any, list[dict[str, Any]], dict[str, Any] | None, int | None]:
+    """(percurso guardado, paragens, paragem pedida, índice) a partir de metadata.route_stop; (None, [], None, None) se não houver."""
     route_stop = (metadata or {}).get("route_stop")
     if not isinstance(route_stop, dict):
-        return None
+        return None, [], None, None
     stored = _store(chat).get(str(route_stop.get("route_id") or ""))
     if stored is None or not stored.plan:
-        return None
+        return None, [], None, None
     stops = stored.plan.get("stops") or []
     index = route_stop.get("stop_index")
     stop = None
@@ -568,7 +574,38 @@ def route_stop_prompt_builder(chat: Any, *, metadata: dict[str, Any] | None, sel
     if stop is None and route_stop.get("stop_id"):
         stop = next((s for s in stops if s.get("stop_id") == route_stop.get("stop_id")), None)
         index = stops.index(stop) if stop else None
-    if stop is None:
+    return stored, stops, stop, (index if isinstance(index, int) else None)
+
+
+def selected_from_route_stop(chat: Any, metadata: dict[str, Any] | None) -> dict[str, str | None] | None:
+    """A peça principal da paragem em metadata.route_stop, no formato de `selected_artifact`.
+
+    O frontend pode chegar à narração só com route_stop (sem intent nem selected_artifact,
+    e com o texto da pergunta original): o backend resolve a peça pelo percurso guardado
+    em vez de tratar a mensagem como um pedido novo."""
+    stored, _stops, stop, _index = _route_stop_entry(chat, metadata)
+    if stored is None or stop is None:
+        return None
+    artifact = stop.get("artifact") or {}
+    artifact_id = str(artifact.get("artifact_id") or "").strip()
+    if not artifact_id:
+        return None
+    return {
+        "artifact_id": artifact_id,
+        "inventory_number": artifact.get("inventory_number"),
+        "title": artifact.get("title"),
+        "source_query_id": None,
+        "source": "route_stop",
+        "museum_id": stored.museum_id,
+        "museum_slug": stored.museum_slug,
+        "museum_name": stored.museum_name,
+    }
+
+
+def route_stop_prompt_builder(chat: Any, *, metadata: dict[str, Any] | None, selected: dict[str, Any] | None, language: str | None, museum_name: str | None) -> Callable[[str], str] | None:
+    """Construtor do prompt da paragem para `_answer_describe_artifact`, se o pedido vier com metadata.route_stop."""
+    stored, stops, stop, index = _route_stop_entry(chat, metadata)
+    if stored is None or stop is None:
         return None
     # a peça narrada pode ser um foco secundário da paragem: look_for só se for a principal
     selected_id = str((selected or {}).get("artifact_id") or "")
@@ -662,6 +699,6 @@ async def _log_planned(chat: Any, *, payload: ChatMessageRequest, conversation_i
 
 
 __all__ = [
-    "adjust_route", "answer_route", "get_stored_route", "interpret_theme", "log_route_stop_narrated", "maybe_answer_route",
+    "adjust_route", "answer_route", "get_stored_route", "interpret_theme", "log_route_stop_narrated", "maybe_answer_route", "selected_from_route_stop",
     "navigation_target_for", "plan_route", "route_stop_prompt_builder",
 ]

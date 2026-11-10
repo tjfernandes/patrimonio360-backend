@@ -522,6 +522,34 @@ class TestService(_Base):
         self.assertEqual(len(narrated), 1)
         self.assertEqual(narrated[0]["stop_index"], 1)
 
+    def test_route_stop_without_selected_artifact_narrates_instead_of_replanning(self) -> None:
+        # o frontend reenviou o texto do pedido original só com metadata.route_stop (caso real de 10/11):
+        # tem de sair a narração da paragem, não um segundo percurso
+        from tests.test_tour_location import _WordingLLM
+
+        llm = _WordingLLM("Repare neste painel…")
+        service = self._route_service(llm=llm, CHAT_DESCRIBE_ARTIFACT_INTENT=True, ROUTE_THEME_LLM=False)
+        response = asyncio.run(service.handle_message(self._request("Faz-me um percurso sobre azul-cobalto", tour_location={"panorama_key": "p1"})))
+        assert response.route is not None
+        first = response.route.stops[0]
+        metadata = {"session_id": "s1", "route_stop": {"route_id": response.route.route_id, "stop_index": 0, "stop_id": first.stop_id}}
+        answer = asyncio.run(service.handle_message(self._request("Faz-me um percurso sobre azul-cobalto", metadata=metadata)))
+        self.assertIsNone(answer.route)
+        # a peça «a» não existe no gateway falso, por isso a resposta é a de «ficha não encontrada»
+        # do fluxo describe_artifact — o que importa é que não foi planeado um segundo percurso
+        self.assertIn("ficha", answer.reply)
+        planned = [e for e in service.query_logger.events if e.get("event_type") == "route_planned"]
+        self.assertEqual(len(planned), 1)
+        narrated = [e for e in service.query_logger.events if e.get("event_type") == "route_stop_narrated"]
+        self.assertEqual(len(narrated), 1)
+
+    def test_route_request_text_with_describe_intent_is_not_replanned(self) -> None:
+        service = self._route_service(CHAT_DESCRIBE_ARTIFACT_INTENT=True)
+        metadata = {"session_id": "s1", "intent": "describe_artifact", "selected_artifact": {"artifact_id": "a", "inventory_number": "A", "title": "Peça a"}}
+        from app.services.route_planning import service as route_service
+        result = asyncio.run(route_service.maybe_answer_route(service, self._request("Faz-me um percurso sobre azul-cobalto", metadata=metadata)))
+        self.assertIsNone(result)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2990,6 +2990,17 @@ class ChatService:
         # decidir nem a pesquisar. Antes da libertação automática, que veria
         # «Sapatos (par)/Feminino (4270)» como uma pesquisa nova.
         route_planning = bool(getattr(self.settings, "CHAT_ROUTE_PLANNING", False))
+        if route_planning and isinstance((metadata or {}).get("route_stop"), dict) and (
+            not selected or self._metadata_intent(metadata) != "describe_artifact"
+        ):
+            # Paragem de um percurso sem selected_artifact/intent (o frontend chegou só com
+            # route_stop e o texto do pedido original): a peça vem do percurso guardado.
+            from app.services.route_planning.service import selected_from_route_stop
+
+            resolved = selected_from_route_stop(self, metadata)
+            if resolved is not None:
+                selected = resolved
+                metadata = {**(metadata or {}), "intent": "describe_artifact"}
         if (
             selected
             and bool(getattr(self.settings, "CHAT_DESCRIBE_ARTIFACT_INTENT", False))
