@@ -72,6 +72,16 @@ class TestTokenBudgets(unittest.TestCase):
         self.assertEqual(fake.payloads[0]["max_tokens"], 200)
         self.assertEqual(fake.payloads[1]["max_tokens"], 450)
 
+    def test_per_call_budget_overrides_format_budget(self) -> None:
+        # chamadas com JSON longo (tema dos percursos) pedem o seu próprio orçamento;
+        # sem o argumento fica o do formato, como sempre
+        fake = _FakeCompletions(_completion('{"a": 1}'))
+        service = _service(fake, LLM_MAX_TOKENS_JSON=200)
+        asyncio.run(service.generate(message="x", response_format=ResponseFormatObject(type="json_object"), max_tokens=600))
+        asyncio.run(service.generate(message="x", response_format=ResponseFormatObject(type="json_object")))
+        asyncio.run(service.generate(message="x", response_format=ResponseFormatObject(type="json_object"), max_tokens=0))
+        self.assertEqual([p["max_tokens"] for p in fake.payloads], [600, 200, 200])
+
     def test_global_budget_is_fallback(self) -> None:
         fake = _FakeCompletions(_completion("ok"))
         service = _service(fake, LLM_MAX_TOKENS=300)

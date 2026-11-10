@@ -1,0 +1,53 @@
+{
+ "museum_slug": "mnt",
+ "generated_at": "2026-11-09T11:52:58+00:00",
+ "thresholds": {
+  "objects_min_score": 0.7,
+  "objects_min_score_no_vlm": 0.8,
+  "objects_file_has_vlm": false
+ },
+ "records": 398,
+ "pieces": 174,
+ "pieces_with_catalogue": 162,
+ "pieces_with_photo": 161,
+ "pieces_without_photo": 13,
+ "pieces_from_hotspots": 105,
+ "pieces_only_objects": 69,
+ "pieces_with_dates": 162,
+ "national_treasures": 0,
+ "objects_seen": 426,
+ "objects_kept": 318,
+ "panoramas_with_stops": 73,
+ "panoramas_unknown": [],
+ "rooms": {
+  "Sala do Arco": 36,
+  "Salão Nobre": 25,
+  "Sala da Música": 25,
+  "Sala Cantonal": 21,
+  "Sala das Bandeiras": 15,
+  "Sala 1910-1918": 12,
+  "Hall": 10,
+  "Sala 1920-1930": 10,
+  "Sala Chinoiserie": 7,
+  "Sala Vitrine": 4,
+  "Loja": 3,
+  "Entrada": 2,
+  "Sala do Arco 1930-1970": 2,
+  "Jardim": 2
+ },
+ "unresolved_inventories": {
+  "hotspot MNT 29227": 2,
+  "hotspot MNT 29226": 2,
+  "hotspot 38848": 1,
+  "hotspot 38727": 1,
+  "hotspot 38458": 1,
+  "hotspot 38538": 1,
+  "hotspot 32487": 1,
+  "hotspot 20025": 1,
+  "hotspot 26738": 1,
+  "hotspot 28519": 1,
+  "hotspot 38072": 1,
+  "hotspot 6376": 1
+ },
+ "inventory_collisions": {}
+}

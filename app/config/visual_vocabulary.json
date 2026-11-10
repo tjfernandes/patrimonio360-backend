@@ -1,0 +1,119 @@
+{
+  "_descricao": "Vocabulário visual fechado (percursos temáticos, Fase 1). O VLM (tools/percursos/enriquecer_paragens.py) só pode responder com estes valores, em português e em minúsculas; o que vier de fora é descartado e contado em `errors`. As cores dizem o que se vê; os pigmentos (`pigment_hints`) são pistas que só se afirmam quando a ficha ou a técnica as suportam («azul-cobalto» não é uma cor, é um pigmento). `lay_keywords` são os termos leigos que o planeador reconhece, cada um com os atributos visuais que o justificam: a passagem B escolhe-os daqui, nunca inventa. Pensado para as seis coleções: azulejos (MNAz), pintura, escultura, ourivesaria, mobiliário e têxteis (MNAA), traje (MNT), escultura, pintura e cerâmica (MNSR), porcelana e pintura (CMAG), arquitetura e túmulos (MJ).",
+  "colors": [
+    "branco", "preto", "cinzento", "azul", "azul-claro", "azul-escuro", "verde", "verde-claro", "verde-escuro",
+    "amarelo", "ocre", "laranja", "vermelho", "bordô", "rosa", "roxo", "violeta", "castanho", "bege", "creme",
+    "dourado", "prateado", "cobre", "bronze", "transparente", "policromo", "monocromo", "sépia", "turquesa", "marfim"
+  ],
+  "pigment_hints": [
+    "azul-cobalto", "azul-de-esmalte", "roxo-de-manganês", "manganês", "verde-de-cobre", "vermelho-de-ferro",
+    "amarelo-de-antimónio", "ouro", "prata", "folha-de-ouro", "lápis-lazúli", "vermelhão", "azurite", "malaquite",
+    "carmim", "negro-de-fumo", "branco-de-chumbo", "índigo", "púrpura"
+  ],
+  "motifs": [
+    "vegetalista", "floral", "flores", "folhagem", "acanto", "enrolamentos", "grotesco", "ferronnerie", "geométrico",
+    "xadrez", "losangos", "estrelas", "laçaria", "entrelaçado", "albarrada", "cesto de flores", "fruta", "concheado",
+    "rocaille", "volutas", "cartela", "medalhão", "grinalda", "festão", "fita", "laço", "pluma", "cornucópia",
+    "coluna", "arcada", "arquitetura", "paisagem", "marinha", "céu", "nuvens", "água", "árvores", "jardim",
+    "cena de caça", "cena de batalha", "cena galante", "cena pastoril", "cena de corte", "cena doméstica",
+    "cena religiosa", "cena mitológica", "cena histórica", "procissão", "danças", "música", "natureza-morta",
+    "retrato", "figura humana", "figura feminina", "figura masculina", "criança", "anjo", "querubim", "santo",
+    "animais", "pássaros", "peixes", "dragão", "fénix", "leão", "cavalo", "monograma", "brasão", "heráldica",
+    "inscrição", "letras", "números", "padrão repetitivo", "tapete", "moldura", "cercadura", "friso", "pontas de diamante",
+    "chinoiserie", "exótico", "navio", "caravela", "esfera armilar", "cruz", "cruz de cristo", "cordas", "nós"
+  ],
+  "iconography": [
+    "religiosa", "cristo", "crucificação", "virgem maria", "virgem com o menino", "sagrada família", "natividade",
+    "adoração dos magos", "anunciação", "assunção", "santo", "santa", "apóstolo", "evangelista", "anjos", "cena bíblica",
+    "antigo testamento", "novo testamento", "mitológica", "deuses", "alegoria", "virtudes", "estações do ano",
+    "continentes", "elementos", "retrato real", "retrato de corte", "retrato de nobre", "retrato burguês", "autorretrato",
+    "profana", "quotidiano", "trabalho", "festa", "caça", "guerra", "navegação", "descobrimentos", "oriente",
+    "exótica", "paisagem", "vista de cidade", "monumento", "heráldica", "funerária", "túmulo", "memória", "amor",
+    "casamento", "infância", "morte", "vaidade", "natureza", "fauna", "flora", "sem iconografia"
+  ],
+  "style_period_visual": [
+    "românico", "gótico", "manuelino", "mudéjar", "hispano-mourisco", "renascentista", "maneirista", "barroco",
+    "rococó", "neoclássico", "pombalino", "d. maria", "império", "romântico", "revivalista", "arte nova", "arte déco",
+    "modernista", "contemporâneo", "oriental", "chinês", "japonês", "indo-português", "luso-oriental", "africano",
+    "flamengo", "italiano", "holandês", "espanhol", "francês", "inglês", "popular", "académico", "naturalista",
+    "impressionista", "abstrato", "século xv", "século xvi", "século xvii", "século xviii", "século xix", "século xx"
+  ],
+  "materials_visual": [
+    "cerâmica", "faiança", "porcelana", "terracota", "grés", "vidro", "cristal", "madeira", "madeira dourada",
+    "madeira policromada", "madeira exótica", "pedra", "mármore", "calcário", "granito", "alabastro", "gesso",
+    "estuque", "metal", "ouro", "prata", "prata dourada", "bronze", "latão", "cobre", "ferro", "estanho", "chumbo",
+    "marfim", "osso", "madrepérola", "tartaruga", "coral", "pedras preciosas", "esmalte", "tecido", "seda",
+    "veludo", "brocado", "linho", "algodão", "lã", "renda", "bordado", "fio metálico", "couro", "pele", "pergaminho",
+    "papel", "tela", "cartão", "laca", "palhinha", "pluma", "corda", "plástico", "misto"
+  ],
+  "techniques_visual": [
+    "pintura a óleo", "têmpera", "aguarela", "fresco", "pintura sobre madeira", "pintura sobre tela", "pintura sobre cobre",
+    "desenho", "gravura", "iluminura", "escultura em vulto", "relevo", "baixo-relevo", "alto-relevo", "talha",
+    "talha dourada", "entalhe", "marchetaria", "embutidos", "torneado", "ourivesaria", "filigrana", "cinzelado",
+    "repuxado", "fundição", "gravado", "esmaltado", "cravejado", "azulejaria", "pintura sob vidrado", "vidrado estanífero",
+    "azulejo de padrão", "azulejo figurativo", "azulejo de aresta", "corda-seca", "majólica", "porcelana pintada",
+    "pintura sobre vidrado", "decoração a ouro", "modelado", "moldado", "tecelagem", "tapeçaria", "bordado a fio de ouro",
+    "bordado a fio de seda", "renda de bilros", "costura", "aplicação", "plissado", "estampado", "tingido", "lacado",
+    "dourado", "prateado", "policromia", "monocromia", "cantaria", "arquitetura", "mosaico", "vitral"
+  ],
+  "scale_class": ["miniatura", "mão", "mesa", "corpo", "móvel", "parede", "monumental", "arquitetura"],
+  "animals": [
+    "cão", "gato", "cavalo", "touro", "vaca", "boi", "cabra", "ovelha", "porco", "veado", "javali", "coelho", "lebre",
+    "leão", "tigre", "leopardo", "elefante", "camelo", "macaco", "urso", "lobo", "raposa", "rato", "pássaro", "pomba",
+    "águia", "pavão", "galo", "galinha", "pato", "cisne", "garça", "papagaio", "coruja", "peixe", "golfinho", "baleia",
+    "serpente", "dragão", "fénix", "grifo", "unicórnio", "borboleta", "inseto", "caracol", "cavalo-marinho", "tartaruga", "sapo"
+  ],
+  "condition_visible": ["bom estado", "desgaste", "lacunas", "fraturas", "restauro visível", "escurecimento", "manchas", "sem avaliação"],
+  "in_situ": {
+    "lighting": ["natural", "natural lateral", "artificial", "artificial dirigida", "fraca", "forte", "mista", "contraluz"],
+    "visibility": ["boa", "parcial", "atrás de vidro", "ao fundo", "de lado", "em altura", "no chão", "má"]
+  },
+  "lay_keywords": [
+    {"term": "azul e branco", "colors": ["azul", "branco"], "note": "cores dominantes azul e branco, típico dos azulejos e da porcelana"},
+    {"term": "azulejos antigos", "materials_visual": ["cerâmica", "faiança"], "techniques_visual": ["azulejaria", "azulejo de padrão", "azulejo figurativo", "azulejo de aresta", "corda-seca"], "style_period_visual": ["século xv", "século xvi", "século xvii", "século xviii", "manuelino", "hispano-mourisco", "mudéjar"]},
+    {"term": "azulejos de padrão", "techniques_visual": ["azulejo de padrão"], "motifs": ["padrão repetitivo", "geométrico", "tapete"]},
+    {"term": "azulejos com figuras", "techniques_visual": ["azulejo figurativo"], "motifs": ["figura humana", "cena religiosa", "cena galante", "cena de caça"]},
+    {"term": "dourado", "colors": ["dourado"], "materials_visual": ["ouro", "prata dourada", "madeira dourada"], "techniques_visual": ["talha dourada", "dourado", "decoração a ouro", "bordado a fio de ouro"]},
+    {"term": "prateado", "colors": ["prateado"], "materials_visual": ["prata"], "techniques_visual": ["ourivesaria", "prateado"]},
+    {"term": "colorido", "colors": ["policromo"]},
+    {"term": "a preto e branco", "colors": ["monocromo", "preto", "branco"]},
+    {"term": "com animais", "motifs": ["animais", "pássaros", "peixes", "leão", "cavalo", "dragão"], "iconography": ["fauna", "caça"]},
+    {"term": "com pássaros", "motifs": ["pássaros"]},
+    {"term": "com figuras", "motifs": ["figura humana", "figura feminina", "figura masculina", "retrato"]},
+    {"term": "com crianças", "motifs": ["criança", "querubim", "anjo"], "iconography": ["infância"]},
+    {"term": "retratos", "motifs": ["retrato"], "iconography": ["retrato real", "retrato de corte", "retrato de nobre", "retrato burguês", "autorretrato"]},
+    {"term": "paisagem", "motifs": ["paisagem", "marinha", "árvores", "jardim"], "iconography": ["paisagem", "vista de cidade"]},
+    {"term": "flores", "motifs": ["floral", "flores", "albarrada", "cesto de flores", "grinalda"], "iconography": ["flora"]},
+    {"term": "religioso", "motifs": ["cena religiosa", "santo", "anjo", "cruz"], "iconography": ["religiosa", "cristo", "virgem maria", "santo", "santa", "cena bíblica"]},
+    {"term": "mitologia", "motifs": ["cena mitológica"], "iconography": ["mitológica", "deuses", "alegoria"]},
+    {"term": "cenas de caça", "motifs": ["cena de caça"], "iconography": ["caça"]},
+    {"term": "barcos", "motifs": ["navio", "caravela", "marinha"], "iconography": ["navegação", "descobrimentos"]},
+    {"term": "oriental", "motifs": ["chinoiserie", "exótico", "dragão", "fénix"], "style_period_visual": ["oriental", "chinês", "japonês", "indo-português", "luso-oriental"]},
+    {"term": "geométrico", "motifs": ["geométrico", "xadrez", "losangos", "estrelas", "laçaria", "entrelaçado"]},
+    {"term": "com inscrições", "motifs": ["inscrição", "letras", "monograma", "brasão"]},
+    {"term": "brasões", "motifs": ["brasão", "heráldica"], "iconography": ["heráldica"]},
+    {"term": "madeira", "materials_visual": ["madeira", "madeira dourada", "madeira policromada", "madeira exótica"]},
+    {"term": "pedra", "materials_visual": ["pedra", "mármore", "calcário", "granito", "alabastro"]},
+    {"term": "porcelana", "materials_visual": ["porcelana"], "techniques_visual": ["porcelana pintada"]},
+    {"term": "cerâmica", "materials_visual": ["cerâmica", "faiança", "terracota", "grés"]},
+    {"term": "vidro", "materials_visual": ["vidro", "cristal"]},
+    {"term": "tecidos", "materials_visual": ["tecido", "seda", "veludo", "brocado", "linho", "algodão", "lã", "renda", "bordado"]},
+    {"term": "bordados", "materials_visual": ["bordado", "fio metálico"], "techniques_visual": ["bordado a fio de ouro", "bordado a fio de seda"]},
+    {"term": "rendas", "materials_visual": ["renda"], "techniques_visual": ["renda de bilros"]},
+    {"term": "joias", "materials_visual": ["ouro", "prata", "pedras preciosas", "esmalte"], "techniques_visual": ["ourivesaria", "filigrana", "cravejado"]},
+    {"term": "esculturas", "techniques_visual": ["escultura em vulto", "relevo", "baixo-relevo", "alto-relevo", "talha"]},
+    {"term": "pinturas", "techniques_visual": ["pintura a óleo", "têmpera", "pintura sobre madeira", "pintura sobre tela", "pintura sobre cobre", "fresco"]},
+    {"term": "móveis", "scale_class": ["móvel"], "materials_visual": ["madeira", "madeira exótica"], "techniques_visual": ["marchetaria", "embutidos", "torneado", "entalhe"]},
+    {"term": "peças grandes", "scale_class": ["parede", "monumental", "arquitetura"]},
+    {"term": "peças pequenas", "scale_class": ["miniatura", "mão"]},
+    {"term": "túmulos", "iconography": ["funerária", "túmulo", "memória"], "techniques_visual": ["cantaria", "relevo"]},
+    {"term": "manuelino", "style_period_visual": ["manuelino"], "motifs": ["cordas", "nós", "esfera armilar", "cruz de cristo"]},
+    {"term": "barroco", "style_period_visual": ["barroco", "rococó"], "motifs": ["rocaille", "volutas", "concheado", "acanto"]},
+    {"term": "medieval", "style_period_visual": ["românico", "gótico", "manuelino", "século xv"]},
+    {"term": "renascimento", "style_period_visual": ["renascentista", "maneirista", "século xvi"]},
+    {"term": "século xx", "style_period_visual": ["século xx", "arte nova", "arte déco", "modernista", "contemporâneo"]},
+    {"term": "trajes", "materials_visual": ["tecido", "seda", "veludo", "linho", "algodão", "lã", "renda"], "scale_class": ["corpo"]},
+    {"term": "chapéus e acessórios", "scale_class": ["mão"], "materials_visual": ["pluma", "pele", "couro", "palhinha"]},
+    {"term": "em mau estado", "condition_visible": ["desgaste", "lacunas", "fraturas", "escurecimento", "manchas"]}
+  ]
+}

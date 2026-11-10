@@ -1,0 +1,45 @@
+{
+ "museum_slug": "mnaz",
+ "generated_at": "2026-11-09T11:53:00+00:00",
+ "thresholds": {
+  "objects_min_score": 0.7,
+  "objects_min_score_no_vlm": 0.8,
+  "objects_file_has_vlm": false
+ },
+ "records": 252,
+ "pieces": 156,
+ "pieces_with_catalogue": 156,
+ "pieces_with_photo": 156,
+ "pieces_without_photo": 0,
+ "pieces_from_hotspots": 62,
+ "pieces_only_objects": 94,
+ "pieces_with_dates": 155,
+ "national_treasures": 0,
+ "objects_seen": 282,
+ "objects_kept": 221,
+ "panoramas_with_stops": 64,
+ "panoramas_unknown": [],
+ "rooms": {
+  "Exposição - Século XVI": 29,
+  "Exposição - Século XVIII": 26,
+  "Exposição - Século XX": 24,
+  "Exposição - Século XVII": 18,
+  "Exposição - Séc XVIII": 17,
+  "Exposição - Século XIX": 15,
+  "Claustrim - Piso 2": 8,
+  "Grande Panorama de Lisboa": 5,
+  "Receção": 4,
+  "Claustro": 3,
+  "Sala do Capítulo": 2,
+  "Restaurante": 1,
+  "Igreja": 1,
+  "Claustrim": 1,
+  "Claustro - Piso 2": 1,
+  "Exposição Temporária - Piso 2": 1
+ },
+ "unresolved_inventories": {},
+ "inventory_collisions": {
+  "mnaz2271az": 2,
+  "mnaz6345az": 2
+ }
+}

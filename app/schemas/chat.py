@@ -423,6 +423,54 @@ class ChatSearchScope(BaseModel):
     is_cross_museum: bool = False
 
 
+# ----- Percursos temáticos (CHAT_ROUTE_PLANNING; app/services/route_planning) ----- #
+
+
+class RouteFacet(BaseModel):
+    kind: str
+    label: str
+
+
+class RouteTheme(BaseModel):
+    text: str
+    facets: list[RouteFacet] = Field(default_factory=list)
+
+
+class RouteStopFocus(BaseModel):
+    """Outra peça relevante no mesmo panorama da paragem (foco secundário)."""
+
+    artifact_id: str
+    inventory_number: str | None = None
+    title: str | None = None
+    navigation_target: TourNavigationTarget | None = None
+    why: list[str] = Field(default_factory=list)
+
+
+class RouteStop(BaseModel):
+    order: int
+    stop_id: str
+    artifact: ArtifactResult
+    navigation_target: TourNavigationTarget
+    room: str | None = None
+    why: list[str] = Field(default_factory=list)
+    look_for: list[str] = Field(default_factory=list)
+    transition: str | None = None
+    also_here: list[RouteStopFocus] = Field(default_factory=list)
+    score: float | None = None
+
+
+class RoutePlan(BaseModel):
+    route_id: str
+    title: str
+    intro: str
+    theme: RouteTheme
+    estimated_minutes: int
+    stops: list[RouteStop] = Field(default_factory=list)
+    museum_slug: str
+    candidate_count: int = 0
+    start_panorama_key: str | None = None
+
+
 class TourRoomPiece(BaseModel):
     """Peça assinalada numa zona da visita (lista que abre por baixo da zona)."""
 
@@ -485,6 +533,9 @@ class ChatMessageResponse(BaseModel):
     # «Apontar e perguntar»: o mesmo objeto do último evento SSE `point` (stage
     # decided, com candidates), para quem não usa stream.
     point: dict[str, Any] | None = None
+    # Percurso temático planeado (CHAT_ROUTE_PLANNING): o widget mostra o cartão
+    # do percurso em vez dos artifact_results. None = resposta normal.
+    route: RoutePlan | None = None
 
 
 class ChatResultsPageResponse(BaseModel):

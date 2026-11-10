@@ -1,0 +1,48 @@
+{
+ "museum_slug": "mnaa",
+ "generated_at": "2026-11-09T11:53:03+00:00",
+ "thresholds": {
+  "objects_min_score": 0.7,
+  "objects_min_score_no_vlm": 0.8,
+  "objects_file_has_vlm": true
+ },
+ "records": 2719,
+ "pieces": 760,
+ "pieces_with_catalogue": 758,
+ "pieces_with_photo": 758,
+ "pieces_without_photo": 2,
+ "pieces_from_hotspots": 48,
+ "pieces_only_objects": 712,
+ "pieces_with_dates": 753,
+ "national_treasures": 34,
+ "objects_seen": 3313,
+ "objects_kept": 2711,
+ "panoramas_with_stops": 372,
+ "panoramas_unknown": [],
+ "rooms": {
+  "Pintura e Escultura Portuguesas": 217,
+  "Pintura Europeia": 133,
+  "Mobiliário Português": 110,
+  "Arte da Expansão": 76,
+  "Cerâmica": 64,
+  "Ourivesaria": 59,
+  "Artes Decorativas Europeias": 35,
+  "Têxteis": 14,
+  "Capela das Albertas": 10,
+  "Piso 1": 10,
+  "Piso 2": 9,
+  "Sala dos Presépios": 6,
+  "Sala Patiño": 5,
+  "Hall - Corredor Loja": 4,
+  "Bilheteira - R. das Janelas Verdes": 3,
+  "Piso 2 - Escadaria": 2,
+  "Entrada - Corredor Mobiliário": 1,
+  "Jardim": 1,
+  "Auditório": 1
+ },
+ "unresolved_inventories": {
+  "hotspot MNAA": 1,
+  "hotspot Inv": 1
+ },
+ "inventory_collisions": {}
+}
