@@ -28,7 +28,7 @@ from app.services.route_planning.graph import TourGraph
 class PlannerSettings:
     default_stops: int = 6
     min_stops: int = 3
-    max_stops: int = 10
+    max_stops: int = 50
     minutes_per_stop: float = 2.5
     min_fusion_score: float = 0.012
     min_candidates: int = 3
@@ -139,7 +139,8 @@ def _distance(graph: TourGraph | None, a: str | None, b: str) -> float:
 
 
 def order_stops(stops: list[PlannedStop], *, graph: TourGraph | None, start_panorama: str | None) -> list[PlannedStop]:
-    """Caminho hamiltoniano mínimo (em saltos) a partir do visitante; exato até 10 paragens."""
+    """Caminho hamiltoniano mínimo (em saltos) a partir do visitante; exato até 10 paragens,
+    acima disso vizinho mais próximo afinado por 2-opt."""
     n = len(stops)
     if n <= 1:
         return list(stops)
@@ -151,7 +152,7 @@ def order_stops(stops: list[PlannedStop], *, graph: TourGraph | None, start_pano
         # sem grafo: pela ordem da visita (playlist)
         return sorted(stops, key=lambda s: (s.candidate.get("playlist_index") is None, s.candidate.get("playlist_index") or 0))
     if n > 10:
-        order = _nearest_neighbour(dist, from_start)
+        order = _two_opt(_nearest_neighbour(dist, from_start), dist, from_start)
     else:
         order = _held_karp(dist, from_start)
     return [stops[i] for i in order]
@@ -167,6 +168,29 @@ def _nearest_neighbour(dist: list[list[float]], from_start: list[float]) -> list
         order.append(current)
         left.remove(current)
     return order
+
+
+def _path_cost(order: list[int], dist: list[list[float]], from_start: list[float]) -> float:
+    return from_start[order[0]] + sum(dist[a][b] for a, b in zip(order, order[1:]))
+
+
+def _two_opt(order: list[int], dist: list[list[float]], from_start: list[float], *, max_rounds: int = 50) -> list[int]:
+    """Inverte troços enquanto encurtar o caminho (aberto, a começar no visitante).
+    Determinístico; para 50 paragens são ~1200 inversões por ronda."""
+    best = list(order)
+    best_cost = _path_cost(best, dist, from_start)
+    n = len(best)
+    for _ in range(max_rounds):
+        improved = False
+        for i in range(n - 1):
+            for j in range(i + 1, n):
+                candidate = best[:i] + best[i:j + 1][::-1] + best[j + 1:]
+                cost = _path_cost(candidate, dist, from_start)
+                if cost + 1e-9 < best_cost:
+                    best, best_cost, improved = candidate, cost, True
+        if not improved:
+            break
+    return best
 
 
 def _held_karp(dist: list[list[float]], from_start: list[float]) -> list[int]:

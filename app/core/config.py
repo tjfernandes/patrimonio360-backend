@@ -489,8 +489,8 @@ class Settings(BaseSettings):
     ROUTE_STOPS_INDEX: str = "cultural_heritage_tour_stops_v1"   # paragens enriquecidas (indexer)
     ROUTE_THEME_LLM: bool = True          # o LLM completa as facetas que as regras não apanharam (JSON)
     ROUTE_THEME_MAX_TOKENS: int = 600     # o JSON do tema não cabe nos LLM_MAX_TOKENS_JSON do chat (200 cortava-o)
-    ROUTE_CANDIDATES: int = 40            # candidatos depois da fusão
-    ROUTE_BRANCH_SIZE: int = 40           # resultados pedidos a cada ramo
+    ROUTE_CANDIDATES: int = 120           # candidatos depois da fusão (chega para 50 paragens + focos)
+    ROUTE_BRANCH_SIZE: int = 120          # resultados pedidos a cada ramo
     ROUTE_RRF_K: int = 60
     ROUTE_WEIGHT_LEXICAL: float = 1.0     # BM25 em enriched_text + descrição
     ROUTE_WEIGHT_SEMANTIC: float = 1.0    # kNN em enriched_embedding
@@ -500,7 +500,7 @@ class Settings(BaseSettings):
     ROUTE_MIN_CANDIDATES: int = 3         # menos do que isto -> route: null e explicação
     ROUTE_DEFAULT_STOPS: int = 6
     ROUTE_MIN_STOPS: int = 3
-    ROUTE_MAX_STOPS: int = 10
+    ROUTE_MAX_STOPS: int = 50             # teto; há menos quando o tema não dá para tantas
     ROUTE_MINUTES_PER_STOP: float = 2.5
     ROUTE_YEAR_TOLERANCE: int = 25        # folga dos filtros duros de século/ano
     ROUTE_DIVERSITY_WEIGHT: float = 0.35  # bónus por sala/categoria/século novos na escolha gulosa

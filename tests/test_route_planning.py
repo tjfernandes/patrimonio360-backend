@@ -246,6 +246,25 @@ class TestPlanner(unittest.TestCase):
         self.assertEqual(planner.choose_k(stops_requested=None, time_budget_min=None, settings=self.settings), 6)
         self.assertEqual(planner.choose_k(stops_requested=2, time_budget_min=None, settings=self.settings), 3)
         self.assertEqual(planner.choose_k(stops_requested=15, time_budget_min=None, settings=self.settings), 10)
+        # por omissão o teto é 50: «uma hora» dá 24 paragens, 60 pedidas ficam em 50
+        default = planner.PlannerSettings()
+        self.assertEqual(default.max_stops, 50)
+        self.assertEqual(planner.choose_k(stops_requested=None, time_budget_min=60, settings=default), 24)
+        self.assertEqual(planner.choose_k(stops_requested=60, time_budget_min=None, settings=default), 50)
+
+    def test_order_many_stops_follows_the_corridor(self) -> None:
+        # 14 panoramas em linha (q0…q13): com mais de 10 paragens a ordem vem do vizinho
+        # mais próximo + 2-opt e tem de ser a do corredor, a partir do visitante em q0
+        keys = [f"q{i}" for i in range(14)]
+        graph = TourGraph({
+            "museum_slug": "mnt",
+            "nodes": [{"panorama_key": k, "playlist_index": i, "room": "Corredor"} for i, k in enumerate(keys)],
+            "edges": [e for a, b in zip(keys, keys[1:]) for e in ({"source": a, "target": b, "kinds": ["adjacent"]}, {"source": b, "target": a, "kinds": ["adjacent"]})],
+        })
+        shuffled = [keys[i] for i in (7, 2, 11, 0, 13, 5, 9, 1, 12, 4, 8, 3, 10, 6)]
+        stops = [planner.PlannedStop(candidate={"artifact_id": k, "panorama_key": k, "playlist_index": int(k[1:])}) for k in shuffled]
+        ordered = planner.order_stops(stops, graph=graph, start_panorama="q0")
+        self.assertEqual([s.panorama_key for s in ordered], keys)
         self.assertEqual(planner.choose_k(stops_requested=None, time_budget_min=20, settings=self.settings), 8)
 
     def test_plan_orders_by_shortest_path_and_groups_panorama(self) -> None:

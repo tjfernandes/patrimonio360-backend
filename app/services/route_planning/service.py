@@ -55,7 +55,7 @@ def _planner_settings(chat: Any) -> planner.PlannerSettings:
     return planner.PlannerSettings(
         default_stops=int(getattr(s, "ROUTE_DEFAULT_STOPS", 6)),
         min_stops=int(getattr(s, "ROUTE_MIN_STOPS", 3)),
-        max_stops=int(getattr(s, "ROUTE_MAX_STOPS", 10)),
+        max_stops=int(getattr(s, "ROUTE_MAX_STOPS", 50)),
         minutes_per_stop=float(getattr(s, "ROUTE_MINUTES_PER_STOP", 2.5)),
         min_fusion_score=float(getattr(s, "ROUTE_MIN_FUSION_SCORE", 0.012)),
         min_candidates=int(getattr(s, "ROUTE_MIN_CANDIDATES", 3)),
@@ -267,8 +267,8 @@ async def plan_route(
         candidates, diagnostics = await find_candidates(
             search=search, facets=facets, museum_slug=museum_slug, museum_id=museum_id, theme_text=theme_text,
             embed_text=embed_text, embed_image_text=embed_image_text, weights=weights,
-            rrf_k=int(getattr(s, "ROUTE_RRF_K", 60)), branch_size=int(getattr(s, "ROUTE_BRANCH_SIZE", 40)),
-            year_tolerance=int(getattr(s, "ROUTE_YEAR_TOLERANCE", 25)), limit=int(getattr(s, "ROUTE_CANDIDATES", 40)), room=room,
+            rrf_k=int(getattr(s, "ROUTE_RRF_K", 60)), branch_size=int(getattr(s, "ROUTE_BRANCH_SIZE", 120)),
+            year_tolerance=int(getattr(s, "ROUTE_YEAR_TOLERANCE", 25)), limit=int(getattr(s, "ROUTE_CANDIDATES", 120)), room=room,
         )
         info["latency_ms"]["candidates"] = round((time.monotonic() - t0) * 1000, 1)
         info["branches"] = diagnostics.get("branches")
