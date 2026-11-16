@@ -48,6 +48,7 @@ from app.prompts.chat_prompts import (
     build_final_answer_prompt_v2,
     build_tour_context_prompt,
     card_selection_instruction,
+    build_card_preselection_prompt,
 )
 from app.prompts.query_planner_prompts import (
     FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
@@ -87,7 +88,7 @@ from app.services.chat_session_store import (
     get_chat_session_store,
 )
 from app.services.chat_i18n import normalize_language, translate
-from app.services.llm_service import LLMService, LLMServiceError, get_llm_service
+from app.services.llm_service import LLMService, LLMServiceError, get_llm_service, get_preprocess_llm_service
 from app.services.opensearch_client import OpenSearchGateway, get_opensearch_gateway
 from app.services.model_retrieval import ModelRetrievalService, get_model_retrieval_service
 from app.services.query_logger import QueryLogger, get_query_logger, utc_timestamp
@@ -667,6 +668,7 @@ class ChatService:
         query_logger: QueryLogger | None = None,
         reranker_service: Any | None = None,
         vl_reranker_service: Any | None = None,
+        preprocess_llm_service: LLMService | None = None,
     ) -> None:
         self.settings = settings
         self.opensearch_gateway = opensearch_gateway
@@ -674,6 +676,7 @@ class ChatService:
         self.model_retrieval_service = model_retrieval_service
         self.tour_navigation_service = tour_navigation_service
         self.llm_service = llm_service
+        self._preprocess_llm_service = preprocess_llm_service
         self.session_store = session_store
         self.query_logger = query_logger or get_query_logger()
         self._reranker_service = reranker_service
@@ -4190,6 +4193,35 @@ class ChatService:
         results_request_id = str(
             state.last_paged_retrieval_request.get("results_request_id") or ""
         ).strip() or None
+        retrieval_kind_for_log = str(retrieval_request.get("kind") or "")
+        # O modelo de pré-processamento escolhe os cartões que correspondem ao
+        # pedido antes de a resposta ser escrita: a AMÁLIA só vê esses, e o
+        # texto e os cartões ficam a falar das mesmas peças.
+        preselection: dict[str, Any] | None = None
+        if (
+            bool(getattr(self.settings, "CHAT_PRESELECT_CARDS", False))
+            and requested_format.type == "text"
+            and retrieval_kind_for_log != "anchored_similarity"
+            and results_page <= 1
+            and len(paged_artifact_results) > 1
+            and not self._is_treasure_list_request(retrieval_request)
+        ):
+            (
+                paged_artifact_results,
+                paged_image_matches,
+                paged_navigation_targets,
+                preselection,
+            ) = await self._preselect_cards(
+                user_message=str(router_decision.get("rewritten_query") or "").strip() or original_message,
+                language=language,
+                artifact_results=paged_artifact_results,
+                image_matches=paged_image_matches,
+                navigation_targets=paged_navigation_targets,
+            )
+            log_event(
+                logger, logging.INFO, "chat.card_preselection",
+                conversation_id=conversation_id, query_id=query_id, **preselection,
+            )
         visible_retrieval_context = self._build_visible_results_retrieval_context(
             artifact_results=paged_artifact_results,
             image_matches=[],
@@ -4199,7 +4231,6 @@ class ChatService:
             prefer_artifact_results=True,
             include_image_matches_section=False,
         )
-        retrieval_kind_for_log = str(retrieval_request.get("kind") or "")
         retrieval_mode_for_log = (
             retrieval_kind_for_log
             if retrieval_kind_for_log in {"selected_artifact", "anchored_similarity"}
@@ -4280,6 +4311,8 @@ class ChatService:
             and len(paged_artifact_results) > 1
             # numa lista fechada (Tesouros Nacionais) todos os cartões correspondem
             and not self._is_treasure_list_request(retrieval_request)
+            # com os cartões já escolhidos pelo pré-processamento, a AMÁLIA só escreve
+            and not (preselection is not None and preselection.get("rule") == "preselect")
         )
 
         def build_text_final_message_for_result_count(result_count: int) -> str:
@@ -4464,7 +4497,7 @@ class ChatService:
             query_id=query_id,
             user_message=original_message,
         )
-        card_selection: dict[str, Any] | None = None
+        card_selection: dict[str, Any] | None = preselection
         if select_cards:
             (
                 paged_artifact_results,
@@ -6975,11 +7008,12 @@ class ChatService:
             language=state.language,
         )
 
-        router_response = await self.llm_service.generate(
+        router_response = await self.preprocess_llm_service.generate(
             message=router_prompt,
             response_format=ResponseFormatObject(type="json_object"),
             system_prompt=get_router_system_prompt(language=state.language),
-            model_override=payload.model_override,
+            # o model_override do pedido é do LLM principal; não serve noutro servidor
+            model_override=payload.model_override if self.preprocess_llm_service is self.llm_service else None,
         )
 
         parsed = router_response.parsed_json
@@ -8002,7 +8036,7 @@ class ChatService:
             return TemporalQuery(None, None, None, None)
 
         try:
-            response = await self.llm_service.generate(
+            response = await self.preprocess_llm_service.generate(
                 message=self._build_temporal_interpretation_prompt(text),
                 response_format=ResponseFormatObject(type="json_object"),
                 system_prompt=(
@@ -8265,7 +8299,7 @@ class ChatService:
             previous_user_messages=previous_user_messages,
         )
         try:
-            response = await self.llm_service.generate(
+            response = await self.preprocess_llm_service.generate(
                 message=prompt,
                 response_format=ResponseFormatObject(type="json_object"),
                 system_prompt=FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
@@ -8297,7 +8331,7 @@ class ChatService:
             sort=dict(sort),
         )
         try:
-            response = await self.llm_service.generate(
+            response = await self.preprocess_llm_service.generate(
                 message=prompt,
                 response_format=ResponseFormatObject(type="json_object"),
                 system_prompt=RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
@@ -8668,6 +8702,7 @@ class ChatService:
         return "\n".join(snippets)
 
     _COMPACT_CARD_DESCRIPTION_CHARS = 280
+    _COMPACT_CARD_PROVENANCE_CHARS = 160
 
     def _format_docs_compact(
         self,
@@ -8679,7 +8714,11 @@ class ChatService:
 
         Um bloco por cartão, rotulado [doc_N] como o formato histórico, com os
         campos que um visitante pergunta: título, inventário, categoria, data,
-        materiais/técnica, autor, descrição truncada e se está na visita.
+        materiais/técnica, autor, descrição truncada, proveniência e se está
+        na visita. A proveniência (campo «incorporation») é o que distingue
+        peças com o mesmo título quando o visitante usa o nome corrente:
+        a «Custódia de Belém» é uma de seis fichas «Custódia», e só a
+        incorporação diz que veio do Mosteiro de Belém (2026-11-16).
         Nada de artifact_id, image_paths, sets/exhibitions ids ou search_text.
         `description_chars` alarga a descrição quando o cartão é um só
         (apresentação de uma peça).
@@ -8718,6 +8757,9 @@ class ChatService:
                     date = str(start)
             description = truncate(text(doc.get("description")))
             production = text(doc.get("production_center"))
+            provenance = text(doc.get("incorporation"))
+            if len(provenance) > self._COMPACT_CARD_PROVENANCE_CHARS:
+                provenance = provenance[: self._COMPACT_CARD_PROVENANCE_CHARS].rstrip(" ,;:") + "…"
             in_tour = doc.get("in_tour")
             museum = text(doc.get("museum"))
 
@@ -8739,6 +8781,8 @@ class ChatService:
             lines.append("    " + " | ".join(facts))
             if description:
                 lines.append(f"    Descrição: {description}")
+            if provenance:
+                lines.append(f"    Proveniência: {provenance}")
             if isinstance(in_tour, bool):
                 lines.append(f"    Na visita virtual: {'sim' if in_tour else 'não'}")
             if bool(getattr(self.settings, "CHAT_NATIONAL_TREASURES", False)) and self._doc_is_national_treasure(doc):
@@ -9927,6 +9971,83 @@ class ChatService:
 
     # ----- O modelo escolhe os cartões (CHAT_MODEL_SELECTS_CARDS) ----- #
 
+    @property
+    def preprocess_llm_service(self) -> Any:
+        """O LLM das chamadas JSON antes da resposta (router, datas,
+        seguimento, reescrita, tema dos percursos, escolha dos cartões). Por
+        omissão é o LLM principal; com CHAT_PREPROCESS_LLM_ENABLED é o Qwen e
+        a AMÁLIA só escreve o texto final."""
+        return getattr(self, "_preprocess_llm_service", None) or self.llm_service
+
+    @preprocess_llm_service.setter
+    def preprocess_llm_service(self, value: Any) -> None:
+        self._preprocess_llm_service = value
+
+    async def _preselect_cards(
+        self,
+        *,
+        user_message: str,
+        language: str | None,
+        artifact_results: list[ArtifactResult],
+        image_matches: list[ImageMatchResult],
+        navigation_targets: list[TourNavigationTarget],
+    ) -> tuple[list[ArtifactResult], list[ImageMatchResult], list[TourNavigationTarget], dict[str, Any]]:
+        """Pede ao modelo de pré-processamento os cartões que correspondem ao
+        pedido (CHAT_PRESELECT_CARDS) e reduz os resultados a esses, pela ordem
+        da pesquisa.
+
+        O relatório traz `rule`: «preselect» quando a escolha valeu (mesmo que
+        sejam todos os cartões) e «preselect_failed» quando não há resposta
+        utilizável (erro, tempo esgotado, JSON sem rótulos válidos ou lista
+        vazia); nesse caso nada muda e o fluxo antigo decide.
+        """
+        report: dict[str, Any] = {"rule": "preselect_failed", "shown_before": len(artifact_results)}
+        cards_context = self._format_docs_compact(docs=self._artifact_results_as_prompt_docs(artifact_results))
+        prompt = build_card_preselection_prompt(cards_context=cards_context, user_message=user_message, language=language)
+        started_at = time.monotonic()
+        try:
+            response = await asyncio.wait_for(
+                self.preprocess_llm_service.generate(
+                    message=prompt, response_format=ResponseFormatObject(type="json_object"), max_tokens=120,
+                ),
+                timeout=float(getattr(self.settings, "CHAT_PRESELECT_CARDS_TIMEOUT_SECONDS", 4.0) or 4.0),
+            )
+        except Exception as exc:  # noqa: BLE001 — sem escolha fica o fluxo antigo
+            report["error"] = type(exc).__name__
+            report["elapsed_ms"] = round((time.monotonic() - started_at) * 1000, 1)
+            return artifact_results, image_matches, navigation_targets, report
+        report["elapsed_ms"] = round((time.monotonic() - started_at) * 1000, 1)
+        report["endpoint"] = getattr(response, "endpoint", None)
+        parsed = getattr(response, "parsed_json", None)
+        labels = parsed.get("cartoes") if isinstance(parsed, dict) else None
+        if not isinstance(labels, list):
+            report["error"] = "sem lista de cartões"
+            return artifact_results, image_matches, navigation_targets, report
+        indices: list[int] = []
+        for label in labels:
+            match = re.search(r"(\d{1,3})", str(label))
+            index = int(match.group(1)) if match else 0
+            if 1 <= index <= len(artifact_results) and index not in indices:
+                indices.append(index)
+        report["model_cards"] = indices
+        if not indices:
+            # «nenhum corresponde»: a decisão de como o dizer fica com a resposta final
+            return artifact_results, image_matches, navigation_targets, report
+        chosen = {artifact_results[index - 1].artifact_id for index in indices}
+        artifacts = [artifact for artifact in artifact_results if artifact.artifact_id in chosen]
+
+        def norm(value: str | None) -> str:
+            return str(value or "").strip().casefold()
+
+        inventories = {norm(artifact.inventory_number) for artifact in artifacts if norm(artifact.inventory_number)}
+        images = [
+            match for match in image_matches
+            if str(match.artifact_id or "").strip() in chosen or norm(match.inventory) in inventories
+        ]
+        targets = [target for target in navigation_targets if norm(target.inventory_id) in inventories]
+        report.update(rule="preselect", shown_after=len(artifacts))
+        return artifacts, images, targets, report
+
     @staticmethod
     def _split_card_selection(text: str) -> tuple[str, list[int] | None]:
         """Retira o bloco «[[cartões: …]]» da resposta.
@@ -10856,4 +10977,5 @@ def get_chat_service() -> ChatService:
         llm_service=get_llm_service(),
         session_store=get_chat_session_store(),
         query_logger=get_query_logger(),
+        preprocess_llm_service=get_preprocess_llm_service(),
     )

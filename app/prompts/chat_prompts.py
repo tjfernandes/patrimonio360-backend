@@ -314,6 +314,34 @@ _NATIONAL_TREASURE_RULE_EN = (
 )
 
 
+# Escolha dos cartões antes da resposta (CHAT_PRESELECT_CARDS), pelo modelo de
+# pré-processamento. Redação medida a 2026-11-16; uma variante que pedia
+# primeiro a «pista» distintiva baixou o Qwen de 39/42 para 17/42.
+_CARD_PRESELECTION_PT = (
+    "És o pré-processador de um guia de museu. Abaixo estão os cartões das peças que a pesquisa devolveu para o "
+    "pedido de um visitante.\n\n"
+    "CARTÕES:\n{cards}\n\nPEDIDO DO VISITANTE: {message}\n\n"
+    "Indica os cartões que correspondem ao que o visitante pede. Se pede uma peça concreta (pelo nome por que é "
+    "conhecida, autor, proveniência ou n.º de inventário), devolve só essa. Se o pedido é genérico, devolve todos "
+    "os que correspondem. Usa apenas os factos dos cartões. "
+    'Responde só com JSON: {{"cartoes": ["doc_N", ...]}}'
+)
+_CARD_PRESELECTION_EN = (
+    "You are the pre-processor of a museum guide. Below are the cards of the objects the search returned for a "
+    "visitor's request.\n\n"
+    "CARDS:\n{cards}\n\nVISITOR'S REQUEST: {message}\n\n"
+    "State which cards match what the visitor asks for. If they ask for one specific object (by the name it is "
+    "known by, maker, provenance or inventory number), return only that one. If the request is generic, return "
+    "every card that matches. Use only the facts in the cards. "
+    'Reply with JSON only: {{"cartoes": ["doc_N", ...]}}'
+)
+
+
+def build_card_preselection_prompt(*, cards_context: str, user_message: str, language: str | None = None) -> str:
+    template = _CARD_PRESELECTION_EN if _normalize_language(language) == "en" else _CARD_PRESELECTION_PT
+    return template.format(cards=cards_context, message=(user_message or "").strip())
+
+
 def card_selection_instruction(language: str | None = None) -> str:
     """Instrução do bloco final «[[cartões: …]]», acrescentada ao prompt final."""
     return _CARD_SELECTION_INSTRUCTION_EN if _normalize_language(language) == "en" else _CARD_SELECTION_INSTRUCTION_PT

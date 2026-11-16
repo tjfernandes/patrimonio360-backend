@@ -204,7 +204,8 @@ async def interpret_theme(chat: Any, message: str, *, museum_name: str | None, l
     facets = rule_facets(message, vocabulary=vocabulary)
     if not bool(getattr(_settings(chat), "ROUTE_THEME_LLM", True)):
         return facets
-    llm = getattr(chat, "llm_service", None)
+    # interpretar o tema é pré-processamento (JSON): vai ao modelo de pré-processamento
+    llm = getattr(chat, "preprocess_llm_service", None) or getattr(chat, "llm_service", None)
     if llm is None:
         return facets
     if (facets.has_visual() or facets.is_temporal() or facets.national_treasure) and not unexplained_words(message, vocabulary=vocabulary):

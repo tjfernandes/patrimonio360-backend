@@ -66,6 +66,24 @@ class Settings(BaseSettings):
     # ou n.º de inventário mostra só as peças que correspondem («egito» ≈
     # «Egipto»), sem «ver mais». Sem bloco, os cartões ficam como hoje.
     CHAT_MODEL_SELECTS_CARDS: bool = False
+    # Pré-processamento num segundo modelo (2026-11-16): com a flag ligada, todas
+    # as chamadas JSON antes da resposta (router, datas, seguimento, reescrita da
+    # pesquisa, tema dos percursos, escolha dos cartões) vão ao modelo de
+    # CHAT_PREPROCESS_LLM_* (o Qwen3-VL-8B do deploy/vlm/amalia_vlm.sh) e a AMÁLIA
+    # (LLM_*) só escreve o texto final. Se esse servidor recusar a ligação, o
+    # mesmo pedido vai à AMÁLIA, como antes.
+    CHAT_PREPROCESS_LLM_ENABLED: bool = False
+    CHAT_PREPROCESS_LLM_BASE_URL: str = "http://127.0.0.1:8005/v1"
+    CHAT_PREPROCESS_LLM_MODEL: str = "Qwen/Qwen3-VL-8B-Instruct-FP8"
+    CHAT_PREPROCESS_LLM_API_KEY: str = ""
+    CHAT_PREPROCESS_LLM_TIMEOUT_SECONDS: float = 20.0
+    # O modelo de pré-processamento escolhe, antes da resposta, os cartões que
+    # correspondem ao pedido; a AMÁLIA só vê esses e deixa de escrever o bloco
+    # «[[cartões: …]]» (CHAT_MODEL_SELECTS_CARDS fica como recurso quando a
+    # escolha falha). Medido a 2026-11-16 com as 8 fichas da «Custódia de Belém»:
+    # 39/42 certos, contra 20–27/48 do bloco da AMÁLIA.
+    CHAT_PRESELECT_CARDS: bool = False
+    CHAT_PRESELECT_CARDS_TIMEOUT_SECONDS: float = 4.0
     # Fichas iguais do mesmo conjunto («Botões (dez)», 38195/1 a 38195/10: título e
     # descrição iguais, só o n.º muda) juntam-se num cartão, o da ficha mais bem
     # posicionada (ou a que está na visita), com group_size e os n.ºs das outras.

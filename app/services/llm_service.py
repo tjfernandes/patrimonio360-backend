@@ -490,3 +490,30 @@ def _strip_fenced_block(value: str) -> str:
 @lru_cache(maxsize=1)
 def get_llm_service() -> LLMService:
     return LLMService(get_settings())
+
+
+def preprocess_llm_settings(settings: Settings) -> Settings:
+    """As definições do serviço de pré-processamento: o primário passa a ser o
+    modelo de CHAT_PREPROCESS_LLM_* e a reserva o LLM principal (a AMÁLIA), para
+    que um servidor em baixo não pare o chat."""
+    return settings.model_copy(
+        update={
+            "LLM_BASE_URL": settings.CHAT_PREPROCESS_LLM_BASE_URL,
+            "LLM_MODEL": settings.CHAT_PREPROCESS_LLM_MODEL,
+            "LLM_API_KEY": settings.CHAT_PREPROCESS_LLM_API_KEY,
+            "LLM_TIMEOUT_SECONDS": settings.CHAT_PREPROCESS_LLM_TIMEOUT_SECONDS,
+            "LLM_FALLBACK_BASE_URL": settings.llm_base_url_resolved,
+            "LLM_FALLBACK_MODEL": settings.llm_model_resolved,
+            "LLM_FALLBACK_API_KEY": settings.LLM_API_KEY,
+        }
+    )
+
+
+@lru_cache(maxsize=1)
+def get_preprocess_llm_service() -> LLMService:
+    """O LLM das chamadas de pré-processamento (JSON). Com
+    CHAT_PREPROCESS_LLM_ENABLED desligada é o próprio LLM principal."""
+    settings = get_settings()
+    if not bool(getattr(settings, "CHAT_PREPROCESS_LLM_ENABLED", False)):
+        return get_llm_service()
+    return LLMService(preprocess_llm_settings(settings))
