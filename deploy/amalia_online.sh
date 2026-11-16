@@ -11,12 +11,18 @@
 #   • o autossh morreu (reinício do Windows, WSL desligado, rede).
 # O LLM local não é um elo crítico: se estiver em baixo, o backend usa a API
 # remota (LLM_FALLBACK_BASE_URL) até o supervisor o voltar a pôr de pé.
+# O modelo de visão do «apontar» (vLLM, 127.0.0.1:8005, deploy/vlm/amalia_vlm.sh)
+# também não: só é arrancado e vigiado se o .env tiver POINT_VERIFY_ENABLED=true,
+# e sem ele o apontar decide só pelo cosseno.
 #
 #   deploy/amalia_online.sh            verifica e repara o que estiver em baixo
 #   deploy/amalia_online.sh --status   só diagnostica, não mexe
 #   deploy/amalia_online.sh --vigiar   fica a vigiar e repara sozinho (Ctrl+C sai)
+#   … --sem-vlm                        (com qualquer dos modos) não arranca nem
+#                                      vigia o modelo de visão; se já estiver a
+#                                      correr, fica como está
 #
-# Para desligar tudo (vigilante, túnel, backend e vLLM): deploy/amalia_offline.sh
+# Para desligar tudo (vigilante, túnel, backend, LLM e VLM): deploy/amalia_offline.sh
 #
 # Para arrancar com o Windows: Agendador de Tarefas → nova tarefa → «Ao iniciar
 # sessão» → Programa: wsl.exe
@@ -36,6 +42,7 @@ LOG_BACKEND="$HOME/.amalia_backend.log"
 # tarefa agendada sem o conda ativado): sem isto o arranque falhava em silêncio.
 UVICORN_BIN="$(command -v uvicorn 2>/dev/null || echo "$HOME/miniconda3/envs/visitas_virtuais/bin/uvicorn")"
 LLM_SCRIPT="$BACKEND/deploy/llm/amalia_llm.sh"
+VLM_SCRIPT="$BACKEND/deploy/vlm/amalia_vlm.sh"
 
 verde() { printf '\033[92m%s\033[0m\n' "$1"; }
 vermelho() { printf '\033[91m%s\033[0m\n' "$1"; }
@@ -75,16 +82,32 @@ _fora_ok() {
 
 _llm_ok() { [ -x "$LLM_SCRIPT" ] && "$LLM_SCRIPT" --status > /dev/null 2>&1; }
 
+_vlm_ok() { [ -x "$VLM_SCRIPT" ] && "$VLM_SCRIPT" --status > /dev/null 2>&1; }
+# o VLM só faz falta se o backend o for usar (POINT_VERIFY_ENABLED no .env)
+vlm_pedido() {
+  [ "$SEM_VLM" = 0 ] || return 1
+  grep -qiE '^[[:space:]]*POINT_VERIFY_ENABLED[[:space:]]*=[[:space:]]*"?(true|1|yes|on)' "$BACKEND/.env" 2>/dev/null
+}
+
 backend_vivo() { tenta 3 _backend_ok; }
 tunel_vivo()   { tenta 3 _tunel_ok; }
 fora_vivo()    { tenta 3 _fora_ok; }
 llm_vivo()     { tenta 2 _llm_ok; }
+vlm_vivo()     { tenta 2 _vlm_ok; }
+vlm_em_falta() { vlm_pedido && ! vlm_vivo; }
 
 arranca_llm() {
   [ -x "$LLM_SCRIPT" ] || return 1
   amarelo "  a arrancar o LLM local (vLLM)…"
   "$LLM_SCRIPT" > /dev/null 2>&1 && return 0
   vermelho "  o LLM local não subiu — o backend usa a API remota (ver ~/.amalia_llm.log)"; return 1
+}
+
+arranca_vlm() {
+  [ -x "$VLM_SCRIPT" ] || return 1
+  amarelo "  a arrancar o modelo de visão do apontar (vLLM :8005)…"
+  "$VLM_SCRIPT" > /dev/null 2>&1 && return 0
+  vermelho "  o modelo de visão não subiu — o apontar decide só pelo cosseno (ver ~/.amalia_vlm.log)"; return 1
 }
 
 arranca_backend() {
@@ -124,6 +147,10 @@ arranca_tunel() {
 estado() {
   local p; p=$(porto_backend)
   if llm_vivo;     then verde "  LLM local ok (vLLM 127.0.0.1:8004)"; else amarelo "  LLM local EM BAIXO — respostas pela API remota"; fi
+  if [ "$SEM_VLM" = 1 ]; then echo "  VLM       ignorado (--sem-vlm)"
+  elif ! vlm_pedido; then echo "  VLM       não pedido (POINT_VERIFY_ENABLED desligado no .env)"
+  elif vlm_vivo;    then verde "  VLM       ok (vLLM 127.0.0.1:8005, apontar)"
+  else amarelo "  VLM       EM BAIXO — o apontar decide só pelo cosseno"; fi
   if backend_vivo; then verde "  backend   ok (porto $p)"; else vermelho "  backend   EM BAIXO"; fi
   if tunel_vivo;  then verde "  túnel     ok (VPS:$PORTO_VPS → local:$p)"; else vermelho "  túnel     EM BAIXO"; fi
   if fora_vivo;   then verde "  de fora   ok — os participantes conseguem usar"; else vermelho "  de fora   EM BAIXO"; fi
@@ -132,6 +159,14 @@ estado() {
 repara() {
   # não bloqueia: sem LLM local o backend responde pela API remota
   llm_vivo || arranca_llm || true
+  repara_cadeia; local rc=$?
+  # depois do LLM (que reserva uma fatia da GPU e conta com ela livre) e sem
+  # atrasar a cadeia crítica; também não bloqueia
+  if vlm_em_falta; then arranca_vlm || true; fi
+  return $rc
+}
+
+repara_cadeia() {
   backend_vivo || arranca_backend || return 1
   tunel_vivo   || arranca_tunel   || return 1
   fora_vivo && return 0
@@ -140,7 +175,17 @@ repara() {
   arranca_tunel && fora_vivo
 }
 
-case "${1:---reparar}" in
+SEM_VLM=0
+MODO="--reparar"
+for arg in "$@"; do
+  case "$arg" in
+    --sem-vlm) SEM_VLM=1 ;;
+    --status|--vigiar|--reparar) MODO="$arg" ;;
+    *) vermelho "opção desconhecida: $arg (--status, --vigiar, --sem-vlm)"; exit 2 ;;
+  esac
+done
+
+case "$MODO" in
   --status)
     echo "estado em $(date '+%H:%M:%S'):"; estado ;;
   --vigiar)
@@ -153,12 +198,15 @@ case "${1:---reparar}" in
       elif ! llm_vivo; then
         amarelo "$(date '+%H:%M:%S') — LLM local em baixo (a usar a API remota), a arrancar"
         arranca_llm && verde "$(date '+%H:%M:%S') — LLM local reposto"
+      elif vlm_em_falta; then
+        amarelo "$(date '+%H:%M:%S') — modelo de visão em baixo (apontar só pelo cosseno), a arrancar"
+        arranca_vlm && verde "$(date '+%H:%M:%S') — modelo de visão reposto"
       fi
       sleep 60
     done ;;
   *)
     echo "verificação em $(date '+%H:%M:%S'):"; estado
-    if fora_vivo && llm_vivo; then verde "\nEstá tudo de pé — nada a fazer."; else
+    if fora_vivo && llm_vivo && ! vlm_em_falta; then verde "\nEstá tudo de pé — nada a fazer."; else
       echo; repara && { verde "Reposto:"; estado; } || { vermelho "Falhou:"; estado; exit 1; }
     fi ;;
 esac

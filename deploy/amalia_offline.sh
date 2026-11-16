@@ -8,14 +8,19 @@
 #      um 502 do nginx (que o browser mostra como erro de CORS);
 #   3. o uvicorn da porta 8001, e com ele o SAM 3, os embedders e o ditado,
 #      que vivem dentro do processo;
-#   4. o LLM local (vLLM na 8004), pelo deploy/llm/amalia_llm.sh --stop.
+#   4. o LLM local (vLLM na 8004), pelo deploy/llm/amalia_llm.sh --stop;
+#   5. o modelo de visão do apontar (vLLM na 8005), pelo deploy/vlm/amalia_vlm.sh --stop.
 #
-# Não mexe no nginx do VPS, num modelo de visão na 8005 (que o amalia_online.sh
-# não arranca) nem em instâncias de teste noutros portos: lista-os no fim.
+# Não mexe no nginx do VPS nem em instâncias de teste noutros portos: lista-as
+# no fim.
 #
 #   deploy/amalia_offline.sh                desliga tudo
-#   deploy/amalia_offline.sh --manter-llm   desliga tudo menos o vLLM (para um
-#                                           reinício rápido do backend)
+#   deploy/amalia_offline.sh --manter-llm   desliga tudo menos os dois vLLM (LLM
+#                                           e modelo de visão), para um reinício
+#                                           rápido do backend
+#   deploy/amalia_offline.sh --manter-vlm   desliga tudo menos o modelo de visão
+#                                           (p. ex. para as ferramentas offline
+#                                           de tools/apontar e tools/percursos)
 #   deploy/amalia_offline.sh --simular      só mostra o que pararia
 #
 # Para voltar a ligar: deploy/amalia_online.sh
@@ -25,6 +30,7 @@
 set -u
 BACKEND="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 LLM_SCRIPT="$BACKEND/deploy/llm/amalia_llm.sh"
+VLM_SCRIPT="$BACKEND/deploy/vlm/amalia_vlm.sh"
 PORTO_BACKEND=8001
 PORTO_VPS=8001
 PADRAO_VIGILANTE="amalia_online\.sh"
@@ -39,12 +45,14 @@ vermelho() { printf '\033[91m%s\033[0m\n' "$1"; }
 amarelo()  { printf '\033[93m%s\033[0m\n' "$1"; }
 
 MANTER_LLM=0
+MANTER_VLM=0
 SIMULAR=0
 for arg in "$@"; do
   case "$arg" in
-    --manter-llm) MANTER_LLM=1 ;;
+    --manter-llm) MANTER_LLM=1; MANTER_VLM=1 ;;
+    --manter-vlm) MANTER_VLM=1 ;;
     --simular)    SIMULAR=1 ;;
-    -h|--help)    sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)    sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) vermelho "opção desconhecida: $arg (ver --help)"; exit 2 ;;
   esac
 done
@@ -104,7 +112,7 @@ para "backend (uvicorn :$PORTO_BACKEND)" "$PADRAO_BACKEND" 30 || falhas=$((falha
 if [ "$MANTER_LLM" = 1 ]; then
   echo "  LLM local: mantido (--manter-llm)"
 elif [ "$SIMULAR" = 1 ]; then
-  para "LLM local (vLLM :8004)" "$PADRAO_LLM" 0
+  para "LLM local (vLLM :8004)" "$PADRAO_LLM.*--port 8004" 0
 elif [ -x "$LLM_SCRIPT" ]; then
   "$LLM_SCRIPT" --stop | sed 's/^/  LLM local: /'
   # o --stop só procura o modelo e o porto por omissão; confirma que não ficou nenhum vLLM
@@ -115,7 +123,21 @@ else
   para "LLM local (vLLM :8004)" "$PADRAO_LLM.*--port 8004" 20 || falhas=$((falhas + 1))
 fi
 
-# o que fica de pé (instâncias de teste, o VLM da 8005, o vLLM com --manter-llm), só para informação
+if [ "$MANTER_VLM" = 1 ]; then
+  echo "  modelo de visão: mantido"
+elif [ "$SIMULAR" = 1 ]; then
+  para "modelo de visão (vLLM :8005)" "$PADRAO_LLM.*--port 8005" 0
+elif [ -x "$VLM_SCRIPT" ]; then
+  "$VLM_SCRIPT" --stop | sed 's/^/  modelo de visão: /'
+  # o --stop só procura o modelo e o porto por omissão; confirma que não ficou nenhum vLLM na 8005
+  if [ -n "$(pids "$PADRAO_LLM.*--port 8005")" ]; then
+    para "modelo de visão (vLLM :8005)" "$PADRAO_LLM.*--port 8005" 20 || falhas=$((falhas + 1))
+  fi
+else
+  para "modelo de visão (vLLM :8005)" "$PADRAO_LLM.*--port 8005" 20 || falhas=$((falhas + 1))
+fi
+
+# o que fica de pé (instâncias de teste, os vLLM mantidos com --manter-llm/--manter-vlm), só para informação
 outros=$(pids "uvicorn app\.main:app"; pids "$PADRAO_LLM")
 if [ -n "$outros" ] && [ "$SIMULAR" = 0 ]; then
   echo "  continuam a correr:"; mostra "$outros"
@@ -126,7 +148,8 @@ if [ "$SIMULAR" = 0 ] && command -v nvidia-smi > /dev/null; then
 fi
 
 if [ "$SIMULAR" = 1 ]; then
-  sufixo=""; [ "$MANTER_LLM" = 1 ] && sufixo=" --manter-llm"
+  sufixo=""
+  if [ "$MANTER_LLM" = 1 ]; then sufixo=" --manter-llm"; elif [ "$MANTER_VLM" = 1 ]; then sufixo=" --manter-vlm"; fi
   echo; echo "para desligar mesmo: deploy/amalia_offline.sh$sufixo"
 elif [ "$falhas" = 0 ]; then
   echo; verde "A Amália está desligada. Para voltar: deploy/amalia_online.sh"
