@@ -285,6 +285,36 @@ _SELECTED_CARDS_SENTENCE_EN = (
     "Only the cards you list at the end of the answer stay visible in the interface; you may say how many "
     "objects really match the request. "
 )
+# Pesquisa sem cartões (CHAT_NO_CARDS_ANSWER_PROMPT): substitui as instruções de
+# pesquisa, que pedem para destacar peças que não existem. Terceira redação,
+# medida a 2026-11-16 na AMÁLIA (10 perguntas × 5 por língua, temperatura 0,4):
+#   PT: títulos inventados 0/50; afirma que o museu tem o que não encontrou 2/20
+#       (a primeira redação: 5/20); horários remetidos para o site 5/5.
+#   EN: títulos inventados 0/50; horários e preços inventados 0/5 (a primeira
+#       redação, só com as três primeiras frases e a última: 5/5).
+# Por resolver: «Are there any tiles?» continua a responder «Yes, there are» (5/5).
+# A frase do site tem de ficar condicional: sem o «nas outras respostas não fales
+# do site», a AMÁLIA remetia para o site em quase todas as respostas.
+_NO_CARDS_PT = (
+    "A pesquisa não devolveu nenhuma peça que corresponda a este pedido. Responde em uma ou duas frases: diz que não "
+    "encontraste isso no acervo deste museu e convida a procurar outra coisa. Não nomeies peças, autores, salas nem "
+    "obras, porque não tens nenhuma ficha à frente. Não sabes o que o museu tem: nunca digas que tem alguma coisa nem "
+    "que tem uma coleção disso, só que a pesquisa não encontrou. Se a pergunta for sobre horários, bilhetes ou outras "
+    "informações práticas, diz que não tens essa informação e remete para o site oficial do museu, sem dar horas nem "
+    "preços; nas outras respostas não fales do site. Se a pergunta não é sobre o museu ou o seu acervo, diz com "
+    "simpatia que só podes ajudar com a visita e as peças do museu."
+)
+_NO_CARDS_EN = (
+    "The search returned no object that matches this request. Answer in one or two sentences: say you did not find "
+    "that in this museum's collection and invite the visitor to look for something else. Do not name objects, makers, "
+    "rooms or works, because you have no record in front of you. You do not know what the museum owns: never say it "
+    "has something or that it has a collection of it, only that the search found nothing. If the question is about "
+    "opening hours, tickets or other practical information, say you do not have that information and point to the "
+    "museum's official website, without giving times or prices; in other answers do not mention the website. If the "
+    "question is not about the museum or its collection, say kindly that you can only help with the visit and the "
+    "museum's objects."
+)
+
 _FINAL_ANSWER_V2_PT_SELECT = _FINAL_ANSWER_V2_PT.replace(_VISIBLE_CARDS_SENTENCE_PT, _SELECTED_CARDS_SENTENCE_PT)
 _FINAL_ANSWER_V2_EN_SELECT = _FINAL_ANSWER_V2_EN.replace(_VISIBLE_CARDS_SENTENCE_EN, _SELECTED_CARDS_SENTENCE_EN)
 
@@ -474,6 +504,7 @@ def build_final_answer_prompt_v2(
     input_modality: str = "text",
     select_cards: bool = False,
     national_treasures: bool = False,
+    no_cards_instruction: bool = False,
 ) -> str:
     """Prompt final compacto (quick win PR-01; texto, imagem e modelo 3D).
 
@@ -484,6 +515,11 @@ def build_final_answer_prompt_v2(
 
     `select_cards` (CHAT_MODEL_SELECTS_CARDS): só os cartões que o modelo
     indicar no bloco final ficam visíveis, e o pedido do bloco fecha o prompt.
+
+    `no_cards_instruction` (CHAT_NO_CARDS_ANSWER_PROMPT): numa pesquisa de texto
+    sem nenhum cartão, o prompt fica reduzido à identidade, à instrução de «não
+    encontrei» e à pergunta. Com qualquer contexto (cartões, nota dos Tesouros
+    Nacionais, apresentação do museu) ou noutro tipo de resposta, nada muda.
     """
     resolved_language = _normalize_language(language)
     en = resolved_language == "en"
@@ -503,6 +539,15 @@ def build_final_answer_prompt_v2(
         kind = "3D model search" if en else "pesquisa por modelo 3D"
     else:
         kind = "search" if en else "pesquisa"
+
+    if no_cards_instruction and not (retrieval_context or "").strip() and kind == ("search" if en else "pesquisa"):
+        parts = template.format(museum_name=name).split("\n")[:2]  # identidade; língua e tom
+        parts.append(_NO_CARDS_EN if en else _NO_CARDS_PT)
+        parts.append(("QUESTION: " if en else "PERGUNTA: ") + (user_message or "").strip())
+        rewrite = (rewritten_query or "").strip()
+        if rewrite and rewrite.casefold() != (user_message or "").strip().casefold():
+            parts.append(("INTERPRETED REQUEST: " if en else "PEDIDO INTERPRETADO: ") + rewrite)
+        return "\n".join(parts)
 
     parts = [template.format(museum_name=name)]
     if national_treasures:

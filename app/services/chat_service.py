@@ -123,6 +123,22 @@ _TOUR_LOCATION_PATTERNS: tuple[str, ...] = (
     r"^what\s+can\s+i\s+see\s+(?:here|in\s+this\s+room|in\s+this\s+area|around\s+me)" + _TOUR_LOCATION_TAIL + r"$",
     r"^(?:which|what)\s+(?:objects|pieces|works|artifacts)\s+are\s+(?:here|in\s+this\s+room|in\s+this\s+area)" + _TOUR_LOCATION_TAIL + r"$",
 )
+# Rótulos que `_format_docs_compact` escreve nos cartões e que o modelo às vezes
+# copia para a resposta (CHAT_STRIP_CARD_LABELS).
+_CARD_LABEL = r"(?:Tesouro Nacional:\s*sim|Na visita virtual:\s*(?:sim|n[ãa]o))"
+_CARD_LABEL_PARENS_RE = re.compile(
+    rf"[ \t]*[*_]{{0,2}}[(\[]\s*{_CARD_LABEL}(?:\s*[|,;/]\s*{_CARD_LABEL})*\s*[)\]][*_]{{0,2}}", re.IGNORECASE
+)
+# O rótulo citado entre aspas: «…, conforme indicado no cartão "Na visita virtual: sim".»
+_CARD_LABEL_QUOTED_RE = re.compile(rf"[«\"“”'‘]\s*{_CARD_LABEL}\s*[»\"“”'’]", re.IGNORECASE)
+_CLAUSE_START_RE = re.compile(r"(?:[.!?…]|\n)[ \t\n]*|[,;][ \t]+|[ \t]+[–—-][ \t]+")
+_CARD_LABEL_LINE_RE = re.compile(
+    rf"(?<=\n)[ \t]*(?:[-*•–][ \t]*)?{_CARD_LABEL}(?:\s*[|,;]\s*{_CARD_LABEL})*[ \t]*\.?[ \t]*(?:\n|\Z)",
+    re.IGNORECASE,
+)
+_CARD_LABEL_INLINE_RE = re.compile(
+    rf"(?P<sep>[ \t]*[|,;–—-])?[ \t]*{_CARD_LABEL}(?P<dot>\.)?(?=[ \t]*(?:\n|\Z|[)\]])|(?<=\.)[ \t])", re.IGNORECASE
+)
 
 # Palavras que podem sobrar numa pergunta sobre uma zona da visita depois de
 # retirar o nome da zona; qualquer outra («vestidos») faz dela uma pesquisa.
@@ -361,7 +377,7 @@ def _load_search_museums() -> tuple[SearchMuseum, ...]:
             "museum_id": "mj",
             "museum_slug": "mj",
             "museum_name": "Mosteiro dos Jeronimos",
-            "aliases": ["mosteiro dos jeronimos", "jeronimos", "jeronimo", "mj"],
+            "aliases": ["mosteiro dos jeronimos", "jeronimos", "mj"],
         },
         {
             "museum_id": "mnsr",
@@ -1427,7 +1443,22 @@ class ChatService:
     def _artifact_results_as_prompt_docs(
         self,
         artifact_results: list[ArtifactResult],
+        navigation_targets: list[TourNavigationTarget] | None = None,
     ) -> list[dict[str, object]]:
+        """Fichas dos cartões para os prompts.
+
+        Com CHAT_IN_TOUR_FROM_NAVIGATION e os alvos de navegação da resposta, uma
+        peça com alvo («Ver na tour») fica com in_tour verdadeiro no prompt: o
+        campo do índice está desatualizado e o cartão dizia «Na visita virtual:
+        não» a peças para onde a visita sabe navegar. Nunca passa de sim a não.
+        """
+        navigable: set[str] = set()
+        if navigation_targets and bool(getattr(self.settings, "CHAT_IN_TOUR_FROM_NAVIGATION", False)):
+            navigable = {
+                str(target.inventory_id or "").strip().casefold()
+                for target in navigation_targets
+                if str(target.inventory_id or "").strip()
+            }
         docs: list[dict[str, object]] = []
         excluded_fields = {"images"}
         if not self.settings.CHAT_INCLUDE_ORIGIN_HISTORY_IN_LLM_CONTEXT:
@@ -1439,6 +1470,8 @@ class ChatService:
                 exclude=excluded_fields,
             )
             if payload:
+                if navigable and str(payload.get("inventory_number") or "").strip().casefold() in navigable:
+                    payload["in_tour"] = True
                 docs.append(payload)
         return docs
 
@@ -1503,8 +1536,9 @@ class ChatService:
         match_section_label: str = "visible_image_matches",
         prefer_artifact_results: bool = False,
         include_image_matches_section: bool = True,
+        navigation_targets: list[TourNavigationTarget] | None = None,
     ) -> str:
-        artifact_docs = self._artifact_results_as_prompt_docs(artifact_results)
+        artifact_docs = self._artifact_results_as_prompt_docs(artifact_results, navigation_targets=navigation_targets)
         image_docs = (
             self._image_matches_as_visible_prompt_docs(image_matches)
             if image_matches
@@ -3025,7 +3059,11 @@ class ChatService:
         # Percursos temáticos (CHAT_ROUTE_PLANNING): intenção explícita do widget
         # ou por regras («faz-me um percurso sobre…»). Antes da peça selecionada
         # e do router: o pedido não é uma pesquisa.
-        if route_planning and (payload.response_format is None or payload.response_format.type == "text"):
+        if (
+            route_planning
+            and (payload.response_format is None or payload.response_format.type == "text")
+            and not self._room_request_precedes_route(payload, metadata)
+        ):
             from app.services.route_planning.service import maybe_answer_route
 
             route_response = await maybe_answer_route(self, payload, status_cb=status_cb)
@@ -3111,6 +3149,24 @@ class ChatService:
         if stripped == (text or "") or not stripped:
             return text or ""
         return stripped[0].upper() + stripped[1:]
+
+    def _room_request_precedes_route(self, payload: ChatMessageRequest, metadata: dict[str, Any] | None) -> bool:
+        """CHAT_ROOM_BEFORE_ROUTE: o pedido é o nome completo de uma sala da visita e
+        mais nada («Leva-me à Capela das Albertas»), por isso segue para a resposta
+        das salas em vez de criar um percurso. Qualquer palavra a mais («faz um
+        percurso pela Capela das Albertas»), um nome só meio dito ou a intenção
+        explícita do widget deixam o pedido com os percursos, como hoje.
+        """
+        if not bool(getattr(self.settings, "CHAT_ROOM_BEFORE_ROUTE", False)):
+            return False
+        if not self.settings.CHAT_TOUR_LOCATION_ANSWERS or self._metadata_intent(metadata) == "plan_route":
+            return False
+        room_query = self._match_tour_room_query(
+            payload.message, museum_slug=payload.museum_slug, museum_id=self._resolve_museum_id(payload)
+        )
+        return bool(
+            room_query and room_query.get("kind") in {"room", "choices"} and room_query.get("full_match")
+        )
 
     @staticmethod
     def _metadata_intent(metadata: dict[str, Any] | None) -> str | None:
@@ -4222,6 +4278,17 @@ class ChatService:
                 logger, logging.INFO, "chat.card_preselection",
                 conversation_id=conversation_id, query_id=query_id, **preselection,
             )
+        # CHAT_PRESELECT_EMPTY_IS_NONE: o pré-processamento disse que nenhum cartão
+        # corresponde. Não se mostra nada, não há «ver mais» e a resposta escreve-se
+        # sem fichas (nem as da pesquisa, que ele acabou de rejeitar).
+        preselected_none = preselection is not None and preselection.get("rule") == "preselect_none"
+        if preselected_none:
+            results_total = 0
+            results_has_more = False
+        # CHAT_IN_TOUR_FROM_NAVIGATION: os alvos de navegação dizem o que está nesta
+        # visita; numa pesquisa noutro museu os alvos são de outra visita e não contam.
+        # Só no prompt da resposta final (a escolha dos cartões já foi feita).
+        prompt_navigation_targets = None if search_scope.is_cross_museum else paged_navigation_targets
         visible_retrieval_context = self._build_visible_results_retrieval_context(
             artifact_results=paged_artifact_results,
             image_matches=[],
@@ -4230,6 +4297,7 @@ class ChatService:
             total=results_total,
             prefer_artifact_results=True,
             include_image_matches_section=False,
+            navigation_targets=prompt_navigation_targets,
         )
         retrieval_mode_for_log = (
             retrieval_kind_for_log
@@ -4253,6 +4321,8 @@ class ChatService:
             if retrieval_kind_for_log == "anchored_similarity"
             else (visible_retrieval_context or retrieval_context)
         )
+        if preselected_none:
+            final_retrieval_context = ""
         national_treasure_info = retrieval_request.get("national_treasure")
         treasure_note = (
             self._national_treasure_note(
@@ -4324,6 +4394,7 @@ class ChatService:
                 total=results_total,
                 prefer_artifact_results=True,
                 include_image_matches_section=False,
+                navigation_targets=prompt_navigation_targets,
             )
             limited_final_retrieval_context = (
                 retrieval_context
@@ -4477,7 +4548,11 @@ class ChatService:
             duration_ms=round(llm_latency_ms, 1),
         )
 
-        reply_docs = self._artifact_results_as_prompt_docs(paged_artifact_results) or retrieved_docs
+        reply_docs = (
+            []
+            if preselected_none
+            else (self._artifact_results_as_prompt_docs(paged_artifact_results) or retrieved_docs)
+        )
         # O bloco «[[cartões: …]]» sai antes da sanitização, que trocaria os
         # rótulos [doc_N] pelos títulos.
         llm_text, model_cards = (
@@ -4534,7 +4609,8 @@ class ChatService:
         self._apply_router_decision_to_state(state=state, router_decision=router_decision)
         self._update_last_result_ids(
             state=state,
-            artifact_docs=retrieved_docs,
+            # sem cartões mostrados, «a segunda» do turno seguinte não se refere a nada
+            artifact_docs=[] if preselected_none else retrieved_docs,
             preserve_existing_when_empty=bool(router_decision.get("use_history_for_query", False)),
         )
         self.session_store.append_turn(state, role="assistant", text=final_reply_text)
@@ -6224,9 +6300,10 @@ class ChatService:
                 return None
             if not remainder:
                 candidates = match["candidates"]
+                full_match = bool(match.get("full"))
                 if len(candidates) == 1:
-                    return {"kind": "room", **candidates[0], "matched_tokens": matched}
-                return {"kind": "choices", "candidates": candidates}
+                    return {"kind": "room", **candidates[0], "matched_tokens": matched, "full_match": full_match}
+                return {"kind": "choices", "candidates": candidates, "full_match": full_match}
             # «vestidos na sala cantonal» é uma pesquisa (não cai para a lista)
             if any(t in matched for t in tokens):
                 return None
@@ -10000,8 +10077,16 @@ class ChatService:
         sejam todos os cartões) e «preselect_failed» quando não há resposta
         utilizável (erro, tempo esgotado, JSON sem rótulos válidos ou lista
         vazia); nesse caso nada muda e o fluxo antigo decide.
+
+        Com CHAT_PRESELECT_EMPTY_IS_NONE, a lista vazia («cartoes»: []) deixa
+        de ser falha: é o modelo a dizer que nenhum cartão corresponde, e o
+        relatório traz «preselect_none» com zero cartões. Rótulos que não
+        existem («doc_99») continuam a ser falha.
         """
         report: dict[str, Any] = {"rule": "preselect_failed", "shown_before": len(artifact_results)}
+        # Os cartões dados a este modelo ficam como o índice os dá, sem a correção
+        # de CHAT_IN_TOUR_FROM_NAVIGATION: a redação desta escolha é sensível e o
+        # efeito de lhe mudar a linha «Na visita virtual» não foi medido.
         cards_context = self._format_docs_compact(docs=self._artifact_results_as_prompt_docs(artifact_results))
         prompt = build_card_preselection_prompt(cards_context=cards_context, user_message=user_message, language=language)
         started_at = time.monotonic()
@@ -10031,6 +10116,10 @@ class ChatService:
                 indices.append(index)
         report["model_cards"] = indices
         if not indices:
+            if not labels and bool(getattr(self.settings, "CHAT_PRESELECT_EMPTY_IS_NONE", False)):
+                # lista vazia válida: nenhum cartão corresponde ao pedido
+                report.update(rule="preselect_none", shown_after=0)
+                return [], [], [], report
             # «nenhum corresponde»: a decisão de como o dizer fica com a resposta final
             return artifact_results, image_matches, navigation_targets, report
         chosen = {artifact_results[index - 1].artifact_id for index in indices}
@@ -10343,12 +10432,69 @@ class ChatService:
             cleaned,
             flags=re.IGNORECASE,
         )
+        if bool(getattr(self.settings, "CHAT_STRIP_CARD_LABELS", False)):
+            cleaned = self._strip_card_labels(cleaned)
         cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
         cleaned = re.sub(r" +([,.;:!?])", r"\1", cleaned)
         cleaned = self._renumber_ordered_list_markers(cleaned)
         if docs and str(getattr(self.settings, "CHAT_GROUNDING_CHECK", "off") or "off").strip().lower() == "repair":
             cleaned = self._repair_inventory_mentions(cleaned, docs=docs)
         return cleaned.strip()
+
+    @staticmethod
+    def _strip_card_labels(text: str) -> str:
+        """CHAT_STRIP_CARD_LABELS: retira os rótulos dos cartões que o modelo copia
+        à letra («(Tesouro Nacional: sim)», «Na visita virtual: não»).
+
+        São cadeias exatas que o backend escreve em `_format_docs_compact`, como
+        os marcadores [doc_N]; o modelo copia-as em cerca de 5 % das respostas.
+        Sai o rótulo entre parênteses, numa linha só dele (que não seja a
+        primeira), depois de um separador («Título — Tesouro Nacional: sim.») ou
+        como frase solta a seguir a outra. Um rótulo que faz parte de uma frase
+        («está na visita virtual: sim, na sala 3») ou que abre a resposta fica.
+        """
+        original = text or ""
+        cleaned = _CARD_LABEL_PARENS_RE.sub("", original)
+        cleaned = ChatService._strip_quoted_card_labels(cleaned)
+        cleaned = _CARD_LABEL_LINE_RE.sub("", cleaned)
+
+        def inline(match: re.Match[str]) -> str:
+            if match.group("sep"):
+                return match.group("dot") or ""
+            before = match.string[: match.start()].rstrip()
+            if before and before[-1] in ".!?:":
+                return ""
+            return match.group(0)
+
+        cleaned = _CARD_LABEL_INLINE_RE.sub(inline, cleaned)
+        return cleaned if cleaned.strip() else original
+
+    @staticmethod
+    def _strip_quoted_card_labels(text: str) -> str:
+        """Retira a oração que cita um rótulo entre aspas, a forma mais comum da fuga
+        (medido a 2026-11-16 em cerca de 250 respostas): «Confirmado pelo cartão
+        que indica "Tesouro Nacional: sim".» sai inteira; em «Estão na visita,
+        conforme indicado no cartão "Na visita virtual: sim".» sai só a oração
+        depois da vírgula. O que a frase afirmava antes fica.
+        """
+        while True:
+            match = _CARD_LABEL_QUOTED_RE.search(text)
+            if match is None:
+                return text
+            boundary = None
+            for boundary in _CLAUSE_START_RE.finditer(text, 0, match.start()):
+                pass
+            if boundary is not None and boundary.group(0).lstrip()[:1] not in {".", "!", "?", "…", ""}:
+                # a meio da frase: sai da vírgula (ou travessão) até ao fecho das aspas
+                text = text[: boundary.start()] + text[match.end():]
+                continue
+            start = boundary.end() if boundary is not None else 0
+            rest = re.sub(r"^[.!?…]*[ \t]*", "", text[match.end():])
+            if rest[:1] in {",", ";", ":"}:
+                # a frase continuava depois do rótulo: fica o resto, com maiúscula
+                rest = rest[1:].lstrip()
+                rest = rest[:1].upper() + rest[1:]
+            text = text[:start] + rest
 
     @staticmethod
     def _inventory_variant_pattern(inventory: str) -> re.Pattern[str] | None:
@@ -10716,6 +10862,7 @@ class ChatService:
                 language=state.language,
                 select_cards=select_cards,
                 national_treasures=bool(getattr(self.settings, "CHAT_NATIONAL_TREASURES", False)),
+                no_cards_instruction=bool(getattr(self.settings, "CHAT_NO_CARDS_ANSWER_PROMPT", False)),
             )
         if select_cards:
             return "\n".join(

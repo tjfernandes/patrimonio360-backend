@@ -84,6 +84,29 @@ class Settings(BaseSettings):
     # 39/42 certos, contra 20–27/48 do bloco da AMÁLIA.
     CHAT_PRESELECT_CARDS: bool = False
     CHAT_PRESELECT_CARDS_TIMEOUT_SECONDS: float = 4.0
+    # Correção da pesquisa do chat, Bloco A (docs/plano-correcao-pesquisa-mnaa.md,
+    # 2026-11-16). Cada flag é independente e, desligada, nada muda.
+    # F1: a lista vazia do modelo de pré-processamento («nenhum cartão
+    # corresponde») passa a valer: zero cartões, regra «preselect_none». Erro,
+    # tempo esgotado ou JSON sem lista válida continuam em «preselect_failed».
+    # Na corrida de 2026-11-16 a lista vazia saiu em 14 pedidos, sempre com razão.
+    CHAT_PRESELECT_EMPTY_IS_NONE: bool = False
+    # F2: numa pesquisa sem cartões a AMÁLIA recebe uma instrução curta de «não
+    # encontrei» em vez do prompt de pesquisa. Medido em 10 perguntas × 5 por
+    # língua: títulos inventados 0/50 (antes 1/40 em PT e 4/40 em EN); menções a
+    # «cartões/base de dados» 17/40 -> 5/50 em PT e 28/40 -> 5/50 em EN.
+    CHAT_NO_CARDS_ANSWER_PROMPT: bool = False
+    # F3: «Na visita virtual: sim» no cartão do prompt quando a peça tem alvo de
+    # navegação («Ver na tour»), mesmo que o in_tour do índice diga que não (no
+    # MNAA: 46 marcadas, 760 na visita). Só muda o texto dado à AMÁLIA: os cartões
+    # do pré-processamento e os devolvidos ao frontend ficam como estavam.
+    CHAT_IN_TOUR_FROM_NAVIGATION: bool = False
+    # F9: o nome completo de uma sala, sem mais nada no pedido, ganha à regra dos
+    # percursos («Leva-me à Capela das Albertas» vai à sala, não cria um percurso).
+    CHAT_ROOM_BEFORE_ROUTE: bool = False
+    # F11: retira da resposta os rótulos dos cartões copiados à letra
+    # («(Tesouro Nacional: sim)», «Na visita virtual: não»), como já se faz a [doc_N].
+    CHAT_STRIP_CARD_LABELS: bool = False
     # Fichas iguais do mesmo conjunto («Botões (dez)», 38195/1 a 38195/10: título e
     # descrição iguais, só o n.º muda) juntam-se num cartão, o da ficha mais bem
     # posicionada (ou a que está na visita), com group_size e os n.ºs das outras.
@@ -504,6 +527,10 @@ class Settings(BaseSettings):
     # Percursos temáticos gerados em conversa (2026-11-09, app/services/route_planning/).
     # Tudo atrás de CHAT_ROUTE_PLANNING: com a flag desligada nenhuma resposta muda.
     CHAT_ROUTE_PLANNING: bool = False
+    # F12 do Bloco A: os séculos e anos propostos pelo LLM do tema só entram
+    # quando o pedido fala de época (século, anos, um ano de 4 dígitos). Desligada,
+    # qualquer dígito serve e «30 minutos» deixava entrar um século inventado.
+    ROUTE_THEME_STRICT_TIME_MENTION: bool = False
     ROUTE_STOPS_INDEX: str = "cultural_heritage_tour_stops_v1"   # paragens enriquecidas (indexer)
     ROUTE_THEME_LLM: bool = True          # o LLM completa as facetas que as regras não apanharam (JSON)
     ROUTE_THEME_MAX_TOKENS: int = 600     # o JSON do tema não cabe nos LLM_MAX_TOKENS_JSON do chat (200 cortava-o)
