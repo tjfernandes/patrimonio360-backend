@@ -317,6 +317,28 @@ class QwenTextEmbedder:
             raise EmbeddingProviderError("Cannot generate embedding for empty text.")
         return self.embed_documents([cleaned])[0]
 
+    def embed_query(self, text: str) -> list[float]:
+        """A pergunta com a instrução «query» do modelo (CHAT_RETRIEVAL_QUERY_INSTRUCTION).
+        Os documentos do índice ficam como foram embebidos, sem instrução.
+        Sem essa instrução no modelo carregado, embebe-se como documento.
+        Três redações próprias da instrução foram medidas a 2026-11-17 e nenhuma
+        foi melhor do que a do modelo (docs/pesquisa-bloco-b.md).
+        """
+        cleaned = (text or "").strip()
+        if not cleaned:
+            raise EmbeddingProviderError("Cannot generate embedding for empty text.")
+        if "query" not in (getattr(self.model, "prompts", None) or {}):
+            return self.embed_documents([cleaned])[0]
+        vectors = self.model.encode(
+            [cleaned],
+            prompt_name="query",
+            batch_size=1,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
+        return vectors.tolist()[0]
+
 
 class BGEM3TextEmbedder:
     def __init__(
@@ -727,10 +749,12 @@ class EmbeddingProvider:
         from app.services.inference_runtime import run_gpu
         def work():
             embedder = self._get_text_embedder() if kind == "text" else self._get_multimodal_embedder()
+            if method == "embed_query" and not hasattr(embedder, method):
+                return embedder.embed_document(*args)   # embedders sem instrução de pergunta
             return getattr(embedder, method)(*args, **kwargs)
         return await run_gpu(self.settings, work)
 
-    async def embed_text(self, text: str) -> list[float]:
+    async def embed_text(self, text: str, *, as_query: bool = False) -> list[float]:
         started_at = time.perf_counter()
         log_event(
             logger,
@@ -738,9 +762,10 @@ class EmbeddingProvider:
             "embedding.text.start",
             model=self.text_model_id,
             chars=len((text or "").strip()),
+            as_query=as_query,
         )
         try:
-            vector = await self._run_embedding("text", "embed_document", text)
+            vector = await self._run_embedding("text", "embed_query" if as_query else "embed_document", text)
         except Exception as exc:
             duration_ms = (time.perf_counter() - started_at) * 1000
             log_event(

@@ -32,6 +32,16 @@ NO_STEM_OR_FIELDS = [
     "description.no_stem^1",
 ]
 
+# CHAT_RETRIEVAL_LEXICAL_METADATA_FIELDS: o autor, a categoria, o material e o
+# centro de fabrico entram nas três cláusulas lexicais. Sem isto, «obras de
+# Machado de Castro» só encontrava fichas com o nome no título ou na descrição.
+LEXICAL_METADATA_FIELDS = [
+    "creators.text^8",
+    "category.text^2",
+    "support_or_material.text^2",
+    "production_center.text^2",
+]
+
 _RETRIEVAL_BOOST_ALIASES_PATH = (
     Path(__file__).resolve().parents[1] / "config" / "retrieval_boost_aliases.json"
 )
@@ -1088,7 +1098,11 @@ class OpenSearchGateway:
             # kNN (filtragem eficiente do lucene) para os vizinhos serem
             # procurados só entre elas. Fora disso, o kNN fica como estava: os
             # 1000 vizinhos do índice inteiro, filtrados depois.
-            if isinstance((filters or {}).get("artifact_id"), list) and filter_clauses:
+            # CHAT_RETRIEVAL_KNN_PREFILTER: o mesmo para qualquer filtro (o do
+            # museu está sempre presente). Sem isto, os 1000 vizinhos de uma
+            # pergunta podem ser todos de outros museus e o ramo fica vazio.
+            knn_prefilter = bool(getattr(self.settings, "CHAT_RETRIEVAL_KNN_PREFILTER", False))
+            if (knn_prefilter or isinstance((filters or {}).get("artifact_id"), list)) and filter_clauses:
                 knn_spec["filter"] = {"bool": {"filter": filter_clauses}}
             knn_query: dict[str, Any] = {"knn": {"text_embedding": knn_spec}}
             if filter_clauses or in_tour_boost_clause:
@@ -1107,14 +1121,22 @@ class OpenSearchGateway:
             lexical_query=lexical_query_value,
         )
         if lexical_query_value and not embedding_only:
+            metadata_fields = (
+                LEXICAL_METADATA_FIELDS
+                if getattr(self.settings, "CHAT_RETRIEVAL_LEXICAL_METADATA_FIELDS", False)
+                else []
+            )
             lexical_bool_query: dict[str, Any] = {
                 "bool": {
                     "should": [
                         {
                             "multi_match": {
                                 "query": lexical_query_value,
-                                "fields": NO_STEM_AND_FIELDS,
-                                "type": "best_fields",
+                                "fields": NO_STEM_AND_FIELDS + metadata_fields,
+                                # com os campos da ficha, as palavras podem
+                                # repartir-se por campos («cadeira» na categoria,
+                                # «mogno» no material)
+                                "type": "cross_fields" if metadata_fields else "best_fields",
                                 "operator": "and",
                                 "boost": 5,
                             }
@@ -1122,7 +1144,7 @@ class OpenSearchGateway:
                         {
                             "multi_match": {
                                 "query": lexical_query_value,
-                                "fields": NO_STEM_PHRASE_FIELDS,
+                                "fields": NO_STEM_PHRASE_FIELDS + metadata_fields,
                                 "type": "phrase",
                                 "boost": 4,
                             }
@@ -1130,7 +1152,7 @@ class OpenSearchGateway:
                         {
                             "multi_match": {
                                 "query": lexical_query_value,
-                                "fields": NO_STEM_OR_FIELDS,
+                                "fields": NO_STEM_OR_FIELDS + metadata_fields,
                                 "type": "best_fields",
                                 "operator": "or",
                                 "minimum_should_match": "2<75%",
