@@ -153,6 +153,14 @@ class Settings(BaseSettings):
     # cheia; o «ver mais» pede desde o início e corta depois de juntar.
     CHAT_COLLAPSE_SET_DUPLICATES: bool = False
     CHAT_COLLAPSE_FETCH_FACTOR: int = 3
+    # Listagens do acervo: «que autores há?», «que tipos de peças tem o museu?»,
+    # «de que materiais são as peças?», «que estilos existem?». Uma pesquisa
+    # devolve oito peças; estas perguntas querem o que existe no museu inteiro.
+    # O modelo de pré-processamento diz se a mensagem é uma destas e de quê
+    # (duas perguntas curtas, medidas em tests/listing_request_cases.py); o
+    # OpenSearch agrega o campo em todas as fichas e a resposta sai por modelo de
+    # texto, sem cartões. Só para mensagens que não são seguimento.
+    CHAT_CATALOGUE_LISTINGS: bool = False
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);

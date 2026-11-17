@@ -38,9 +38,12 @@ from app.services.catalogue_analytics import (
     NEWEST,
     OLDEST,
     TOP_CREATORS,
+    LISTING_FACETS,
     AnalyticsQuery,
+    ListingFacet,
     century_label,
     century_of,
+    mentions_tour_scope,
     parse_catalogue_analytics,
     readable_catalogue_date,
 )
@@ -55,6 +58,8 @@ from app.prompts.query_planner_prompts import (
     FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
     RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
     build_follow_up_resolution_prompt,
+    build_listing_guard_prompt,
+    build_listing_request_prompt,
     build_request_reading_prompt,
     build_retrieval_query_rewrite_prompt,
 )
@@ -3756,6 +3761,33 @@ class ChatService:
                 status_cb=status_cb,
             )
 
+        # CHAT_CATALOGUE_LISTINGS: «que autores há?», «que tipos de peças tem o
+        # museu?». Não é uma pesquisa: responde-se com o que existe em todas as
+        # fichas. Só para mensagens novas; um seguimento («De que é feita?»)
+        # fala de peças já mostradas.
+        if (
+            bool(getattr(self.settings, "CHAT_CATALOGUE_LISTINGS", False))
+            and requested_format.type == "text"
+            and not reading_request
+            and not bool(context_policy.get("use_history_for_query", False))
+            and not self._selected_artifact_from_metadata(payload.metadata if isinstance(payload.metadata, dict) else None)
+        ):
+            listing_facet = await self._read_listing_request_with_llm(message=payload.message)
+            if listing_facet is not None:
+                listing_response = await self._answer_catalogue_listing_fast_path(
+                    facet=listing_facet,
+                    payload=payload,
+                    state=state,
+                    conversation_id=conversation_id,
+                    query_id=query_id,
+                    language=language,
+                    requested_format=requested_format,
+                    request_started_at=request_started_at,
+                    status_cb=status_cb,
+                )
+                if listing_response is not None:
+                    return listing_response
+
         try:
             router_decision = await self._route_message(
                 payload=payload,
@@ -5982,6 +6014,223 @@ class ChatService:
         if not bool(getattr(self.settings, "CHAT_READABLE_DATES", False)):
             return raw
         return readable_catalogue_date(raw, doc.get("start_year"), doc.get("end_year"))
+
+    # ----- Listagens do acervo (CHAT_CATALOGUE_LISTINGS) ----- #
+
+    async def _read_listing_request_with_llm(self, *, message: str) -> ListingFacet | None:
+        """O modelo de pré-processamento diz se a mensagem pede uma lista do que
+        existe no museu, e de quê. Duas perguntas: a primeira escolhe a resposta
+        que o visitante espera; a segunda só se faz quando a primeira diz que é
+        uma lista, e confirma que a mensagem não nomeia nada. Falha ou resposta
+        fora do pedido: None, e a mensagem segue como uma pesquisa."""
+        cleaned = (message or "").strip()
+        if not cleaned:
+            return None
+
+        async def letter(prompt: str, key: str) -> str:
+            try:
+                response = await self.preprocess_llm_service.generate(
+                    message=prompt,
+                    response_format=ResponseFormatObject(type="json_object"),
+                    system_prompt=None,
+                    model_override=None,
+                    max_tokens=60,
+                )
+            except Exception:
+                return ""
+            data = response.parsed_json
+            return str(data.get(key) or "").strip().upper()[:1] if isinstance(data, dict) else ""
+
+        facet = LISTING_FACETS.get(await letter(build_listing_request_prompt(message=cleaned), "resposta"))
+        if facet is None:
+            return None
+        if await letter(build_listing_guard_prompt(message=cleaned), "nomeia") != "B":
+            return None
+        return facet
+
+    async def _listing_category_in_message(
+        self, folded_message: str, *, museum_slug: str, museum_id: str | None
+    ) -> tuple[str, str] | None:
+        """A categoria do museu que a mensagem diz («que autores de pintura há?»):
+        (chave do índice, nome no catálogo). É uma procura na lista de categorias
+        que o museu tem, não uma decisão: a mais comprida que lá estiver."""
+        cache = getattr(self, "_listing_categories_cache", None)
+        if cache is None:
+            cache = self._listing_categories_cache = {}
+        cache_key = (museum_slug, museum_id)
+        if cache_key not in cache:
+            result = await self.opensearch_gateway.aggregate_facet(museum_slug=museum_slug, museum_id=museum_id, field="category", size=60)
+            cache[cache_key] = [(self._fold_query_text(label), label) for label, _count in result.get("values") or []]
+        found = [
+            (folded, label) for folded, label in cache[cache_key]
+            if len(folded) >= 4 and re.search(rf"\b{re.escape(folded)}s?\b", folded_message)
+        ]
+        if not found:
+            return None
+        folded, label = max(found, key=lambda item: len(item[0]))
+        return unicodedata.normalize("NFKD", label.strip().lower()).encode("ascii", "ignore").decode(), label
+
+    # Campos cujos valores se comparam com a mensagem, por listagem. Materiais e
+    # técnicas vão juntos: o catálogo escreve o material na técnica («Tafetá de seda»).
+    _LISTING_VALUE_FIELDS: dict[str, tuple[str, ...]] = {
+        "creators": ("creators",),
+        "categories": ("category",),
+        "materials": ("support_or_material", "technique"),
+        "techniques": ("technique", "support_or_material"),
+        "places": ("production_center",),
+    }
+
+    async def _listing_vocabulary(
+        self, facet: ListingFacet, *, museum_slug: str, museum_id: str | None
+    ) -> tuple[frozenset[str], frozenset[str]]:
+        """Como o catálogo deste museu escreve os valores do que se ia listar:
+        (frases, palavras). Frases são os valores partidos pela pontuação
+        («Paris, França» → «paris», «franca»). Palavras: nos autores, as dos
+        nomes; nos materiais e técnicas, a primeira de cada valor e as que
+        aparecem em cinco ou mais valores («seda» em «Tafetá de seda»).
+        Medido a 2026-11-17 no MNAA, MNT e MNSR: nenhuma das 70 listagens de
+        tests/listing_request_cases.py tem uma destas palavras; as palavras das
+        próprias perguntas («peças», «feitas») aparecem em três valores ou menos."""
+        cache = getattr(self, "_listing_vocabulary_cache", None)
+        if cache is None:
+            cache = self._listing_vocabulary_cache = {}
+        cache_key = (museum_slug, museum_id, facet.key)
+        if cache_key in cache:
+            return cache[cache_key]
+        phrases: set[str] = set()
+        words: set[str] = set()
+        in_values: dict[str, int] = {}
+        for field in self._LISTING_VALUE_FIELDS.get(facet.key, ()):
+            result = await self.opensearch_gateway.aggregate_facet(
+                museum_slug=museum_slug, museum_id=museum_id, field=field, size=3000, labels=False
+            )
+            for value, _count in result.get("values") or []:
+                tokens = self._fold_query_text(value).split()
+                if facet.key in {"materials", "techniques"}:
+                    for token in set(tokens):
+                        in_values[token] = in_values.get(token, 0) + 1
+                    if tokens and len(tokens[0]) >= 5:
+                        words.add(tokens[0])
+                for part in re.split(r"[,;/()\[\]\-–:.?]+|\s+(?:ou|e|and|or)\s+", str(value)):
+                    folded = self._fold_query_text(part)
+                    if len(folded) >= 4:
+                        phrases.add(folded)
+                    if facet.key == "creators":
+                        words.update(token for token in folded.split() if len(token) >= 5)
+        words.update(token for token, count in in_values.items() if count >= 5 and len(token) >= 4)
+        cache[cache_key] = (frozenset(phrases), frozenset(words))
+        return cache[cache_key]
+
+    @staticmethod
+    def _message_names_a_listed_value(
+        folded_message: str, phrases: frozenset[str], words: frozenset[str], ignored: set[str]
+    ) -> bool:
+        """A mensagem diz um dos valores que a lista teria («peças vindas do Japão»,
+        «esculturas em madeira», «peças de seda»): o visitante quer as peças com
+        esse valor, não a lista. É uma comparação com o que o catálogo tem, depois
+        de o modelo ter dito que era uma listagem: em 198 pesquisas do tipo «que
+        peças de X há?», o modelo deixava passar 29."""
+        message_words = set(folded_message.split())
+        if (words & message_words) - ignored:
+            return True
+        for phrase in phrases:
+            tokens = phrase.split()
+            if set(tokens) <= ignored or tokens[0] not in message_words:
+                continue
+            if len(tokens) == 1 or re.search(rf"\b{re.escape(phrase)}\b", folded_message):
+                return True
+        return False
+
+    async def _answer_catalogue_listing_fast_path(
+        self,
+        *,
+        facet: ListingFacet,
+        payload: ChatMessageRequest,
+        state: ChatSessionState,
+        conversation_id: str,
+        query_id: str,
+        language: str,
+        requested_format: ResponseFormatObject,
+        request_started_at: float,
+        status_cb: StatusCallback | None,
+    ) -> ChatMessageResponse | None:
+        """«Que autores há?», «que tipos de peças tem o museu?»: os valores de um
+        campo em todas as fichas, com contagem, por modelo de texto e sem
+        cartões. Devolve None quando não há nada para listar ou a mensagem diz
+        um dos valores; quem chama segue então para a pesquisa."""
+        common = dict(
+            payload=payload, state=state, conversation_id=conversation_id, query_id=query_id, language=language,
+            requested_format=requested_format, request_started_at=request_started_at, status_cb=status_cb,
+        )
+        museum_slug = payload.museum_slug
+        museum_id = self._resolve_museum_id(payload)
+        in_tour = mentions_tour_scope(payload.message)
+        if facet.key == "centuries":
+            # «Tens peças do século XIX?», «da época medieval?»: diz um período, quer
+            # peças e não a contagem
+            if (await self._interpret_temporal_query(payload.message)).start_year is not None:
+                return None
+            return await self._answer_catalogue_analytics_fast_path(
+                analytics=AnalyticsQuery(kind=CENTURIES, subject="", in_tour=in_tour), **common
+            )
+        scope = translate("message.analytics_scope_tour" if in_tour else "message.analytics_scope_museum", language)
+        category: tuple[str, str] | None = None
+        result: dict[str, Any] = {}
+        if facet.field is None:
+            intro = translate(f"message.listing_{facet.key}", language, scope=scope)
+        else:
+            await self._emit_status(status_cb, "status.searching_collection", language=language)
+            folded_message = self._fold_query_text(payload.message)
+            try:
+                if facet.key != "categories":
+                    category = await self._listing_category_in_message(folded_message, museum_slug=museum_slug, museum_id=museum_id)
+                phrases, words = await self._listing_vocabulary(facet, museum_slug=museum_slug, museum_id=museum_id)
+                # o nome do museu e a categoria a que a pergunta se limita não são valores pedidos
+                ignored = set(self._fold_query_text(payload.museum_name or "").split())
+                ignored |= set(self._fold_query_text(category[1]).split()) if category else set()
+                if self._message_names_a_listed_value(folded_message, phrases, words, ignored):
+                    return None
+                result = await self.opensearch_gateway.aggregate_facet(
+                    museum_slug=museum_slug, museum_id=museum_id, field=facet.field, in_tour=in_tour,
+                    category=category[0] if category else None, size=max(facet.top * 4, 60),
+                )
+            except Exception as exc:
+                log_event(logger, logging.WARNING, "chat.catalogue_listing.error", conversation_id=conversation_id, query_id=query_id, error=exc)
+                return None
+            values = list(result.get("values") or [])
+            if not values:
+                return None
+            shown = values[: facet.top]
+            intro = translate(
+                f"message.listing_{facet.key}", language, scope=scope,
+                subject=translate("message.listing_category", language, category=category[1]) if category else "",
+                distinct=int(result.get("distinct") or 0), filled=int(result.get("filled") or 0), total=int(result.get("total") or 0),
+                shown=len(shown), listing=", ".join(f"{label} ({count})" for label, count in shown),
+            )
+        log_event(
+            logger, logging.INFO, "chat.catalogue_listing",
+            conversation_id=conversation_id, query_id=query_id, facet=facet.key, in_tour=in_tour,
+            category=category[1] if category else None, values=len(result.get("values") or []),
+        )
+        return await self._finish_tour_context_answer(
+            **common,
+            described={"known": True, "scope": "catalogue", "room": None, "inventories": [], "targets": []},
+            room_name=None,
+            intro=intro,
+            pieces_key=None,
+            facts=[intro],
+            fast_path="catalogue_listing",
+            tour_room=None,
+            docs=[],
+            use_llm_wording=False,
+            log_extra={
+                "catalogue_listing": {
+                    "facet": facet.key, "in_tour": in_tour, "category": category[1] if category else None,
+                    "distinct": result.get("distinct"), "filled": result.get("filled"), "total": result.get("total"),
+                    "values": (result.get("values") or [])[:40], "opensearch_query": result.get("query_body"),
+                }
+            },
+        )
 
     # ----- Analítica do acervo (CHAT_CATALOGUE_ANALYTICS) ----- #
 

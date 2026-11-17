@@ -35,6 +35,54 @@ def build_request_reading_prompt(
     )
 
 
+def build_listing_request_prompt(*, message: str) -> str:
+    """O visitante pede uma lista do que existe no museu? (CHAT_CATALOGUE_LISTINGS)
+
+    As letras B a H são listagens; ver LISTING_FACETS em catalogue_analytics.py.
+    Redação medida a 2026-11-17 (tests/listing_request_cases.py), junto com
+    build_listing_guard_prompt: 63 de 70 listagens reconhecidas; 192 de 198
+    pedidos normais e 169 de 198 pesquisas do tipo «que peças de X há?» passam
+    sem ser apanhados (os outros ficam para a comparação com os valores do
+    catálogo, em chat_service). Outras redações deram pior: com uma lista de
+    características em vez de respostas por letra, o modelo escolhia uma para
+    quase tudo (124 de 169 pedidos normais apanhados). O prompt não leva o nome
+    do museu: com «Museu Nacional do Traje» ou «do Azulejo», «Que autores há
+    neste museu?» era lida como pedido de peças. Qualquer alteração repete a
+    medição.
+    """
+    return (
+        f"Mensagem de um visitante do museu:\n«{message}»\n\n"
+        "Que resposta espera o visitante?\n"
+        "A) peças do museu (uma ou várias), ou informação sobre uma peça\n"
+        "B) os nomes dos autores que o museu tem\n"
+        "C) os tipos de peças que o museu tem\n"
+        "D) os materiais de que as peças do museu são feitas\n"
+        "E) as técnicas usadas nas peças do museu\n"
+        "F) os locais ou países de onde as peças do museu vêm\n"
+        "G) os séculos ou épocas das peças do museu\n"
+        "H) os estilos das peças do museu\n"
+        "I) outra coisa\n"
+        'Responde só com JSON: {"resposta": "A" a "I"}'
+    )
+
+
+def build_listing_guard_prompt(*, message: str) -> str:
+    """Segunda pergunta das listagens: a mensagem nomeia alguma coisa (então quer
+    peças ou fala de uma peça) ou só pergunta quais existem? Só a resposta B
+    deixa passar. Sem ela, «De que século é a Salomé?» e «Há esculturas em
+    madeira?» eram lidas como listagens. Medida com build_listing_request_prompt.
+    """
+    return (
+        f"Mensagem de um visitante do museu:\n«{message}»\n\n"
+        "A mensagem nomeia alguma coisa?\n"
+        "A) sim: uma peça, um autor, um material, um estilo, um século, um local, uma sala ou um tema "
+        "(como «Custódia de Belém», «Bosch», «madeira», «barroco», «século XVI», «Japão»), ou aponta para uma peça («esta», «ela», «este quadro»)\n"
+        "B) não: só pergunta quais existem (que autores, que tipos de peças, que materiais, que estilos…)\n"
+        "C) nenhuma das duas\n"
+        'Responde só com JSON: {"nomeia": "A", "B" ou "C"}'
+    )
+
+
 def build_follow_up_resolution_prompt(
     *,
     current_message: str,

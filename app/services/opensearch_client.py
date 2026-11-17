@@ -3198,6 +3198,106 @@ class OpenSearchGateway:
             "query_body": body,
         }
 
+    @staticmethod
+    def _keyword_form(text: object) -> str:
+        """Como o normalizador lowercase_ascii guarda um valor: minúsculas, sem acentos."""
+        normalized = unicodedata.normalize("NFKD", str(text or "").strip().lower())
+        return "".join(ch for ch in normalized if not unicodedata.combining(ch))
+
+    def _aggregate_facet_sync(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        field: str,
+        in_tour: bool,
+        category: str | None,
+        size: int,
+        labels: bool,
+    ) -> dict[str, Any]:
+        """Listagens do acervo (CHAT_CATALOGUE_LISTINGS): os valores de um campo em
+        todas as fichas do museu, com contagem. As chaves da agregação vêm
+        normalizadas («ceramica»); o nome como o catálogo o escreve sai de uma
+        ficha de cada valor. Valores que só diferem na pontuação final («Tela.» e
+        «Tela») contam juntos. Com `labels=False` devolve as chaves tal como
+        estão, sem ir buscar uma ficha por valor (para comparar com a mensagem)."""
+        client = self._ensure_client()
+        filters = self._build_filter_clauses(museum_slug=museum_slug, museum_id=museum_id, filters=None)
+        if in_tour:
+            filters.append({"term": {"in_tour": True}})
+        if category:
+            filters.append({"term": {"category": category}})
+        name_field = "creators" if field == "creator_ids" else field
+        body: dict[str, Any] = {
+            "size": 0,
+            "track_total_hits": True,
+            "query": {"bool": {"filter": filters}},
+            "aggs": {
+                "valores": {
+                    "terms": {"field": field, "size": max(int(size), 1)},
+                    **({"aggs": {"ficha": {"top_hits": {"size": 1, "_source": sorted({field, name_field})}}}} if labels else {}),
+                },
+                "distintos": {"cardinality": {"field": field}},
+                "preenchidas": {"filter": {"bool": {"filter": [{"exists": {"field": field}}], "must_not": [{"term": {field: ""}}]}}},
+            },
+        }
+        response = client.search(index=self.settings.OPENSEARCH_INDEX_ARTIFACT, body=body)
+        agg_payload = response.get("aggregations") or {}
+        merged: dict[str, list[Any]] = {}
+        for bucket in agg_payload.get("valores", {}).get("buckets") or []:
+            key = str(bucket.get("key") or "").strip()
+            merge_key = key.rstrip(" .;,")
+            if not merge_key:
+                continue
+            ficha_hits = ((bucket.get("ficha") or {}).get("hits") or {}).get("hits") or []
+            fonte = (ficha_hits[0].get("_source") or {}) if ficha_hits else {}
+            label = key
+            if not labels:
+                pass
+            elif field == "creator_ids":
+                ids = self._as_list_of_strings(fonte.get("creator_ids"))
+                nomes = self._as_list_of_strings(fonte.get("creators"))
+                if key in ids and len(nomes) > ids.index(key):
+                    label = nomes[ids.index(key)]
+            else:
+                bruto = fonte.get(field)
+                originais = [bruto] if isinstance(bruto, str) else self._as_list_of_strings(bruto)
+                label = next((o for o in originais if self._keyword_form(o) == key), key)
+            entry = merged.setdefault(merge_key, [label.strip().rstrip(" .;,") or label, 0])
+            entry[1] += int(bucket.get("doc_count") or 0)
+        values = sorted(((str(label), int(count)) for label, count in merged.values()), key=lambda v: (-v[1], v[0]))
+        return {
+            "values": values,
+            "distinct": int((agg_payload.get("distintos") or {}).get("value") or 0),
+            "filled": int((agg_payload.get("preenchidas") or {}).get("doc_count") or 0),
+            "total": self._total_hits_value(response),
+            "query_body": body,
+        }
+
+    async def aggregate_facet(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        field: str,
+        in_tour: bool = False,
+        category: str | None = None,
+        size: int = 60,
+        labels: bool = True,
+    ) -> dict[str, Any]:
+        return await self._to_thread_logged(
+            "opensearch.aggregate_facet",
+            self._aggregate_facet_sync,
+            log_fields={"museum_slug": museum_slug, "museum_id": museum_id, "field": field, "in_tour": in_tour, "category": category, "size": size},
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            field=field,
+            in_tour=in_tour,
+            category=category,
+            size=size,
+            labels=labels,
+        )
+
     async def aggregate_artifacts(
         self,
         *,

@@ -1,0 +1,178 @@
+"""Casos de medição do reconhecimento de listagens do acervo (CHAT_CATALOGUE_LISTINGS).
+
+Não é um teste automático: precisa do modelo real. Mede-se com os dois prompts de
+app/prompts/query_planner_prompts.py (build_listing_request_prompt e
+build_listing_guard_prompt), temperatura 0, duas execuções; resultado de 2026-11-17 em
+docs/listagens-do-acervo.md. Qualquer alteração a um dos prompts repete a medição.
+
+Uma mensagem é listagem quando a primeira pergunta devolve a letra esperada (B a H) e a
+segunda devolve «B» (não nomeia nada). Às mensagens abaixo juntam-se, como pedidos
+normais, as 115 da checklist do MNAA, as do benchmark de 114 perguntas e as de
+tests/request_reading_cases.py (129 distintas): nenhuma pode ser apanhada.
+
+LISTAGENS e PEDIDOS_NORMAIS serviram para afinar a redação; LISTAGENS_NOVAS e
+PEDIDOS_NORMAIS_NOVOS foram escritos depois de a fixar.
+"""
+
+# (mensagem, letra esperada na primeira pergunta)
+LISTAGENS = [
+    ('Que tipos de peças tem o museu?', 'C'),
+    ('que categorias existem?', 'C'),
+    ('Quais são as coleções do museu?', 'C'),
+    ('que tipos de objetos há aqui', 'C'),
+    ('o museu tem que géneros de peças?', 'C'),
+    ('What kinds of objects does the museum have?', 'C'),
+    ('que tipo de coisas posso ver neste museu', 'C'),
+    ('lista das categorias de peças', 'C'),
+    ('What categories are there?', 'C'),
+    ('que tipos existem neste museu', 'C'),
+    ('Que tipos de peças há nesta visita?', 'C'),
+    ('quantas categorias de peças há?', 'C'),
+    ('Que autores há neste museu?', 'B'),
+    ('que artistas estão representados?', 'B'),
+    ('Which artists are in the collection?', 'B'),
+    ('que autores existem neste museu', 'B'),
+    ('lista de artistas', 'B'),
+    ('quem são os autores das peças desta visita?', 'B'),
+    ('Who are the makers represented here?', 'B'),
+    ('quais os artistas que o museu tem', 'B'),
+    ('Que técnicas existem?', 'E'),
+    ('que técnicas foram usadas nas peças?', 'E'),
+    ('What techniques are represented?', 'E'),
+    ('que técnicas artísticas tem o museu', 'E'),
+    ('Que materiais existem?', 'D'),
+    ('de que materiais são feitas as peças?', 'D'),
+    ('What materials are the objects made of?', 'D'),
+    ('em que materiais há peças', 'D'),
+    ('De que países vêm as peças?', 'F'),
+    ('de onde são as peças do museu?', 'F'),
+    ('que origens há?', 'F'),
+    ('Where do the objects come from?', 'F'),
+    ('em que locais foram feitas as peças?', 'F'),
+    ('que centros de fabrico existem', 'F'),
+    ('Que épocas estão representadas?', 'G'),
+    ('de que séculos há peças?', 'G'),
+    ('What periods does the collection cover?', 'G'),
+    ('que períodos há no museu', 'G'),
+    ('Que estilos existem neste museu?', 'H'),
+    ('que estilos artísticos há?', 'H'),
+    ('What styles are represented?', 'H'),
+    ('que correntes artísticas estão representadas?', 'H'),
+    ('há peças de que estilos?', 'H'),
+]
+
+# Limitadas a parte das peças: (mensagem, letra, a que se limitam). Respondem-se pelo museu
+# todo, ou pela categoria se a mensagem disser uma das categorias do museu.
+LISTAGENS_LIMITADAS = [
+    ('Quais são os pintores do museu?', 'B', 'pintura'),
+    ('Que escultores há?', 'B', 'escultura'),
+    ('que autores de pintura há?', 'B', 'pintura'),
+    ('quais as técnicas de pintura que há?', 'E', 'pintura'),
+    ('que materiais há na ourivesaria?', 'D', 'ourivesaria'),
+]
+
+LISTAGENS_NOVAS = [
+    ('Quais são os artistas desta coleção?', 'B'),
+    ('que pintores e escultores tem o museu?', 'B'),
+    ('Podes dizer-me os autores que há?', 'B'),
+    ('Who made the works in this museum?', 'B'),
+    ('tens uma lista dos autores?', 'B'),
+    ('Que género de peças há no museu?', 'C'),
+    ('O museu tem peças de que tipo?', 'C'),
+    ('que variedade de objetos existe aqui?', 'C'),
+    ('What types of artworks are in this museum?', 'C'),
+    ('diz-me as categorias das peças', 'C'),
+    ('Que materiais se encontram nas peças do museu?', 'D'),
+    ('as peças são feitas de quê, no geral?', 'D'),
+    ('Which materials appear in the collection?', 'D'),
+    ('Quais as técnicas que aparecem na coleção?', 'E'),
+    ('que técnicas estão representadas no museu?', 'E'),
+    ('What techniques were used in the collection?', 'E'),
+    ('De que países são as peças deste museu?', 'F'),
+    ('as peças vêm de onde?', 'F'),
+    ('Which countries do the pieces come from?', 'F'),
+    ('que proveniências geográficas há?', 'F'),
+    ('De que épocas são as peças do museu?', 'G'),
+    ('que séculos abrange a coleção?', 'G'),
+    ('Which centuries are represented?', 'G'),
+    ('Que estilos artísticos tem o museu?', 'H'),
+    ('há que estilos nesta coleção?', 'H'),
+    ('Which art styles can I find here?', 'H'),
+    ('que movimentos artísticos existem no museu?', 'H'),
+]
+
+# Pedidos de peças, ou sobre uma peça, que se parecem com listagens.
+PEDIDOS_NORMAIS = [
+    'Que obras de Gregório Lopes há?',
+    'Que peças de ourivesaria tens?',
+    'Que pinturas do século XV há?',
+    'Mostra-me pinturas flamengas',
+    'Há obras de Machado de Castro?',
+    'Que quadros do Bosch há?',
+    'Tens esculturas em madeira?',
+    'Quem pintou o São Jerónimo?',
+    'Que peças vieram do Japão?',
+    'Que tesouros nacionais há?',
+    'o que há na sala de ourivesaria?',
+    'Quais são as peças mais importantes?',
+    'Que peças posso ver nesta visita?',
+    'Há azulejos?',
+    'Que retratos de reis há?',
+    'Quem foi Josefa de Óbidos?',
+    'Que autor fez a Custódia de Belém?',
+    'De que material é a Custódia de Belém?',
+    'Qual é a técnica dos Painéis de São Vicente?',
+    'De que século é a Salomé?',
+    'De onde veio o biombo?',
+    'Em que exposições esteve a Custódia de Belém?',
+    'What is this made of?',
+    'Show me paintings by Dürer',
+    'que tipo de peça é esta?',
+    'Que estilo é este quadro?',
+    'Fala-me do estilo manuelino',
+    'Há peças barrocas?',
+    'Mostra-me peças de estilo gótico',
+    'Que peças de prata há?',
+    'Há pintores portugueses?',
+    'que mobiliário indo-português há?',
+    'Which paintings are from Flanders?',
+    'Que peças do século XVIII tens?',
+    'Mostra-me o que há de cerâmica',
+    'que obras do Mestre de 1515 existem?',
+    'Quero ver porcelana chinesa',
+    'há alguma coisa de marfim?',
+    'Que peças têm animais?',
+    'que vestidos de noiva há?',
+]
+
+PEDIDOS_NORMAIS_NOVOS = [
+    'Quem é o autor do Tríptico das Tentações?',
+    'Mostra-me as obras de Nuno Gonçalves',
+    'Há peças de vidro de La Granja?',
+    'de que material é o biombo Namban?',
+    'Qual o estilo da Custódia?',
+    'Tens peças góticas?',
+    'Mostra-me cerâmica do século XVII',
+    'Que peças indianas há?',
+    'Quais são as pinturas mais conhecidas?',
+    'há desenhos de Sequeira?',
+    'Que técnica usou Dürer no São Jerónimo?',
+    'Fala-me do barroco',
+    'O que é a arte namban?',
+    'Onde foi feita a Baixela Germain?',
+    'De que época é o Efebo?',
+    'Show me the silver pieces',
+    'What style is the Belém Monstrance?',
+    'Are there any Flemish painters?',
+    'Que esculturas de marfim tens?',
+    'Há tapeçarias flamengas?',
+    'quero ver ourivesaria portuguesa',
+    'Leva-me à sala dos presépios',
+    'Quanto tempo demora a visita?',
+    'Obrigado!',
+    'Que quadros retratam santos?',
+    'Tens algo de Josefa de Óbidos?',
+    'Como se chama esta peça?',
+    'E esta, de quem é?',
+    'Mostra-me mais',
+]
