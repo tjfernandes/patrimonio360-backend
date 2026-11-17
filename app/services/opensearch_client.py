@@ -3109,17 +3109,20 @@ class OpenSearchGateway:
         must: list[dict[str, Any]] = []
         subject_text = (subject or "").strip()
         if subject_text:
-            must.append(
-                {
-                    "multi_match": {
-                        "query": subject_text,
-                        # sem search_text: traz o nome do museu («azulejo» apanharia o MNAz inteiro)
-                        "fields": ["title^3", "category.text^2", "super_category.text", "technique.text", "support_or_material.text", "description"],
-                        "type": "best_fields",
-                        "minimum_should_match": "75%",
-                    }
+            # sem search_text: traz o nome do museu («azulejo» apanharia o MNAz inteiro)
+            subject_fields = ["title^3", "category.text^2", "super_category.text", "technique.text", "support_or_material.text", "description"]
+            if bool(getattr(self.settings, "CHAT_CATALOGUE_ANALYTICS_STRICT_SUBJECT", False)):
+                # todas as palavras, cada uma em qualquer campo, autor incluído
+                # (os campos partilham o analisador, que é o que cross_fields exige)
+                subject_match: dict[str, Any] = {
+                    "query": subject_text,
+                    "fields": subject_fields + ["creators.text^3"],
+                    "type": "cross_fields",
+                    "operator": "and",
                 }
-            )
+            else:
+                subject_match = {"query": subject_text, "fields": subject_fields, "type": "best_fields", "minimum_should_match": "75%"}
+            must.append({"multi_match": subject_match})
         dated_filters = base_filters + [{"exists": {"field": "start_year"}}]
         body: dict[str, Any] = {
             "size": max(int(size), 0),
