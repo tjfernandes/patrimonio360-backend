@@ -107,6 +107,19 @@ class Settings(BaseSettings):
     # F11: retira da resposta os rótulos dos cartões copiados à letra
     # («(Tesouro Nacional: sim)», «Na visita virtual: não»), como já se faz a [doc_N].
     CHAT_STRIP_CARD_LABELS: bool = False
+    # --- Pesquisa do chat, Bloco B (docs/pesquisa-bloco-b.md) ---
+    # F5: a pergunta de texto é embebida com a instrução «query» do
+    # Qwen3-Embedding (o modelo distingue pergunta de documento; o índice foi
+    # embebido como documento e a pergunta também o era). Só a pesquisa de texto
+    # do chat; percursos e pesquisa por imagem ficam como estão.
+    CHAT_RETRIEVAL_QUERY_INSTRUCTION: bool = False
+    # F4: o ramo lexical passa a procurar também no autor, na categoria, no
+    # material e no centro de fabrico (só título e descrição até aqui). A
+    # cláusula que exige todas as palavras deixa de as exigir no mesmo campo.
+    CHAT_RETRIEVAL_LEXICAL_METADATA_FIELDS: bool = False
+    # F6: os filtros (museu, época, visita) vão dentro do kNN, para os 1000
+    # vizinhos serem procurados já dentro do museu e não no índice dos sete.
+    CHAT_RETRIEVAL_KNN_PREFILTER: bool = False
     # Fichas iguais do mesmo conjunto («Botões (dez)», 38195/1 a 38195/10: título e
     # descrição iguais, só o n.º muda) juntam-se num cartão, o da ficha mais bem
     # posicionada (ou a que está na visita), com group_size e os n.ºs das outras.

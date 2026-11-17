@@ -7615,7 +7615,10 @@ class ChatService:
 
         if self.settings.CHAT_USE_QUERY_EMBEDDINGS:
             try:
-                query_embedding = await self.embedding_provider.embed_text(embedding_query)
+                if getattr(self.settings, "CHAT_RETRIEVAL_QUERY_INSTRUCTION", False):
+                    query_embedding = await self.embedding_provider.embed_text(embedding_query, as_query=True)
+                else:
+                    query_embedding = await self.embedding_provider.embed_text(embedding_query)
             except NotImplementedError:
                 log_event(
                     logger,
