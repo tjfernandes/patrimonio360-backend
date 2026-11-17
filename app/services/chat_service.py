@@ -42,6 +42,7 @@ from app.services.catalogue_analytics import (
     century_label,
     century_of,
     parse_catalogue_analytics,
+    readable_catalogue_date,
 )
 from app.prompts.chat_prompts import (
     build_describe_artifact_prompt,
@@ -5973,6 +5974,15 @@ class ChatService:
             log_extra={"tour_pieces": {"inventories": len(inventories), "rooms": rooms_with_pieces}},
         )
 
+    def _catalogue_date_text(self, doc: dict[str, Any]) -> str:
+        """O texto da data de uma ficha, para os cartões e para os prompts. Com
+        CHAT_READABLE_DATES os números do export («16», «-5») saem por extenso
+        («século XVI», «século V a.C.»); sem a flag, o texto do índice."""
+        raw = str(doc.get("date_or_period") or "").strip()
+        if not bool(getattr(self.settings, "CHAT_READABLE_DATES", False)):
+            return raw
+        return readable_catalogue_date(raw, doc.get("start_year"), doc.get("end_year"))
+
     # ----- Analítica do acervo (CHAT_CATALOGUE_ANALYTICS) ----- #
 
     def _analytics_date_label(self, doc: dict[str, object], language: str) -> str:
@@ -9035,7 +9045,7 @@ class ChatService:
             creators = text(doc.get("creators")) or text(doc.get("creator"))
             materials = text(doc.get("support_or_material"))
             technique = text(doc.get("technique"))
-            date = text(doc.get("date_or_period"))
+            date = text(self._catalogue_date_text(doc))
             if not date:
                 start, end = doc.get("start_year"), doc.get("end_year")
                 if isinstance(start, int) and isinstance(end, int) and start != end:
@@ -9292,7 +9302,7 @@ class ChatService:
                     creator=creator_value,
                     creators=creators_list,
                     creator_ids=_as_str_list(doc.get("creator_ids")),
-                    date_or_period=str(doc.get("date_or_period") or "").strip() or None,
+                    date_or_period=self._catalogue_date_text(doc) or None,
                     start_year=_as_int(doc.get("start_year")),
                     end_year=_as_int(doc.get("end_year")),
                     support_or_material=str(
@@ -9678,7 +9688,7 @@ class ChatService:
             museum=str(art.get("museum") or "").strip() or None,
             category=str(art.get("category") or "").strip() or None,
             creators=list(art.get("creators") or []),
-            date_or_period=str(art.get("date_or_period") or "").strip() or None,
+            date_or_period=self._catalogue_date_text(art) or None,
             detail_type=str(art.get("detail_type") or "").strip() or None,
             detail_url=str(art.get("detail_url") or "").strip() or None,
             in_tour=bool(art.get("in_tour")),
