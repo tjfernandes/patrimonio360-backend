@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     # 39/42 certos, contra 20–27/48 do bloco da AMÁLIA.
     CHAT_PRESELECT_CARDS: bool = False
     CHAT_PRESELECT_CARDS_TIMEOUT_SECONDS: float = 4.0
+    # Quantas fichas da pesquisa o modelo de pré-processamento vê para escolher
+    # os cartões da primeira página. 0 (ou um valor até ao tamanho da página):
+    # só as da página, como antes. Com 15, escolhe entre as 15 primeiras e
+    # mostram-se as escolhidas, até encher a página; o «ver mais» salta as que
+    # já foram mostradas. Sem escolha utilizável ficam as fichas da página.
+    CHAT_PRESELECT_CARDS_CANDIDATES: int = 0
     # Correção da pesquisa do chat, Bloco A (docs/plano-correcao-pesquisa-mnaa.md,
     # 2026-11-16). Cada flag é independente e, desligada, nada muda.
     # F1: a lista vazia do modelo de pré-processamento («nenhum cartão
