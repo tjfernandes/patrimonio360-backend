@@ -49,7 +49,7 @@ Nada disto foi feito nesta parte.
 
 | Tema | Perguntas | O que trava |
 |---|---|---|
-| Sugestões sem assunto | 4, 79, 88, 89, 58 | Reconhecer o pedido falhou três vezes na medição do plano. Hipótese por medir: só tratar como sugestão quando o Qwen o assinala **e** a escolha de cartões vem vazia, usando os Tesouros Nacionais da visita como candidatos |
+| Sugestões sem assunto | 4, 79, 88, 89, 58 | Reconhecer o pedido falhou quatro vezes. A quarta, medida agora: tratar como sugestão só quando o Qwen o assinala **e** a escolha de cartões vem vazia. Não serve: das quatro sugestões da checklist, só a 4 fica sem cartões; a 79 e a 88 ficam com 8 cartões sem relação e a 89 com 1 |
 | Navegação fora da lista de palavras | 56 | As três redações de intenção medidas no plano não acertaram esta pergunta e estragavam outras |
 | Peças por sala | 54 | As peças sem hotspot não têm `overlay_id` nem panorama; mostrá-las numa sala mexe no formato da resposta e no frontend |
 | Ajuste de percurso por texto | 64 | O `adjust_route` só encurta, limita a uma sala e troca uma paragem; «para 5 peças» e «tira a segunda» pedem ações novas |
