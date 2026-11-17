@@ -10,6 +10,31 @@ FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT = (
 )
 
 
+def build_request_reading_prompt(
+    *,
+    museum_name: str | None,
+    history_lines: list[str],
+    message: str,
+) -> str:
+    """Leitura do pedido (CHAT_REQUEST_READING). Redação medida a 2026-11-16 em
+    120 casos × 3 execuções (tests/request_reading_cases.py): seguimento e
+    língua 120/120, pedido 118/120. Qualquer alteração repete essa medição.
+    """
+    history = "\n".join(line for line in history_lines if line.strip()) or "(nenhuma)"
+    museum = (museum_name or "").strip() or "museu"
+    return (
+        f"És o pré-processador de um guia de museu (visita virtual 360° ao {museum}). "
+        "Lê a MENSAGEM do visitante, tendo em conta a CONVERSA ANTERIOR.\n\n"
+        f"CONVERSA ANTERIOR:\n{history}\n\nMENSAGEM: {message}\n\n"
+        'Responde só com JSON: {"lingua": "pt|en|es|outra", "seguimento": true|false, "pedido": "..."}\n\n'
+        "seguimento: true quando a mensagem só se percebe com a conversa anterior "
+        "(pronomes como «o», «ela», «delas», «it»; «e…?», «só as…»).\n"
+        "pedido: a mensagem reescrita de forma completa, na língua da mensagem, com as referências resolvidas pela conversa anterior "
+        "(«Quem o fez?» depois de se falar da Custódia de Belém → «Quem fez a Custódia de Belém?»). Se a mensagem já é completa, copia-a. "
+        "Não acrescentes nada que não esteja na mensagem ou na conversa."
+    )
+
+
 def build_follow_up_resolution_prompt(
     *,
     current_message: str,

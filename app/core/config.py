@@ -120,6 +120,20 @@ class Settings(BaseSettings):
     # F6: os filtros (museu, época, visita) vão dentro do kNN, para os 1000
     # vizinhos serem procurados já dentro do museu e não no índice dos sete.
     CHAT_RETRIEVAL_KNN_PREFILTER: bool = False
+    # --- Pesquisa do chat, Bloco C (docs/pesquisa-bloco-c.md) ---
+    # O modelo de pré-processamento lê cada mensagem de texto com a conversa
+    # anterior e devolve a língua, se é um seguimento e o pedido reescrito por
+    # inteiro («Quem o pintou?» -> «Quem pintou as Tentações de Santo Antão?»).
+    # A decisão de seguimento deixa de ser das expressões regulares; o pedido
+    # reescrito continua a passar pelo guarda-corpo das reescritas. Mais uma
+    # chamada por mensagem (mediana de 0,2 a 0,3 s). Não corre com uma peça
+    # selecionada nem nos percursos.
+    CHAT_REQUEST_READING: bool = False
+    # O assunto de uma estatística («a mais antiga de Gregório Lopes») procura
+    # também no autor e exige todas as palavras, repartidas pelos campos. Sem
+    # isto bastava uma («Gregório» apanhava as peças de São Gregório) e o autor
+    # não contava. Assuntos de uma palavra («esculturas») ficam iguais.
+    CHAT_CATALOGUE_ANALYTICS_STRICT_SUBJECT: bool = False
     # Fichas iguais do mesmo conjunto («Botões (dez)», 38195/1 a 38195/10: título e
     # descrição iguais, só o n.º muda) juntam-se num cartão, o da ficha mais bem
     # posicionada (ou a que está na visita), com group_size e os n.ºs das outras.

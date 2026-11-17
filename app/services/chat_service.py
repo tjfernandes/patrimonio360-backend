@@ -54,6 +54,7 @@ from app.prompts.query_planner_prompts import (
     FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
     RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
     build_follow_up_resolution_prompt,
+    build_request_reading_prompt,
     build_retrieval_query_rewrite_prompt,
 )
 from app.schemas.chat import (
@@ -3669,6 +3670,36 @@ class ChatService:
             message=payload.message,
             state=state,
         )
+        # CHAT_REQUEST_READING: o modelo de pré-processamento diz se a mensagem é
+        # um seguimento e reescreve-a por inteiro. Substitui a decisão das
+        # expressões regulares acima; o pedido reescrito entra mais abaixo como
+        # reescrita e passa pelo guarda-corpo de _resolve_contextual_retrieval_query.
+        reading_request = ""
+        if (
+            bool(getattr(self.settings, "CHAT_REQUEST_READING", False))
+            and requested_format.type == "text"
+            and not self._selected_artifact_from_metadata(payload.metadata if isinstance(payload.metadata, dict) else None)
+        ):
+            reading = await self._read_request_with_llm(message=payload.message, state=state, museum_name=payload.museum_name)
+            if reading is not None:
+                context_policy, reading_request = self._apply_request_reading(
+                    reading=reading, context_policy=context_policy, message=payload.message, state=state
+                )
+                if reading["language"] in {"pt", "en"} and reading["language"] != language:
+                    # só esta resposta: a língua da interface fica como estava
+                    language = reading["language"]
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "chat.request_reading",
+                    conversation_id=conversation_id,
+                    query_id=query_id,
+                    follow_up=reading["follow_up"],
+                    language=reading["language"],
+                    request=reading["request"][:200],
+                    used_request=bool(reading_request),
+                    policy_reason=context_policy.get("reason"),
+                )
 
         # Quick win LLM-01: saudação/small talk pura não precisa de router nem
         # de LLM (custava 2 chamadas remotas e inventava peças). A deteção é a
@@ -3697,7 +3728,9 @@ class ChatService:
             if self._is_tour_pieces_list_query(payload.message):
                 return await self._answer_tour_pieces_fast_path(**tour_kwargs)
             if bool(getattr(self.settings, "CHAT_CATALOGUE_ANALYTICS", False)):
-                analytics = parse_catalogue_analytics(payload.message)
+                # «Qual delas é a mais antiga?»: com o pedido reescrito, a
+                # estatística sabe de que peças se fala
+                analytics = parse_catalogue_analytics(reading_request or payload.message)
                 if analytics is not None:
                     return await self._answer_catalogue_analytics_fast_path(analytics=analytics, **tour_kwargs)
 
@@ -3733,6 +3766,8 @@ class ChatService:
             context_policy=context_policy,
             user_message=payload.message,
         )
+        if reading_request:
+            router_decision["rewritten_query"] = reading_request
         router_decision = self._maybe_override_llm_only_for_visual(
             router_decision=router_decision,
             query_text=payload.message,
@@ -4026,6 +4061,7 @@ class ChatService:
                 museum_slug=search_museum_slug,
                 museum_id=search_museum_id,
                 museum_name=search_museum_name,
+                from_request_reading=bool(reading_request) and rewritten_query == reading_request,
             )
             # O router e erratico a resolver elipses ("e de prata?"): quando a
             # politica de contexto marca follow-up e a rewritten do router nao
@@ -8284,6 +8320,7 @@ class ChatService:
         museum_slug: str | None,
         museum_id: str | None,
         museum_name: str | None,
+        from_request_reading: bool = False,
     ) -> tuple[str, str]:
         """Escolhe a query de retrieval: a rewritten do router (resolvida com o
         contexto conversacional, ex. "e de linho?" -> "vestidos de linho") quando
@@ -8317,13 +8354,21 @@ class ChatService:
             return original, "user_message"
         if len(candidate) > 220:
             return original, "user_message"
-        if self._has_query_language_mismatch(original, candidate):
+        # A heurística de língua (listas de palavras) rejeita «Who made the
+        # Tentações de Santo Antão?»: pergunta em inglês com o título da ficha.
+        # No pedido reescrito pela leitura (CHAT_REQUEST_READING) a língua já
+        # foi decidida pelo modelo; o anti-invenção abaixo continua a valer.
+        if not from_request_reading and self._has_query_language_mismatch(original, candidate):
             return original, "user_message"
 
+        # Um pedido reescrito por inteiro traz artigos e preposições que a
+        # mensagem não tinha («the», «das», «que»): aí só contam as palavras de
+        # quatro ou mais letras.
+        min_token_length = 4 if from_request_reading else 3
         candidate_tokens = {
             token
             for token in self._fold_query_text(candidate).split()
-            if len(token) >= 3
+            if len(token) >= min_token_length
         }
         if not candidate_tokens:
             return original, "user_message"
@@ -8335,6 +8380,10 @@ class ChatService:
             if str(getattr(turn, "role", "")) == "user"
         ]
         source_texts.extend(user_turns[-3:])
+        if from_request_reading:
+            # o pedido reescrito pode nomear a peça que o guia mostrou
+            # («And who made it?» -> «Who made the Custódia?»)
+            source_texts.extend(self._last_shown_card_texts(state))
         for source_text in source_texts:
             source_tokens.update(
                 self._fold_query_text(source_text).split()
@@ -8349,6 +8398,128 @@ class ChatService:
             return original, "user_message"
 
         return candidate, "router_rewrite"
+
+    @staticmethod
+    def _last_shown_card_texts(state: ChatSessionState, limit: int = 8) -> list[str]:
+        """Título, n.º de inventário e autores dos cartões do último turno com resultados."""
+        texts: list[str] = []
+        for card in (getattr(state, "last_paged_artifact_results", None) or [])[:limit]:
+            if not isinstance(card, dict):
+                continue
+            creators = card.get("creators") or card.get("creator") or []
+            if isinstance(creators, str):
+                creators = [creators]
+            parts = [str(card.get("title") or "").strip(), str(card.get("inventory_number") or "").strip()]
+            parts.extend(str(name).strip() for name in creators if str(name or "").strip())
+            text = " ".join(part for part in parts if part)
+            if text:
+                texts.append(text)
+        return texts
+
+    def _request_reading_history(self, state: ChatSessionState, max_turns: int = 6) -> list[str]:
+        """A conversa anterior, como o modelo a leu na medição: «Visitante: …» e
+        «Guia: mostrou N peças: Título (n.º, autor); …». O último turno do guia
+        leva os cartões que mostrou; os anteriores, o início do texto.
+        """
+        previous = list(state.history[:-1])[-max_turns:]
+        last_assistant = max((i for i, turn in enumerate(previous) if str(getattr(turn, "role", "")) != "user"), default=-1)
+        cards = [card for card in (getattr(state, "last_paged_artifact_results", None) or [])[:8] if isinstance(card, dict)]
+        lines: list[str] = []
+        for index, turn in enumerate(previous):
+            text = re.sub(r"\s+", " ", str(getattr(turn, "text", "") or "")).strip()
+            if str(getattr(turn, "role", "")) == "user":
+                if text:
+                    lines.append(f"Visitante: {text[:300]}")
+                continue
+            if index == last_assistant and cards:
+                shown = []
+                for card in cards:
+                    creators = card.get("creators") or card.get("creator") or []
+                    if isinstance(creators, str):
+                        creators = [creators]
+                    detail = ", ".join(
+                        part for part in [str(card.get("inventory_number") or "").strip(), *[str(c).strip() for c in creators[:2]]] if part
+                    )
+                    title = str(card.get("title") or "").strip() or "(sem título)"
+                    shown.append(f"{title} ({detail})" if detail else title)
+                noun = "peça" if len(shown) == 1 else "peças"
+                lines.append(f"Guia: mostrou {len(shown)} {noun}: " + "; ".join(shown))
+            elif text:
+                lines.append(f"Guia: {text[:200]}")
+        return lines
+
+    async def _read_request_with_llm(
+        self,
+        *,
+        message: str,
+        state: ChatSessionState,
+        museum_name: str | None,
+    ) -> dict[str, Any] | None:
+        """Leitura do pedido pelo modelo de pré-processamento (CHAT_REQUEST_READING).
+        Devolve None se a chamada falhar ou a resposta não for a pedida: o
+        fluxo segue então como sem a flag.
+        """
+        cleaned = (message or "").strip()
+        if not cleaned:
+            return None
+        prompt = build_request_reading_prompt(
+            museum_name=museum_name,
+            history_lines=self._request_reading_history(state),
+            message=cleaned,
+        )
+        try:
+            response = await self.preprocess_llm_service.generate(
+                message=prompt,
+                response_format=ResponseFormatObject(type="json_object"),
+                system_prompt=None,
+                model_override=None,
+                max_tokens=200,
+            )
+        except Exception:
+            return None
+        data = response.parsed_json
+        if not isinstance(data, dict) or not isinstance(data.get("seguimento"), bool):
+            return None
+        language = str(data.get("lingua") or "").strip().lower()
+        return {
+            "language": language if language in {"pt", "en", "es"} else None,
+            "follow_up": bool(data["seguimento"]),
+            "request": str(data.get("pedido") or "").strip(),
+        }
+
+    def _apply_request_reading(
+        self,
+        *,
+        reading: dict[str, Any],
+        context_policy: dict[str, object],
+        message: str,
+        state: ChatSessionState,
+    ) -> tuple[dict[str, object], str]:
+        """A leitura do modelo decide se a mensagem é um seguimento. Devolve a
+        política de contexto e o pedido reescrito a usar («» quando não há).
+        Sem conversa anterior não há seguimento, diga o modelo o que disser.
+        """
+        has_previous_context = bool(state.history[:-1] or state.rolling_summary.strip())
+        if context_policy.get("reason") in {"empty_message", "explicit_new_query"} or not has_previous_context:
+            return context_policy, ""
+        policy = dict(context_policy)
+        if not reading["follow_up"]:
+            if bool(policy.get("use_history_for_query", False)):
+                policy.update(
+                    is_follow_up=False, use_history_for_query=False, use_history_for_answer=False,
+                    carry_filters=False, carry_sort=False, reason="request_reading_standalone",
+                )
+            return policy, ""
+        request = reading["request"]
+        if not request or self._fold_query_text(request) == self._fold_query_text(message):
+            # seguimento sem reescrita útil: fica a decisão que já havia
+            return policy, ""
+        if not bool(policy.get("use_history_for_query", False)):
+            policy.update(
+                is_follow_up=True, use_history_for_query=True, use_history_for_answer=True,
+                carry_filters=False, carry_sort=False, reason="request_reading_follow_up",
+            )
+        return policy, request
 
     async def _resolve_follow_up_query_with_llm(
         self,
