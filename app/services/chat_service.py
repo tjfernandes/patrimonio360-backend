@@ -1931,6 +1931,11 @@ class ChatService:
         docs = list(page_result.results)
         if collapse:
             docs = self._collapse_identical_set_members(docs)[from_offset: from_offset + page_size]
+        # CHAT_PRESELECT_CARDS_CANDIDATES: fichas que a primeira página já mostrou,
+        # escolhidas para lá do seu fim
+        already_shown = {str(value) for value in (request.get("preselected_beyond_page_ids") or [])}
+        if already_shown:
+            docs = [doc for doc in docs if str(doc.get("artifact_id") or "").strip() not in already_shown]
         image_matches: list[ImageMatchResult] = []
         image_hits: list[dict[str, Any]] = []
         artifact_ids = [
@@ -3931,6 +3936,13 @@ class ChatService:
             default_size=text_results_default_page_size,
         )
         text_results_window_size = min(text_results_page * text_results_page_size, 50)
+        # CHAT_PRESELECT_CARDS_CANDIDATES: a pesquisa traz mais fichas do que a
+        # página, para o modelo de pré-processamento escolher entre elas.
+        preselect_candidates = self._preselect_candidate_count(
+            page=text_results_page, page_size=text_results_page_size, response_type=requested_format.type
+        )
+        if preselect_candidates:
+            text_results_window_size = max(text_results_window_size, preselect_candidates)
         if (
             selected_artifact
             and selected_context_mode == "selected_artifact"
@@ -4298,18 +4310,42 @@ class ChatService:
             and len(paged_artifact_results) > 1
             and not self._is_treasure_list_request(retrieval_request)
         ):
+            widened = preselect_candidates > len(paged_artifact_results) and len(artifact_results) > len(paged_artifact_results)
             (
-                paged_artifact_results,
-                paged_image_matches,
-                paged_navigation_targets,
+                chosen_artifact_results,
+                chosen_image_matches,
+                chosen_navigation_targets,
                 preselection,
             ) = await self._preselect_cards(
                 user_message=str(router_decision.get("rewritten_query") or "").strip() or original_message,
                 language=language,
-                artifact_results=paged_artifact_results,
-                image_matches=paged_image_matches,
-                navigation_targets=paged_navigation_targets,
+                artifact_results=artifact_results[:preselect_candidates] if widened else paged_artifact_results,
+                image_matches=image_matches if widened else paged_image_matches,
+                navigation_targets=navigation_targets if widened else paged_navigation_targets,
             )
+            if widened and preselection.get("rule") in {"preselect", "preselect_none"}:
+                # as escolhidas, pela ordem da pesquisa, até encher a página
+                page_ids = {artifact.artifact_id for artifact in paged_artifact_results}
+                (
+                    paged_artifact_results,
+                    paged_image_matches,
+                    paged_navigation_targets,
+                ) = self._cap_preselected_cards(
+                    chosen_artifact_results, chosen_image_matches, chosen_navigation_targets, limit=results_page_size
+                )
+                beyond_page = [a.artifact_id for a in paged_artifact_results if a.artifact_id not in page_ids]
+                # o «ver mais» não as volta a mostrar
+                state.last_paged_retrieval_request["preselected_beyond_page_ids"] = beyond_page
+                preselection.update(
+                    candidates=min(preselect_candidates, len(artifact_results)),
+                    shown_after=len(paged_artifact_results),
+                    beyond_page=len(beyond_page),
+                )
+            elif not widened:
+                paged_artifact_results, paged_image_matches, paged_navigation_targets = (
+                    chosen_artifact_results, chosen_image_matches, chosen_navigation_targets
+                )
+            # com mais candidatas e sem escolha utilizável ficam as fichas da página
             log_event(
                 logger, logging.INFO, "chat.card_preselection",
                 conversation_id=conversation_id, query_id=query_id, **preselection,
@@ -10233,6 +10269,35 @@ class ChatService:
     @preprocess_llm_service.setter
     def preprocess_llm_service(self, value: Any) -> None:
         self._preprocess_llm_service = value
+
+    def _preselect_candidate_count(self, *, page: int, page_size: int, response_type: str) -> int:
+        """Quantas fichas dar a escolher (CHAT_PRESELECT_CARDS_CANDIDATES); 0 = só as da página."""
+        if not bool(getattr(self.settings, "CHAT_PRESELECT_CARDS", False)) or response_type != "text" or page > 1:
+            return 0
+        wanted = int(getattr(self.settings, "CHAT_PRESELECT_CARDS_CANDIDATES", 0) or 0)
+        return min(wanted, 50) if wanted > page_size else 0
+
+    @staticmethod
+    def _cap_preselected_cards(
+        artifact_results: list[ArtifactResult],
+        image_matches: list[ImageMatchResult],
+        navigation_targets: list[TourNavigationTarget],
+        *,
+        limit: int,
+    ) -> tuple[list[ArtifactResult], list[ImageMatchResult], list[TourNavigationTarget]]:
+        """Os primeiros `limit` cartões escolhidos, com as imagens e os alvos de navegação deles."""
+        artifacts = list(artifact_results)[: max(int(limit), 1)]
+        if len(artifacts) == len(artifact_results):
+            return artifacts, list(image_matches), list(navigation_targets)
+
+        def norm(value: str | None) -> str:
+            return str(value or "").strip().casefold()
+
+        kept = {artifact.artifact_id for artifact in artifacts}
+        inventories = {norm(artifact.inventory_number) for artifact in artifacts if norm(artifact.inventory_number)}
+        images = [m for m in image_matches if str(m.artifact_id or "").strip() in kept or norm(m.inventory) in inventories]
+        targets = [t for t in navigation_targets if norm(t.inventory_id) in inventories]
+        return artifacts, images, targets
 
     async def _preselect_cards(
         self,
