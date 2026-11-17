@@ -374,6 +374,9 @@ LLM_UNGROUNDED_TOTAL = 0
 LLM_UNGROUNDED_PER_KIND = 2
 LLM_UNGROUNDED_ORDER = ("motifs", "iconography", "styles", "materials", "techniques", "colors", "pigments")
 _TIME_MENTION_RE = re.compile(r"\d|\bsec\b|\bseculos?\b|\bcentur|\banos?\b|\bantig")
+# ROUTE_THEME_STRICT_TIME_MENTION: um dígito só conta quando é um ano de quatro
+# algarismos; «30 minutos» e «5 peças» não são uma época.
+_TIME_MENTION_STRICT_RE = re.compile(r"\b(?:1\d{3}|20\d{2})\b|\bsec\b|\bseculos?\b|\bcentur|\banos?\b|\bantig")
 
 
 def _lay_values(folded_message: str, vocab: dict[str, Any]) -> set[str]:
@@ -423,6 +426,7 @@ def merge_llm_facets(
     vocabulary: dict[str, list[str]] | None = None,
     message: str | None = None,
     ungrounded_budget: int = LLM_UNGROUNDED_TOTAL,
+    strict_time: bool = False,
 ) -> ThemeFacets:
     """Junta ao que as regras apanharam o que o LLM devolveu — só valores do vocabulário e só o que falta.
 
@@ -472,7 +476,7 @@ def merge_llm_facets(
                 budget -= len(picks)
             if budget <= 0:
                 break
-    time_ok = not ground or bool(_TIME_MENTION_RE.search(folded_message))
+    time_ok = not ground or bool((_TIME_MENTION_STRICT_RE if strict_time else _TIME_MENTION_RE).search(folded_message))
     centuries = data.get("centuries") if isinstance(data, dict) else None
     if isinstance(centuries, list) and not facets.centuries and time_ok:
         clean = sorted({int(c) for c in centuries if isinstance(c, (int, float)) and 1 <= int(c) <= 21})
