@@ -3137,7 +3137,11 @@ class OpenSearchGateway:
                 else [{"end_year": "desc"}, {"start_year": "desc"}, {"_score": "desc"}]
             )
         aggs: dict[str, Any] = {}
-        if centuries:
+        centuries_by_field = centuries and bool(getattr(self.settings, "CHAT_CATALOGUE_ANALYTICS_CENTURY_FIELD", False))
+        if centuries_by_field:
+            # o século de início já está na ficha (negativo antes de Cristo)
+            aggs["seculos"] = {"terms": {"field": "start_century", "size": 200}}
+        elif centuries:
             # séculos como intervalos de 100 anos a começar em 1 (1701–1800)
             aggs["seculos"] = {"histogram": {"field": "start_year", "interval": 100, "offset": 1, "min_doc_count": 1}}
         if top_creators:
@@ -3188,6 +3192,8 @@ class OpenSearchGateway:
             "total_dated": total_dated,
             "total_attributed": total_attributed,
             "centuries": seculos,
+            # com a flag, as chaves de «centuries» são séculos; sem ela, o primeiro ano de cada um
+            "centuries_by_field": centuries_by_field,
             "creators": autores,
             "query_body": body,
         }

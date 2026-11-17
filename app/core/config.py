@@ -161,6 +161,13 @@ class Settings(BaseSettings):
     CHAT_CATALOGUE_ANALYTICS: bool = False
     CHAT_CATALOGUE_ANALYTICS_CARDS: int = 24
     CHAT_CATALOGUE_ANALYTICS_LLM_WORDING: bool = False
+    # «De que século é a maioria das peças?» conta pelo campo start_century do
+    # índice em vez de um histograma de start_year. O histograma corta os séculos
+    # em …, -199, -99, 1, 101, …, o que está certo depois de Cristo e errado antes:
+    # punha o ano -500 no século VI a.C. e o -100 no II a.C. Depois de Cristo o
+    # resultado é o mesmo. Precisa dos campos do século no índice
+    # (patrimonio360_indexer, atualizar_datas_v4.py).
+    CHAT_CATALOGUE_ANALYTICS_CENTURY_FIELD: bool = False
     # Tesouros Nacionais (o nationalTreasure dos mapas dos POIs em poi_tours/,
     # relidos quando mudam). O campo national_treasure dos cartões vai sempre;
     # esta flag liga os pedidos («tesouros nacionais de pintura» filtra pela
