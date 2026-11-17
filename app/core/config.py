@@ -90,6 +90,12 @@ class Settings(BaseSettings):
     # mostram-se as escolhidas, até encher a página; o «ver mais» salta as que
     # já foram mostradas. Sem escolha utilizável ficam as fichas da página.
     CHAT_PRESELECT_CARDS_CANDIDATES: int = 0
+    # A data das fichas por extenso. O export do RAIZ escreve os séculos como
+    # números («16», «18–19», «-5») e era isso que ia para os cartões e para os
+    # modelos («Data: 16»). Com a flag, o texto nesse formato é refeito a partir
+    # de start_year/end_year: «século XVI», «séculos XVIII–XIX», «século V a.C.»,
+    # «590–580 a.C.». Texto livre («Lisboa, c. 1715-1730») fica como está.
+    CHAT_READABLE_DATES: bool = False
     # Correção da pesquisa do chat, Bloco A (docs/plano-correcao-pesquisa-mnaa.md,
     # 2026-11-16). Cada flag é independente e, desligada, nada muda.
     # F1: a lista vazia do modelo de pré-processamento («nenhum cartão

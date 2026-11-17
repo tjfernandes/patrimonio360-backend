@@ -109,3 +109,63 @@ def century_label(century: int, *, english: bool = False) -> str:
     if english:
         return f"{roman(century)} BC" if century < 0 else roman(century)
     return f"{roman(century)} a.C." if century < 0 else roman(century)
+
+
+# O formato do export do RAIZ: um ou dois números, séculos ou anos («16»,
+# «18–19», «-5», «1505–1506», «-590–-580»).
+_EXPORT_DATE = re.compile(r"-?\d{1,4}(?:\s*[-–—]\s*-?\d{1,4})?")
+
+
+def _as_year(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str) and re.fullmatch(r"-?\d+", value.strip()):
+        return int(value.strip())
+    return None
+
+
+def readable_catalogue_date(text: object, start_year: object, end_year: object) -> str:
+    """A data de uma ficha como um visitante a lê.
+
+    («16», 1501, 1600) → «século XVI»; («18–19», 1701, 1900) → «séculos
+    XVIII–XIX»; («-5», -500, -401) → «século V a.C.»; («-590–-580») → «590–580
+    a.C.». O rótulo sai dos anos normalizados no índice, não do texto: é uma
+    conversão de formato com uma só resposta certa, por isso não passa por
+    um modelo. Só o texto no formato do export é refeito; texto livre («Lisboa,
+    c. 1715-1730», «Séc. XVI») e fichas sem anos ficam como estão. É sempre
+    em português, como o resto da ficha.
+    """
+    raw = re.sub(r"\s+", " ", str(text or "")).strip()
+    start = _as_year(start_year)
+    if start is None or (raw and not _EXPORT_DATE.fullmatch(raw)):
+        return raw
+    end = _as_year(end_year)
+    end = start if end is None else end
+    if end < start:
+        start, end = end, start
+    first, last = century_of(start), century_of(end)
+
+    def bounds(century: int) -> tuple[int, int]:
+        return ((century - 1) * 100 + 1, century * 100) if century > 0 else (century * 100, century * 100 + 99)
+
+    def year(value: int) -> str:
+        return f"{-value} a.C." if value < 0 else str(value)
+
+    # datado só por século: o intervalo cobre os séculos inteiros
+    if start == bounds(first)[0] and end == bounds(last)[1]:
+        if first == last:
+            return f"século {century_label(first)}"
+        if (first < 0) == (last < 0):
+            return f"séculos {roman(first)}–{century_label(last)}"
+        return f"século {century_label(first)} – século {roman(last)} d.C."
+    if start == end:
+        return year(start)
+    if end < 0:
+        return f"{-start}–{-end} a.C."
+    if start < 0:
+        return f"{-start} a.C. – {end} d.C."
+    return f"{start}–{end}"
