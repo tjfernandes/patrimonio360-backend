@@ -6116,7 +6116,11 @@ class ChatService:
                 intro += translate("message.analytics_count_cards", language)
             facts = [f"{'Objects' if en else 'Peças'} {scope}{subject_text}{period_text}: {total_all}; {dated_note}"]
         elif kind == CENTURIES:
-            buckets = sorted(((century_of(int(key)), count) for key, count in result.get("centuries") or []), key=lambda b: b[0])
+            by_field = bool(result.get("centuries_by_field"))
+            buckets = sorted(
+                ((int(key) if by_field else century_of(int(key)), count) for key, count in result.get("centuries") or []),
+                key=lambda b: b[0],
+            )
             if not buckets:
                 intro = translate("message.analytics_none", language, scope=scope, subject=subject_text)
             else:
