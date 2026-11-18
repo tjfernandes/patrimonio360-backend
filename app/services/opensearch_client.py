@@ -3208,9 +3208,10 @@ class OpenSearchGateway:
 
     def _aggregate_creators_sync(self, *, museum_slug: str, museum_id: str | None) -> list[dict[str, Any]]:
         """Ficha do autor (CHAT_AUTHOR_CARD): os autores do museu pelas fichas das
-        peças. Para cada um: o id, o nome como o catálogo o escreve, quantas
-        peças tem e quantas delas estão na visita. Do que tem mais peças para
-        o que tem menos."""
+        peças. Para cada um: o id, o nome como o catálogo o escreve e quantas
+        peças tem. Do que tem mais peças para o que tem menos. Quantas estão
+        na visita não sai daqui: o campo in_tour do índice está desatualizado
+        (ver ChatService._author_in_tour_count)."""
         client = self._ensure_client()
         filters = self._build_filter_clauses(museum_slug=museum_slug, museum_id=museum_id, filters=None)
         body: dict[str, Any] = {
@@ -3219,10 +3220,7 @@ class OpenSearchGateway:
             "aggs": {
                 "autores": {
                     "terms": {"field": "creator_ids", "size": 5000},
-                    "aggs": {
-                        "ficha": {"top_hits": {"size": 1, "_source": ["creators", "creator_ids"]}},
-                        "na_visita": {"filter": {"term": {"in_tour": True}}},
-                    },
+                    "aggs": {"ficha": {"top_hits": {"size": 1, "_source": ["creators", "creator_ids"]}}},
                 }
             },
         }
@@ -3243,13 +3241,46 @@ class OpenSearchGateway:
             nome = nomes[ids.index(key)].strip()
             if not nome:
                 continue
-            rows.append({
-                "id": key,
-                "name": nome,
-                "count": int(bucket.get("doc_count") or 0),
-                "in_tour": int((bucket.get("na_visita") or {}).get("doc_count") or 0),
-            })
+            rows.append({"id": key, "name": nome, "count": int(bucket.get("doc_count") or 0)})
         return rows
+
+    def _fetch_inventories_by_creator_ids_sync(
+        self, *, museum_slug: str, museum_id: str | None, creator_ids: list[str]
+    ) -> list[str]:
+        """Ficha do autor: os n.ºs de inventário das peças do museu que têm
+        algum destes autores (creator_ids), sem repetições."""
+        ids = sorted({str(value or "").strip() for value in creator_ids} - {""})
+        if not ids:
+            return []
+        client = self._ensure_client()
+        filters = self._build_filter_clauses(museum_slug=museum_slug, museum_id=museum_id, filters=None)
+        body: dict[str, Any] = {
+            "size": 10000,
+            "_source": ["inventory_number", "inventory"],
+            "query": {"bool": {"filter": [*filters, {"terms": {"creator_ids": ids}}]}},
+        }
+        response = client.search(index=self.settings.OPENSEARCH_INDEX_ARTIFACT, body=body)
+        inventories: list[str] = []
+        seen: set[str] = set()
+        for hit in (response.get("hits") or {}).get("hits") or []:
+            inventory = self._resolve_inventory_number(hit.get("_source") or {})
+            if inventory and inventory not in seen:
+                seen.add(inventory)
+                inventories.append(inventory)
+        return inventories
+
+    async def fetch_inventories_by_creator_ids(
+        self, *, museum_slug: str, museum_id: str | None, creator_ids: list[str]
+    ) -> list[str]:
+        return await self._to_thread_logged(
+            "opensearch.fetch_inventories_by_creator_ids",
+            self._fetch_inventories_by_creator_ids_sync,
+            log_fields={"museum_slug": museum_slug, "museum_id": museum_id, "creator_count": len(creator_ids)},
+            result_size=len,
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            creator_ids=creator_ids,
+        )
 
     async def aggregate_creators(self, *, museum_slug: str, museum_id: str | None) -> list[dict[str, Any]]:
         return await self._to_thread_logged(

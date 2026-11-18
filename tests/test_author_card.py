@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 from app.core.config import Settings
 from app.prompts.query_planner_prompts import build_author_name_prompt
-from app.schemas.chat import ArtifactResult, ChatMessageResponse, ResponseFormatObject
+from app.schemas.chat import ArtifactResult, ChatMessageResponse, ResponseFormatObject, TourNavigationTarget
 from app.services.author_cards import (
     author_candidates,
     build_author_directory,
@@ -26,15 +26,16 @@ from app.services.author_cards import (
 )
 from app.services.opensearch_client import OpenSearchGateway
 from tests.test_tour_location import _Base
+from tests.test_tour_object_targets import _WithObjects
 
 ROWS = [
-    {"id": "a:sequeira-1", "name": "Sequeira, Domingos António de", "count": 63, "in_tour": 0},
-    {"id": "a:sequeira-2", "name": "Sequeira, Domingos António de (1768-1837)", "count": 46, "in_tour": 1},
-    {"id": "a:lopes", "name": "Gregório Lopes", "count": 18, "in_tour": 1},
-    {"id": "a:queiros", "name": "QUEIRÓS, Gregório Francisco de (1768-1845)", "count": 3, "in_tour": 0},
-    {"id": "a:porto", "name": "Silva Porto, António Carvalho de", "count": 47, "in_tour": 2},
-    {"id": "a:keil", "name": "Keil, Maria (Silves, 1914 - Lisboa 2012)", "count": 119, "in_tour": 1},
-    {"id": "a:reis", "name": "Reis, António Soares dos", "count": 84, "in_tour": 3},
+    {"id": "a:sequeira-1", "name": "Sequeira, Domingos António de", "count": 63},
+    {"id": "a:sequeira-2", "name": "Sequeira, Domingos António de (1768-1837)", "count": 46},
+    {"id": "a:lopes", "name": "Gregório Lopes", "count": 18},
+    {"id": "a:queiros", "name": "QUEIRÓS, Gregório Francisco de (1768-1845)", "count": 3},
+    {"id": "a:porto", "name": "Silva Porto, António Carvalho de", "count": 47},
+    {"id": "a:keil", "name": "Keil, Maria (Silves, 1914 - Lisboa 2012)", "count": 119},
+    {"id": "a:reis", "name": "Reis, António Soares dos", "count": 84},
 ]
 AUTHOR_DOCS = {
     "a:sequeira-1": {"entity_id": "a:sequeira-1", "name": "Sequeira, Domingos António de", "activity": "", "birth_date": "",
@@ -61,10 +62,20 @@ class _Preprocess:
 
 
 class _AuthorGateway:
-    def __init__(self, *, fail_authors: bool = False) -> None:
+    def __init__(self, *, fail_authors: bool = False, inventories: list[str] | None = None) -> None:
         self.creator_calls: list[dict] = []
         self.author_calls: list[list[str]] = []
+        self.inventory_calls: list[dict] = []
         self.fail_authors = fail_authors
+        # os n.ºs de inventário das peças do autor; None = a leitura falha
+        self.inventories = [] if inventories is None else inventories
+        self.fail_inventories = False
+
+    async def fetch_inventories_by_creator_ids(self, **kwargs):
+        self.inventory_calls.append(kwargs)
+        if self.fail_inventories:
+            raise RuntimeError("OpenSearch em baixo")
+        return list(self.inventories)
 
     async def aggregate_creators(self, **kwargs):
         self.creator_calls.append(kwargs)
@@ -116,7 +127,7 @@ class TestAuthorCard(_Base):
         self.assertEqual(response.reply, "texto da resposta")
         self.assertEqual(len(response.artifact_results), 3)
         author = response.author
-        self.assertEqual((author.name, author.entity_ids, author.artifact_count, author.in_tour_count), ("Gregório Lopes", ["a:lopes"], 18, 1))
+        self.assertEqual((author.name, author.entity_ids, author.artifact_count, author.in_tour_count), ("Gregório Lopes", ["a:lopes"], 18, 0))
         self.assertEqual(author.url, "https://catalogo.example/autor/3")
         self.assertIsNone(author.biography)
         self.assertIsNone(author.image_url)
@@ -130,7 +141,9 @@ class TestAuthorCard(_Base):
         author = self._ask(service, "Tens obras do Domingos Sequeira?").author
         self.assertEqual(author.name, "Sequeira, Domingos António de")           # a grafia com mais peças
         self.assertEqual(author.entity_ids, ["a:sequeira-1", "a:sequeira-2"])
-        self.assertEqual((author.artifact_count, author.in_tour_count), (109, 1))
+        self.assertEqual((author.artifact_count, author.in_tour_count), (109, 0))
+        self.assertEqual(service.opensearch_gateway.inventory_calls,
+                         [{"museum_slug": "mnaa", "museum_id": "mnaa", "creator_ids": ["a:sequeira-1", "a:sequeira-2"]}])
         self.assertEqual((author.activity, author.birth_date, author.birth_year, author.death_year), ("Pintor", "1768-03-10", 1768, 1837))
         self.assertEqual((author.birth_place, author.death_place, author.biography), ("Lisboa", "Roma", "Pintor da corte."))
         self.assertEqual(author.url, "https://catalogo.example/autor/1")
@@ -196,6 +209,91 @@ class TestAuthorCard(_Base):
         self.assertEqual(len(service.opensearch_gateway.creator_calls), 1)
 
 
+def _piece(inventory: str, *creator_ids: str) -> ArtifactResult:
+    return ArtifactResult(artifact_id=f"a-{inventory}", inventory_number=inventory, creator_ids=list(creator_ids))
+
+
+class TestAuthorInTourCount(_WithObjects):
+    """in_tour_count sai dos alvos de navegação, com o critério do «Ver na tour»
+    dos cartões. A visita dos testes (museu mnt) tem hotspots para 19663, 5262,
+    38090 e 4703/4704, e peças localizadas no panorama: 777 (confirmada) e 999
+    (cosseno acima do limiar); a 888 fica abaixo do limiar e a 0000 não está."""
+
+    def _answer(self, cards: list[ArtifactResult], *, inventories: list[str] | None, objects: bool = True,
+                targets: list[TourNavigationTarget] | None = None):
+        settings = self._settings(CHAT_AUTHOR_CARD=True, TOUR_OBJECT_TARGETS_ENABLED=objects)
+        service = self._service(settings)
+        service._panorama_object_store = self.store
+        service._preprocess_llm_service = _Preprocess("A")
+        gateway = service.opensearch_gateway = _AuthorGateway(inventories=inventories)
+        gateway.fail_inventories = inventories is None
+        if targets is None:  # os alvos que a resposta traria: os dos cartões, pelo código dos cartões
+            targets = service._resolve_navigation_targets(
+                museum_slug="mnt", museum_id="mnt", docs=[{"inventory_number": card.inventory_number} for card in cards])
+        answered = ChatMessageResponse(reply="texto", artifact_results=cards, navigation_targets=targets)
+
+        async def routed(payload, *, status_cb=None):
+            return answered
+
+        service._handle_message_routed = routed
+        response = asyncio.run(service.handle_message(self._request("Mostra-me obras de Gregório Lopes.")))
+        self.assertIsNotNone(response.author)
+        return response, gateway
+
+    @staticmethod
+    def _own_cards_with_target(response) -> int:
+        with_target = {target.inventory_id.strip().casefold() for target in response.navigation_targets}
+        ids = set(response.author.entity_ids)
+        return len({card.inventory_number.strip().casefold() for card in response.artifact_results
+                    if ids.intersection(card.creator_ids) and card.inventory_number.strip().casefold() in with_target})
+
+    def test_counts_hotspots_and_located_objects_of_the_whole_museum(self) -> None:
+        # só um cartão na resposta; o autor tem seis peças no museu, quatro com alvo
+        response, gateway = self._answer([_piece("19663", "a:lopes")], inventories=["19663", "5262", "777", "999", "888", "0000"])
+        self.assertEqual(response.author.in_tour_count, 4)
+        self.assertEqual(response.author.artifact_count, 18)   # a contagem das fichas não muda
+        self.assertEqual(gateway.inventory_calls, [{"museum_slug": "mnt", "museum_id": "mnt", "creator_ids": ["a:lopes"]}])
+
+    def test_without_object_targets_only_hotspots_count(self) -> None:
+        response, _ = self._answer([_piece("19663", "a:lopes")], inventories=["19663", "5262", "777", "999"], objects=False)
+        self.assertEqual(response.author.in_tour_count, 2)
+
+    def test_a_piece_with_two_hotspots_counts_once(self) -> None:
+        # 5262 e 38090 têm dois hotspots cada (Sala da Música e Sala Cantonal)
+        response, _ = self._answer([_piece("5262", "a:lopes")], inventories=["5262", "38090", " 5262 "])
+        self.assertEqual(response.author.in_tour_count, 2)
+
+    def test_cards_of_other_authors_do_not_count(self) -> None:
+        cards = [_piece("19663", "a:lopes"), _piece("38090", "a:queiros"), _piece("999", "a:porto")]
+        response, _ = self._answer(cards, inventories=["19663", "0000"])
+        self.assertEqual(len(response.navigation_targets), 4)   # 19663, 38090 (dois hotspots) e 999
+        self.assertEqual(response.author.in_tour_count, 1)
+
+    def test_never_less_than_the_authors_cards_with_a_target(self) -> None:
+        cards = [_piece("19663", "a:lopes"), _piece("5262", "a:lopes", "a:queiros"), _piece("777", "a:lopes"),
+                 _piece("999", "a:lopes"), _piece("888", "a:lopes"), _piece("38090", "a:queiros")]
+        casos = {
+            "todas as peças do autor lidas": ["19663", "5262", "777", "999", "888", "4703"],
+            "a leitura das peças falha": None,
+            "a leitura vem vazia": [],
+            "a leitura vem incompleta": ["0000", "4703"],
+        }
+        esperado = {"todas as peças do autor lidas": 5, "a leitura das peças falha": 4, "a leitura vem vazia": 4,
+                    "a leitura vem incompleta": 5}
+        for nome, inventories in casos.items():
+            with self.subTest(nome):
+                response, _ = self._answer(cards, inventories=inventories)
+                self.assertEqual(self._own_cards_with_target(response), 4)
+                self.assertGreaterEqual(response.author.in_tour_count, self._own_cards_with_target(response))
+                self.assertEqual(response.author.in_tour_count, esperado[nome])
+
+    def test_a_target_in_the_answer_counts_even_if_the_map_no_longer_has_it(self) -> None:
+        # a resposta traz um alvo para a peça 0000 que o mapa não conhece: o cartão mostra «Ver na tour», a ficha conta-a
+        targets = [TourNavigationTarget(overlay_id="ov-x", panorama_key="pan_x", inventory_id="0000")]
+        response, _ = self._answer([_piece("0000", "a:lopes")], inventories=["0000"], targets=targets)
+        self.assertEqual(response.author.in_tour_count, 1)
+
+
 class TestAuthorFunctions(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = build_author_directory(ROWS)
@@ -253,15 +351,15 @@ class _CreatorsClient:
     def search(self, *, index, body):
         self.bodies.append(body)
 
-        def bucket(key, count, in_tour, ids, names):
-            return {"key": key, "doc_count": count, "na_visita": {"doc_count": in_tour},
+        def bucket(key, count, ids, names):
+            return {"key": key, "doc_count": count,
                     "ficha": {"hits": {"hits": [{"_source": {"creator_ids": ids, "creators": names}}]}}}
 
         return {"aggregations": {"autores": {"buckets": [
-            bucket("a:lopes", 18, 1, ["a:lopes"], ["Gregório Lopes"]),
-            bucket("a:leal", 2, 0, ["a:lopes", "a:leal"], ["Gregório Lopes", "Jorge Leal"]),   # peça com dois autores
-            bucket("a:so", 5, 0, "a:so", "Autor só"),                                            # o índice devolve texto simples
-            bucket("a:torto", 3, 0, ["a:torto", "a:outro"], ["Só um nome"]),                    # listas desalinhadas: fora
+            bucket("a:lopes", 18, ["a:lopes"], ["Gregório Lopes"]),
+            bucket("a:leal", 2, ["a:lopes", "a:leal"], ["Gregório Lopes", "Jorge Leal"]),   # peça com dois autores
+            bucket("a:so", 5, "a:so", "Autor só"),                                            # o índice devolve texto simples
+            bucket("a:torto", 3, ["a:torto", "a:outro"], ["Só um nome"]),                    # listas desalinhadas: fora
         ]}}}
 
 
@@ -272,14 +370,35 @@ class TestCreatorsGateway(unittest.TestCase):
         gateway._client = fake
         rows = asyncio.run(gateway.aggregate_creators(museum_slug="mnaa", museum_id="mnaa"))
         self.assertEqual(rows, [
-            {"id": "a:lopes", "name": "Gregório Lopes", "count": 18, "in_tour": 1},
-            {"id": "a:leal", "name": "Jorge Leal", "count": 2, "in_tour": 0},
-            {"id": "a:so", "name": "Autor só", "count": 5, "in_tour": 0},
+            {"id": "a:lopes", "name": "Gregório Lopes", "count": 18},
+            {"id": "a:leal", "name": "Jorge Leal", "count": 2},
+            {"id": "a:so", "name": "Autor só", "count": 5},
         ])
         body = fake.bodies[0]
         self.assertEqual(body["size"], 0)
         self.assertEqual(body["aggs"]["autores"]["terms"]["field"], "creator_ids")
         self.assertTrue(body["query"]["bool"]["filter"])
+        # quantas peças estão na visita não sai do índice (campo in_tour desatualizado)
+        self.assertNotIn("in_tour", str(body))
+
+    def test_inventories_of_the_authors_pieces(self) -> None:
+        class _Client:
+            bodies: list[dict] = []
+
+            def search(self, *, index, body):
+                self.bodies.append(body)
+                return {"hits": {"hits": [{"_source": {"inventory_number": "30 Pint"}}, {"_source": {"inventory": "80 Pint"}},
+                                          {"_source": {"inventory_number": "30 Pint"}}, {"_source": {}}]}}
+
+        gateway = OpenSearchGateway(Settings(_env_file=None, OPENSEARCH_INDEX_ARTIFACT="arts"))
+        gateway._client = _Client()
+        found = asyncio.run(gateway.fetch_inventories_by_creator_ids(
+            museum_slug="mnaa", museum_id="mnaa", creator_ids=["a:lopes-2", "a:lopes", "", "a:lopes"]))
+        self.assertEqual(found, ["30 Pint", "80 Pint"])
+        body = gateway._client.bodies[0]
+        self.assertEqual(body["query"]["bool"]["filter"][-1], {"terms": {"creator_ids": ["a:lopes", "a:lopes-2"]}})
+        self.assertGreater(len(body["query"]["bool"]["filter"]), 1)   # com o filtro do museu
+        self.assertEqual(asyncio.run(gateway.fetch_inventories_by_creator_ids(museum_slug="mnaa", museum_id="mnaa", creator_ids=[])), [])
 
 
 if __name__ == "__main__":

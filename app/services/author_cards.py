@@ -43,7 +43,6 @@ class AuthorGroup:
     ids: list[str] = field(default_factory=list)
     names: list[str] = field(default_factory=list)
     count: int = 0
-    in_tour: int = 0
     tokens: frozenset[str] = frozenset()
 
 
@@ -55,7 +54,7 @@ class AuthorDirectory:
 
 
 def build_author_directory(rows: list[dict]) -> AuthorDirectory:
-    """rows: [{"id", "name", "count", "in_tour"}], como vêm da agregação por
+    """rows: [{"id", "name", "count"}], como vêm da agregação por
     creator_ids, do autor com mais peças para o que tem menos. O nome que fica
     é o da grafia com mais peças."""
     by_key: dict[str, AuthorGroup] = {}
@@ -77,7 +76,6 @@ def build_author_directory(rows: list[dict]) -> AuthorDirectory:
         group.ids.append(author_id)
         group.names.append(name)
         group.count += count
-        group.in_tour += int(row.get("in_tour") or 0)
     groups = sorted(by_key.values(), key=lambda g: (-g.count, g.name))
     frequency: dict[str, int] = {}
     for group in groups:
