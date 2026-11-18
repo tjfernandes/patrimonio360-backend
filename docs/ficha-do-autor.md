@@ -1,0 +1,119 @@
+# Ficha do autor no chat (2026-11-18)
+
+Uma flag nova, desligada por omissão. Não está ligada em produção. O frontend ainda não desenha o campo novo; o pedido para o
+frontend está em `docs/ficha-do-autor-frontend-prompt.md`.
+
+## O problema
+
+Quando o visitante pergunta por um autor («Mostra-me obras de Gregório Lopes», «Quem foi Soares dos Reis?»), a resposta trazia
+o texto e os cartões das peças, e nada sobre o autor. O índice de autores tem atividade, datas, locais e biografia para parte
+deles, e esses dados não chegavam ao chat.
+
+## O que mudou
+
+| Flag | O que faz |
+|---|---|
+| `CHAT_AUTHOR_CARD` | Quando a mensagem diz o nome de um autor das peças mostradas, a resposta leva `author` com a ficha dele |
+
+O texto da resposta e os cartões são os mesmos com e sem a flag. O campo `author` vem em `POST /chat/messages`, no evento
+`result` do stream e nas rotas de `regenerate`; nas outras respostas é `null`.
+
+| Campo de `author` | De onde vem |
+|---|---|
+| `name` | O nome como o catálogo o escreve, pelas fichas das peças |
+| `activity`, `birth_date`, `death_date`, `birth_place`, `death_place`, `biography`, `url` | Índice de autores |
+| `birth_year`, `death_year` | O ano lido da data, quando ela tem um só ano de quatro dígitos |
+| `artifact_count`, `in_tour_count` | Contagem nas fichas das peças do museu da pesquisa |
+| `entity_ids` | Os ids do autor (mais de um quando o catálogo o tem em várias fichas) |
+| `image_url` | Retrato. Sempre `null`: ver «Retratos» |
+
+## Como se decide
+
+1. **O autor sai dos dados.** Entre os autores dos cartões da resposta, o que tem no nome mais palavras da mensagem. Uma
+   palavra conta pelo que distingue («António» está em dezenas de nomes, «Pousão» num só). O que o catálogo junta ao nome entre
+   parênteses (datas, locais) não conta. Sem cartões, ou sem palavras em comum, não há ficha nem pergunta ao modelo.
+2. **O modelo de pré-processamento diz o que essas palavras são na mensagem**, numa pergunta com seis respostas por letra
+   (`build_author_name_prompt`): artista ou oficina; santo ou quem está representado; rei ou figura histórica; lugar, sala ou
+   museu; uma peça; não é um nome próprio. Só a primeira junta a ficha.
+
+O passo 1 é uma procura na lista de autores das peças mostradas, não uma decisão. Fica fora do modelo porque o modelo, medido,
+escolhe mal entre nomes parecidos: com «Gregório Lopes» em primeiro numa lista de seis, escolhia «Queirós, Gregório Francisco».
+
+Grafias do mesmo autor ficam juntas quando o nome tem as mesmas palavras («Sequeira, Domingos António de» e «Sequeira,
+Domingos António de (1768-1837)»): a ficha soma as peças das duas e fica com o primeiro valor preenchido de cada campo.
+
+A ficha é um extra: se o OpenSearch ou o modelo falharem, ou o passo demorar mais de seis segundos, a resposta sai sem ela.
+
+## Como foi medido
+
+Qwen3-VL-8B, temperatura 0. Casos em `tests/author_card_cases.py`: 74 mensagens com o nome de um autor e 71 sem (santos,
+reis, lugares, salas, o nome do museu, «autor desconhecido»), em seis museus.
+
+### Redações da pergunta ao modelo
+
+Chamadas diretas ao modelo, com o autor mais parecido de todo o museu (mais difícil do que em serviço, onde só contam os
+autores dos cartões). As 129 mensagens reais são as da checklist do MNAA, do benchmark e dos casos de leitura.
+
+| Redação | Com autor: certas | Sem autor: com ficha | Mensagens reais com ficha |
+|---|---|---|---|
+| Escolher o autor numa lista de seis, ou «nenhum» | 69 de 73 | 19 de 72 | 37 de 129 |
+| «A mensagem diz o nome de algum destes autores?» | 28 de 73 | 1 de 72 | 3 de 129 |
+| «O visitante pergunta por este autor?», com o nome do catálogo | 73 de 73 | 14 de 72 | 36 de 129 |
+| «Na mensagem, «X» é o nome de quê?», com o nome do catálogo | 73 de 73 | 13 de 72 | 34 de 129 |
+| A mesma, sem o nome do catálogo | 69 de 73 | 8 de 72 | 18 de 129 |
+| A mesma, com a primeira e a última resposta reescritas (a que ficou) | 71 de 74 | 6 de 71 | 19 de 129 |
+
+- Dizer ao modelo o nome que está no catálogo faz com que responda «é esse autor» a quase tudo.
+- A redação final troca «autor de obras» por «oficina (quem fez obras)» e «não é um nome» por «não é um nome próprio»:
+  mais duas certas e menos uma indevida. As mensagens com a palavra «autor» continuam a receber «Autor desconhecido».
+- Nas cinco primeiras linhas «obras de Rembrandt» estava contada como sem autor; o museu tem peças dele e passou para o
+  outro grupo.
+- Das 19 mensagens reais com ficha na redação final, 16 dizem mesmo o nome de um autor; as outras três são «Que autor tem mais
+  obras?», «Desse autor há mais?» e «Faz o mesmo mas só com pintura», com autores que em serviço não estariam nos cartões.
+
+### Pelo código do serviço
+
+Cada mensagem foi à API de produção (sem a flag) e à resposta aplicou-se `_author_card_for_response`, que é o que o backend
+faz com a flag ligada.
+
+| | Resultado |
+|---|---|
+| Mensagens com autor: ficha do autor certo | 68 de 74 |
+| Mensagens sem autor: com ficha | 1 de 71 |
+| Checklist do MNAA (115 mensagens, cartões da repetição guardada): com ficha | 15, todas com o nome do autor na mensagem |
+| Tempo do passo quando pergunta ao modelo (76 de 145 mensagens) | 0,11 s de mediana, 0,79 s no máximo |
+| Tempo do passo nas outras | abaixo de 0,03 s |
+
+- As seis que falham: em quatro o modelo não reconhece o nome como de artista («E do Nuno Gonçalves, há alguma coisa?»,
+  «Quem foi Frei Carlos?», «roupa da Fátima Lopes», «Do you have Mary Quant?»); em duas a pesquisa não trouxe nenhuma peça do
+  autor («Who was Soares dos Reis?», sem cartões, e «Quadros de Silva Porto» na Casa-Museu). Ficam como hoje, sem ficha.
+- A que recebe ficha sem dever: «Que peças são de autor desconhecido?» recebe a ficha de «Autor desconhecido».
+- Nas 74 mensagens com autor, 395 dos 428 cartões são de peças dele, e em 63 são todos. A pior é «Mostra-me as obras de
+  Soares dos Reis» no museu com esse nome: um cartão em oito (as palavras do nome do museu estão na bibliografia de muitas
+  fichas).
+- Das 68 fichas: 28 têm ano de nascimento, 16 têm biografia, 6 têm atividade, 67 têm ligação ao catálogo, nenhuma tem retrato.
+
+## Retratos
+
+O catálogo de origem não tem retratos de autores. Confirmado a 2026-11-18 em doze páginas de autor (as dos autores com
+biografia e mais peças): só têm imagens das peças. O campo `image_url` existe para o frontend ficar pronto e vem sempre
+`null`. Para ter retratos é preciso uma fonte nova, e isso não foi feito.
+
+## Limites conhecidos
+
+- A ficha só aparece quando a pesquisa mostra pelo menos uma peça do autor.
+- O nome é o do catálogo («Reis, António Soares dos», «Keil, Maria (Silves, 1914 - Lisboa 2012)»); não é reescrito.
+- As datas são as do catálogo, em formatos variados («19/06/1731», «00/00/1884», «Século XV (?)»). O ano vem à parte.
+- A maior parte dos autores só tem nome: no MNAA, 13 dos 450 têm biografia.
+- Entradas do catálogo que não são pessoas («Autor desconhecido», «Não identificado») podem receber ficha.
+- O texto da AMÁLIA não usa a biografia: «Quem foi Gregório Lopes?» continua a ser respondido a partir das peças.
+- O modal de detalhe da peça (`/artifacts/{id}/detail-context`) lê os campos do autor pelos nomes antigos e, no índice v4,
+  só devolve o nome, a biografia e a ligação. Não foi alterado aqui.
+
+## Para ligar
+
+Juntar ao `.env` e reiniciar o backend:
+
+```
+CHAT_AUTHOR_CARD=true
+```

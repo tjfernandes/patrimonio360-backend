@@ -54,7 +54,16 @@ from app.prompts.chat_prompts import (
     card_selection_instruction,
     build_card_preselection_prompt,
 )
+from app.services.author_cards import (
+    AuthorDirectory,
+    author_candidates,
+    build_author_directory,
+    life_year,
+    merged_author_fields,
+    words_in_message,
+)
 from app.prompts.query_planner_prompts import (
+    build_author_name_prompt,
     FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
     RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
     build_follow_up_resolution_prompt,
@@ -83,6 +92,7 @@ from app.schemas.chat import (
     TourRoomTarget,
     ArtifactDetailContextResponse,
     AuthorEntity,
+    ChatAuthorCard,
     SetEntityWithArtifacts,
     ExhibitionEntityWithArtifacts,
     RelatedArtifactItem,
@@ -3013,6 +3023,113 @@ class ChatService:
         return entries
 
     async def handle_message(
+        self,
+        payload: ChatMessageRequest,
+        *,
+        status_cb: StatusCallback | None = None,
+    ) -> ChatMessageResponse:
+        """Responde à mensagem e, com CHAT_AUTHOR_CARD, junta a ficha do autor de
+        quem ela fala. A ficha é um extra: se falhar ou demorar, a resposta sai
+        como estava."""
+        response = await self._handle_message_routed(payload, status_cb=status_cb)
+        if not bool(getattr(self.settings, "CHAT_AUTHOR_CARD", False)):
+            return response
+        try:
+            author = await asyncio.wait_for(self._author_card_for_response(payload, response), timeout=6.0)
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.author_card.error", error=exc)
+            return response
+        return response.model_copy(update={"author": author}) if author is not None else response
+
+    # ----- Ficha do autor (CHAT_AUTHOR_CARD) ----- #
+
+    async def _author_directory(self, *, museum_slug: str, museum_id: str | None) -> AuthorDirectory:
+        """Os autores do museu, pelas fichas das peças. Guardado uma hora."""
+        cache = getattr(self, "_author_directory_cache", None)
+        if cache is None:
+            cache = self._author_directory_cache = {}
+        key = (museum_slug, museum_id)
+        entry = cache.get(key)
+        if entry is None or time.monotonic() - entry[0] > 3600:
+            rows = await self.opensearch_gateway.aggregate_creators(museum_slug=museum_slug, museum_id=museum_id)
+            entry = cache[key] = (time.monotonic(), build_author_directory(rows))
+        return entry[1]
+
+    async def _author_card_for_response(
+        self, payload: ChatMessageRequest, response: ChatMessageResponse
+    ) -> ChatAuthorCard | None:
+        """A ficha do autor de quem a mensagem fala, ou None.
+
+        O autor sai dos dados: entre os autores dos cartões da resposta, o que
+        tem no nome mais palavras da mensagem. Sem cartões ou sem palavras em
+        comum não há ficha nem pergunta ao modelo. Depois o modelo de
+        pré-processamento diz o que essas palavras são na mensagem («Porto»
+        em «paisagens do Porto» é um lugar; em «quadros de Silva Porto» é um
+        artista): só com a resposta A a ficha é junta. Os dados são os do
+        índice de autores; as contagens, as das fichas das peças."""
+        if response.status != "ok" or not response.artifact_results:
+            return None
+        if response.response_format is not None and response.response_format.type != "text":
+            return None
+        message = (payload.message or "").strip()
+        if not message:
+            return None
+        scope = response.search_scope
+        museum_slug = (scope.museum_slug if scope is not None else None) or payload.museum_slug
+        museum_id = (scope.museum_id if scope is not None else None) or self._resolve_museum_id(payload)
+        directory = await self._author_directory(museum_slug=museum_slug, museum_id=museum_id)
+        shown_ids = {author_id for card in response.artifact_results for author_id in (card.creator_ids or [])}
+        shown = [group for group in directory.groups if shown_ids.intersection(group.ids)]
+        candidates = author_candidates(message, directory, among=shown, limit=1)
+        if not candidates:
+            return None
+        group = candidates[0]
+        words = words_in_message(message, group)
+        if not words:
+            return None
+        try:
+            llm_response = await self.preprocess_llm_service.generate(
+                message=build_author_name_prompt(message=message, words=words),
+                response_format=ResponseFormatObject(type="json_object"),
+                system_prompt=None,
+                model_override=None,
+                max_tokens=60,
+            )
+            data = llm_response.parsed_json
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.author_card.llm_error", error=exc)
+            return None
+        answer = str(data.get("resposta") or "").strip().upper()[:1] if isinstance(data, dict) else ""
+        log_event(
+            logger, logging.INFO, "chat.author_card.decision",
+            conversation_id=response.conversation_id, query_id=response.query_id,
+            author=group.name, words=words, answer=answer,
+        )
+        if answer != "A":
+            return None
+        try:
+            docs = await self.opensearch_gateway.fetch_authors_by_ids(author_ids=list(group.ids))
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.author_card.fetch_error", error=exc)
+            docs = []
+        fields = merged_author_fields(docs)
+        return ChatAuthorCard(
+            entity_ids=list(group.ids),
+            name=group.name,
+            activity=fields["activity"],
+            birth_date=fields["birth_date"],
+            death_date=fields["death_date"],
+            birth_year=life_year(fields["birth_date"]),
+            death_year=life_year(fields["death_date"]),
+            birth_place=fields["birth_place"],
+            death_place=fields["death_place"],
+            biography=fields["biography"],
+            url=fields["url"],
+            artifact_count=group.count,
+            in_tour_count=group.in_tour,
+        )
+
+    async def _handle_message_routed(
         self,
         payload: ChatMessageRequest,
         *,

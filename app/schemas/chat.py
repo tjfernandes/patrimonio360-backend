@@ -504,6 +504,32 @@ class ChatSubjectArtifact(BaseModel):
     context_source: str | None = None
 
 
+class ChatAuthorCard(BaseModel):
+    """Ficha do autor de quem a mensagem fala (CHAT_AUTHOR_CARD). Os dados são
+    os do catálogo; o que o catálogo não tem fica a None."""
+
+    # ids do autor no índice de autores (mais de um quando o catálogo o tem em várias fichas)
+    entity_ids: list[str] = Field(default_factory=list)
+    # como o catálogo o escreve («Reis, António Soares dos»)
+    name: str
+    activity: str | None = None
+    # datas como o catálogo as escreve («1847», «09/01/1884»); o ano à parte quando se lê
+    birth_date: str | None = None
+    death_date: str | None = None
+    birth_year: int | None = None
+    death_year: int | None = None
+    birth_place: str | None = None
+    death_place: str | None = None
+    biography: str | None = None
+    # página do autor no catálogo de origem
+    url: str | None = None
+    # retrato do autor. O catálogo de origem não tem retratos: hoje é sempre None.
+    image_url: str | None = None
+    # peças deste autor no museu da pesquisa, e quantas delas estão na visita
+    artifact_count: int = 0
+    in_tour_count: int = 0
+
+
 class ChatMessageResponse(BaseModel):
     status: Literal["ok"] = "ok"
     conversation_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -536,6 +562,9 @@ class ChatMessageResponse(BaseModel):
     # Percurso temático planeado (CHAT_ROUTE_PLANNING): o widget mostra o cartão
     # do percurso em vez dos artifact_results. None = resposta normal.
     route: RoutePlan | None = None
+    # Ficha do autor (CHAT_AUTHOR_CARD): a mensagem diz o nome de um autor das
+    # peças em artifact_results. None = não há ficha a mostrar.
+    author: ChatAuthorCard | None = None
 
 
 class ChatResultsPageResponse(BaseModel):

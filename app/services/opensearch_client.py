@@ -2717,6 +2717,8 @@ class OpenSearchGateway:
             "entity_id", "tipo_entidade", "name", "atividade",
             "data_nascimento", "data_obito", "local_nascimento", "local_obito",
             "biografia", "biography", "url", "museums", "n_objetos", "objetos",
+            # nomes dos mesmos campos no índice v4 (lidos pela ficha do autor)
+            "activity", "birth_date", "death_date", "birth_place", "death_place",
         ],
         "conjunto": [
             "entity_id", "tipo_entidade", "name", "num_conjunto",
@@ -3203,6 +3205,61 @@ class OpenSearchGateway:
         """Como o normalizador lowercase_ascii guarda um valor: minúsculas, sem acentos."""
         normalized = unicodedata.normalize("NFKD", str(text or "").strip().lower())
         return "".join(ch for ch in normalized if not unicodedata.combining(ch))
+
+    def _aggregate_creators_sync(self, *, museum_slug: str, museum_id: str | None) -> list[dict[str, Any]]:
+        """Ficha do autor (CHAT_AUTHOR_CARD): os autores do museu pelas fichas das
+        peças. Para cada um: o id, o nome como o catálogo o escreve, quantas
+        peças tem e quantas delas estão na visita. Do que tem mais peças para
+        o que tem menos."""
+        client = self._ensure_client()
+        filters = self._build_filter_clauses(museum_slug=museum_slug, museum_id=museum_id, filters=None)
+        body: dict[str, Any] = {
+            "size": 0,
+            "query": {"bool": {"filter": filters}},
+            "aggs": {
+                "autores": {
+                    "terms": {"field": "creator_ids", "size": 5000},
+                    "aggs": {
+                        "ficha": {"top_hits": {"size": 1, "_source": ["creators", "creator_ids"]}},
+                        "na_visita": {"filter": {"term": {"in_tour": True}}},
+                    },
+                }
+            },
+        }
+        response = client.search(index=self.settings.OPENSEARCH_INDEX_ARTIFACT, body=body)
+
+        def as_list(value: Any) -> list[str]:
+            return [value] if isinstance(value, str) else [str(item) for item in value or []]
+
+        rows: list[dict[str, Any]] = []
+        for bucket in ((response.get("aggregations") or {}).get("autores") or {}).get("buckets") or []:
+            key = str(bucket.get("key") or "").strip()
+            hits = ((bucket.get("ficha") or {}).get("hits") or {}).get("hits") or []
+            fonte = (hits[0].get("_source") or {}) if hits else {}
+            ids, nomes = as_list(fonte.get("creator_ids")), as_list(fonte.get("creators"))
+            # o nome é o que está na mesma posição do id; sem ele, o autor fica de fora
+            if not key or key not in ids or len(nomes) != len(ids):
+                continue
+            nome = nomes[ids.index(key)].strip()
+            if not nome:
+                continue
+            rows.append({
+                "id": key,
+                "name": nome,
+                "count": int(bucket.get("doc_count") or 0),
+                "in_tour": int((bucket.get("na_visita") or {}).get("doc_count") or 0),
+            })
+        return rows
+
+    async def aggregate_creators(self, *, museum_slug: str, museum_id: str | None) -> list[dict[str, Any]]:
+        return await self._to_thread_logged(
+            "opensearch.aggregate_creators",
+            self._aggregate_creators_sync,
+            log_fields={"museum_slug": museum_slug, "museum_id": museum_id},
+            result_size=len,
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+        )
 
     def _aggregate_facet_sync(
         self,
