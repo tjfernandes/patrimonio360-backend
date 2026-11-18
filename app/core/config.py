@@ -161,6 +161,14 @@ class Settings(BaseSettings):
     # OpenSearch agrega o campo em todas as fichas e a resposta sai por modelo de
     # texto, sem cartões. Só para mensagens que não são seguimento.
     CHAT_CATALOGUE_LISTINGS: bool = False
+    # Ficha do autor: quando a mensagem diz o nome de um autor das peças
+    # mostradas («obras de Gregório Lopes», «quem foi Soares dos Reis?»), a
+    # resposta leva `author` com os dados do catálogo (atividade, datas,
+    # biografia, n.º de peças). O autor sai das fichas; o modelo de
+    # pré-processamento só diz se as palavras da mensagem são o nome de um
+    # artista (uma pergunta curta, medida em tests/author_card_cases.py). O
+    # texto e os cartões não mudam.
+    CHAT_AUTHOR_CARD: bool = False
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);

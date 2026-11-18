@@ -35,6 +35,34 @@ def build_request_reading_prompt(
     )
 
 
+def build_author_name_prompt(*, message: str, words: str) -> str:
+    """Ficha do autor (CHAT_AUTHOR_CARD): `words` são as palavras da mensagem que
+    estão no nome de um autor das peças mostradas. São o nome de um artista?
+    Só a resposta A junta a ficha.
+
+    Redação medida a 2026-11-18 (tests/author_card_cases.py, seis museus): 71
+    de 74 mensagens com o nome de um autor recebem A; 6 de 71 perguntas feitas
+    para enganar também («Que autor tem mais obras?», «Onde fica a sala do
+    Germain?»). O prompt não diz o nome do autor no catálogo: com ele, o modelo
+    respondia A a quase tudo (13 de 71, e a 34 de 129 mensagens reais em vez de
+    19). Pedir ao modelo para escolher o autor numa lista também não serviu:
+    com «Gregório Lopes» em primeiro, escolhia o segundo. Pelo código do
+    serviço, só com os autores dos cartões: 68 de 74 e 1 de 71
+    (docs/ficha-do-autor.md). Qualquer alteração repete a medição.
+    """
+    return (
+        f"Mensagem de um visitante do museu:\n«{message}»\n\n"
+        f"Na mensagem, «{words}» é o nome de quê?\n"
+        "A) de um artista ou de uma oficina (quem fez obras)\n"
+        "B) de um santo, de uma figura religiosa ou de quem está representado numa obra\n"
+        "C) de um rei, de uma rainha ou de outra figura histórica\n"
+        "D) de um lugar, de uma sala ou de um museu\n"
+        "E) de uma peça\n"
+        "F) não é um nome próprio\n"
+        'Responde só com JSON: {"resposta": "A" a "F"}'
+    )
+
+
 def build_listing_request_prompt(*, message: str) -> str:
     """O visitante pede uma lista do que existe no museu? (CHAT_CATALOGUE_LISTINGS)
 
