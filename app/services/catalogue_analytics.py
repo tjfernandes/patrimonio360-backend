@@ -69,6 +69,32 @@ class AnalyticsQuery:
     in_tour: bool     # «nesta visita»
 
 
+@dataclass(frozen=True)
+class ListingFacet:
+    """O que uma listagem do acervo (CHAT_CATALOGUE_LISTINGS) agrega."""
+
+    key: str            # nome da mensagem em chat_i18n: message.listing_<key>
+    field: str | None   # campo do índice; None quando a resposta não é uma agregação desse campo
+    top: int            # quantos valores se mostram
+
+
+# Letra da resposta de build_listing_request_prompt -> o que se lista.
+LISTING_FACETS: dict[str, ListingFacet] = {
+    "B": ListingFacet("creators", "creator_ids", 15),
+    "C": ListingFacet("categories", "category", 40),
+    "D": ListingFacet("materials", "support_or_material", 15),
+    "E": ListingFacet("techniques", "technique", 12),
+    "F": ListingFacet("places", "production_center", 15),
+    "G": ListingFacet("centuries", None, 0),   # responde a contagem por século da analítica
+    "H": ListingFacet("styles", None, 0),      # as fichas não registam o estilo
+}
+
+
+def mentions_tour_scope(message: str) -> bool:
+    """«nesta visita», «in this tour»: o âmbito é a visita e não o museu."""
+    return bool(_TOUR_SCOPE.search(fold(message)))
+
+
 def fold(text: str) -> str:
     normalized = unicodedata.normalize("NFKD", (text or "").casefold())
     stripped = "".join(ch for ch in normalized if not unicodedata.combining(ch))

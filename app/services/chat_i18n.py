@@ -243,6 +243,31 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "Das {dated} peças com data na ficha {scope}{subject}, a maioria é do século {top} ({top_count}). Por século: {listing}. Sem data na ficha: {undated}.",
         "en": "Of the {dated} objects with a date in their record {scope}{subject}, most are from the {top} century ({top_count}). By century: {listing}. Without a date in the record: {undated}.",
     },
+    "message.listing_category": {"pt": " de {category}", "en": " for {category}"},
+    "message.listing_creators": {
+        "pt": "Nas fichas{subject} {scope} há {distinct} autores identificados; {filled} das {total} peças têm autor indicado. Os {shown} com mais peças: {listing}.",
+        "en": "The records{subject} {scope} name {distinct} makers; {filled} of {total} objects have a maker. The {shown} with the most objects: {listing}.",
+    },
+    "message.listing_categories": {
+        "pt": "As peças {scope} dividem-se por {shown} categorias: {listing}.",
+        "en": "The objects {scope} fall into {shown} categories: {listing}.",
+    },
+    "message.listing_materials": {
+        "pt": "O material ou suporte está indicado em {filled} das {total} fichas{subject} {scope}, pelas palavras do catálogo. Os {shown} mais frequentes: {listing}.",
+        "en": "The material or support is given in {filled} of {total} records{subject} {scope}, in the catalogue's own words. The {shown} most frequent: {listing}.",
+    },
+    "message.listing_techniques": {
+        "pt": "A técnica está indicada em {filled} das {total} fichas{subject} {scope}, pelas palavras do catálogo ({distinct} formas diferentes). As {shown} mais frequentes: {listing}.",
+        "en": "The technique is given in {filled} of {total} records{subject} {scope}, in the catalogue's own words ({distinct} different wordings). The {shown} most frequent: {listing}.",
+    },
+    "message.listing_places": {
+        "pt": "O local de fabrico está indicado em {filled} das {total} fichas{subject} {scope}. Os {shown} mais frequentes: {listing}.",
+        "en": "The place of manufacture is given in {filled} of {total} records{subject} {scope}. The {shown} most frequent: {listing}.",
+    },
+    "message.listing_styles": {
+        "pt": "As fichas {scope} não registam o estilo das peças, por isso não consigo listar estilos. Posso dizer-lhe os tipos de peças, os autores, os materiais, as técnicas, os locais de fabrico e os séculos.",
+        "en": "The records {scope} do not state the style of the objects, so I cannot list styles. I can tell you the types of objects, the makers, the materials, the techniques, the places of manufacture and the centuries.",
+    },
     "message.analytics_top_creators": {
         "pt": "Os autores com mais obras {scope}{subject}: {listing}. Entre {total} peças, {attributed} têm autor na ficha.",
         "en": "The makers with the most works {scope}{subject}: {listing}. Of {total} objects, {attributed} have a maker in the record.",
