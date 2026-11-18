@@ -23,9 +23,10 @@ O texto da resposta e os cartões são os mesmos com e sem a flag. O campo `auth
 | `name` | O nome como o catálogo o escreve, pelas fichas das peças |
 | `activity`, `birth_date`, `death_date`, `birth_place`, `death_place`, `biography`, `url` | Índice de autores |
 | `birth_year`, `death_year` | O ano lido da data, quando ela tem um só ano de quatro dígitos |
-| `artifact_count`, `in_tour_count` | Contagem nas fichas das peças do museu da pesquisa |
+| `artifact_count` | Contagem nas fichas das peças do museu da pesquisa |
+| `in_tour_count` | Quantas dessas peças têm alvo de «Ver na tour» (hotspot ou peça localizada no panorama), com o critério dos cartões. Não usa o campo `in_tour` do índice, que está desatualizado. Nunca é menor do que o número de cartões do autor que a mesma resposta traz com alvo |
 | `entity_ids` | Os ids do autor (mais de um quando o catálogo o tem em várias fichas) |
-| `image_url` | Retrato. Sempre `null`: ver «Retratos» |
+| `image_url` | Retrato. Sempre `null`: ver «Retratos». Quando houver, tem de ser um endereço absoluto http(s): o frontend ignora caminhos relativos e outros esquemas (em `image_url` e em `url`) e mostra as iniciais |
 
 ## Como se decide
 

@@ -56,6 +56,7 @@ from app.prompts.chat_prompts import (
 )
 from app.services.author_cards import (
     AuthorDirectory,
+    AuthorGroup,
     author_candidates,
     build_author_directory,
     life_year,
@@ -3066,7 +3067,8 @@ class ChatService:
         pré-processamento diz o que essas palavras são na mensagem («Porto»
         em «paisagens do Porto» é um lugar; em «quadros de Silva Porto» é um
         artista): só com a resposta A a ficha é junta. Os dados são os do
-        índice de autores; as contagens, as das fichas das peças."""
+        índice de autores; artifact_count, o das fichas das peças;
+        in_tour_count, o dos alvos de navegação (_author_in_tour_count)."""
         if response.status != "ok" or not response.artifact_results:
             return None
         if response.response_format is not None and response.response_format.type != "text":
@@ -3113,6 +3115,9 @@ class ChatService:
             log_event(logger, logging.WARNING, "chat.author_card.fetch_error", error=exc)
             docs = []
         fields = merged_author_fields(docs)
+        in_tour_count = await self._author_in_tour_count(
+            museum_slug=museum_slug, museum_id=museum_id, group=group, response=response
+        )
         return ChatAuthorCard(
             entity_ids=list(group.ids),
             name=group.name,
@@ -3126,8 +3131,54 @@ class ChatService:
             biography=fields["biography"],
             url=fields["url"],
             artifact_count=group.count,
-            in_tour_count=group.in_tour,
+            in_tour_count=in_tour_count,
         )
+
+    async def _author_in_tour_count(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        group: AuthorGroup,
+        response: ChatMessageResponse,
+    ) -> int:
+        """Quantas peças do autor a visita sabe mostrar: as que têm alvo de «Ver
+        na tour», com o critério dos cartões (_resolve_navigation_targets:
+        hotspots do mapa dos POIs e peças localizadas offline no panorama).
+
+        O campo in_tour do índice não entra: está desatualizado (ver
+        CHAT_IN_TOUR_FROM_NAVIGATION) e a ficha dizia «1 nesta visita» por cima
+        de quatro cartões com «Ver na tour».
+
+        Nunca é menor do que o número de cartões do autor que a própria
+        resposta traz com alvo: esses contam sempre, mesmo que a leitura das
+        peças do autor falhe ou venha incompleta."""
+
+        def norm(value: Any) -> str:
+            return str(value or "").strip().casefold()
+
+        ids = set(group.ids)
+        own_cards = [norm(card.inventory_number) for card in response.artifact_results if ids.intersection(card.creator_ids or [])]
+        with_target = {norm(target.inventory_id) for target in response.navigation_targets}
+        navigable = {inventory for inventory in own_cards if inventory and inventory in with_target}
+        try:
+            inventories = await self.opensearch_gateway.fetch_inventories_by_creator_ids(
+                museum_slug=museum_slug, museum_id=museum_id, creator_ids=list(group.ids)
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.author_card.inventories_error", error=exc)
+            inventories = []
+        # Uma peça de cada vez: num pedido com várias, o limite de alvos de
+        # resolve_targets pode deixar de fora as últimas.
+        for inventory in [*inventories, *own_cards]:
+            key = norm(inventory)
+            if not key or key in navigable:
+                continue
+            if self._resolve_navigation_targets(
+                museum_slug=museum_slug, museum_id=museum_id, docs=[{"inventory_number": inventory}]
+            ):
+                navigable.add(key)
+        return len(navigable)
 
     async def _handle_message_routed(
         self,
