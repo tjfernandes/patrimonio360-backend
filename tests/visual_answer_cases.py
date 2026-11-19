@@ -53,3 +53,21 @@ CASOS = [
      "inventarios": ["7583 Cer", "2103 Cer", "1924 Cer", "268 Cer", "6591 Cer", "4289 Cer", "6710 Cer", "6738 Cer"],
      "grupos": {"azul": r"azul|blue|cobalt", "branco": r"branc|white"}},
 ]
+
+# Pedidos que não são pelo aspeto, com os cartões que a pesquisa mostrou a 2026-11-19. Servem para medir
+# CHAT_ANSWER_ALL_CARDS (o texto fala de todos os cartões?): python scripts/medir_resposta_visual.py --todos x3
+CASOS_GERAIS = [
+    {"pedido": "Encontra obras do Machado de Castro",
+     "inventarios": ["90 Esc", "60 Esc", "57 Esc", "62 Esc", "59 Esc", "63 Esc", "584 Esc"]},
+    {"pedido": "Que obras de Gregório Lopes há?",
+     "inventarios": ["30 Pint", "1170 Pint", "15 Pint", "80 Pint", "11 Pint", "8 Pint", "53 Pint", "52 Pint"]},
+    {"pedido": "Mostra-me pinturas do século XV.",
+     "inventarios": ["1365 Pint", "1361 Pint", "1459 Pint", "1828 Pint", "2158 Pint", "1366 Pint", "1364 Pint", "303 Pint"]},
+    {"pedido": "Tesouros nacionais de ourivesaria.",
+     "inventarios": ["740 Our", "106 Our", "1 Our", "93 Our", "540 Our", "576 Our"]},
+    {"pedido": "Peças vindas do Japão.",
+     "inventarios": ["69 Cx", "1639 Mov", "1638 Mov", "931 Div", "393 Met", "1641 Mov"]},
+    {"pedido": "Quem pintou o São Jerónimo?",
+     "inventarios": ["828 Pint", "1152 Pint", "287 Pint", "1651 Pint", "1521 Pint", "1655 Pint"]},
+]
+

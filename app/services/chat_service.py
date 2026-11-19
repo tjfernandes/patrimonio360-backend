@@ -62,13 +62,16 @@ from app.services.author_cards import (
     author_candidates,
     build_author_directory,
     fold,
+    is_unknown_author,
     life_year,
     merged_author_fields,
+    other_author_words,
     words_in_message,
 )
 from app.prompts.query_planner_prompts import (
     build_author_name_prompt,
     build_author_only_prompt,
+    build_focused_author_prompt,
     build_implicit_artifact_prompt,
     IMPLICIT_ARTIFACT_LETTERS,
     IMPLICIT_ARTIFACT_OPEN_LETTER,
@@ -3140,6 +3143,11 @@ class ChatService:
         """Responde à mensagem e, com CHAT_AUTHOR_CARD, junta a ficha do autor de
         quem ela fala. A ficha é um extra: se falhar ou demorar, a resposta sai
         como estava."""
+        if bool(getattr(self.settings, "CHAT_FOCUSED_ARTIFACT_AUTHOR", False)):
+            try:
+                payload = await asyncio.wait_for(self._focused_author_request(payload), timeout=5.0)
+            except Exception as exc:  # noqa: BLE001 — sem resposta, o pedido segue como veio
+                log_event(logger, logging.WARNING, "chat.focused_author.error", error=exc)
         response = await self._handle_message_routed(payload, status_cb=status_cb)
         if not bool(getattr(self.settings, "CHAT_AUTHOR_CARD", False)):
             return response
@@ -3166,6 +3174,87 @@ class ChatService:
         except Exception as exc:  # noqa: BLE001
             log_event(logger, logging.WARNING, "chat.author_only.error", error=exc)
             return response
+
+    # ----- Autor da peça em foco (CHAT_FOCUSED_ARTIFACT_AUTHOR) ----- #
+
+    @staticmethod
+    def _author_name_for_request(name: str) -> str:
+        """O nome do catálogo como se diz num pedido: sem o que vem entre parênteses
+        e com «Apelido, Nome» por ordem («Machado de Castro, Joaquim» → «Joaquim
+        Machado de Castro»)."""
+        cleaned = re.sub(r"\s+", " ", re.sub(r"[(\[][^)\]]*[)\]]?", " ", str(name or ""))).strip(" ,;")
+        if cleaned.count(",") == 1:
+            last, first = (part.strip() for part in cleaned.split(","))
+            if last and first:
+                return f"{first} {last}"
+        return cleaned
+
+    async def _focused_author_request(self, payload: ChatMessageRequest) -> ChatMessageRequest:
+        """«Que mais obras existem deste autor?» com uma peça em foco no minichat:
+        o pedido passa a ser «obras de <autor dessa peça>».
+
+        A peça em foco vem em `metadata.context_artifact`; o autor lê-se da ficha
+        dela. Quem diz se a mensagem pede as outras obras desse autor é o modelo
+        de pré-processamento (build_focused_author_prompt): só com a resposta A
+        o pedido muda. Daí em diante é uma pesquisa pelo autor como outra
+        qualquer, com a ficha do autor. Uma peça selecionada (pergunta sobre ela
+        ou «Ver na tour») não passa por aqui."""
+        metadata = payload.metadata if isinstance(payload.metadata, dict) else {}
+        message = (payload.message or "").strip()
+        contexts = self._artifact_refs(metadata.get("context_artifact"), limit=1)
+        if not message or not contexts or metadata.get("selected_artifact") or self._metadata_intent(metadata):
+            return payload
+        if payload.response_format is not None and payload.response_format.type != "text":
+            return payload
+        piece = contexts[0]
+        docs = await self.opensearch_gateway.fetch_artifacts_by_ids(
+            museum_slug=payload.museum_slug, museum_id=self._resolve_museum_id(payload),
+            artifact_ids=[str(piece["artifact_id"])], top_k=1,
+        )
+        doc = docs[0] if docs else {}
+        creators = doc.get("creators") or doc.get("creator") or []
+        if isinstance(creators, str):
+            creators = [creators]
+        names = [self._author_name_for_request(name) for name in creators if str(name or "").strip()]
+        names = [name for name in names if name and not is_unknown_author(name)]
+        if not names:
+            return payload
+        author = names[0]
+        # Uma mensagem que diz o nome de outro autor («Há obras de Gregório Lopes?»)
+        # é uma pesquisa por esse autor: o modelo, sozinho, lia-a em 2 de 3 peças
+        # como «deste autor». Procura-se o nome na lista de autores do museu.
+        directory = await self._author_directory(museum_slug=payload.museum_slug, museum_id=self._resolve_museum_id(payload))
+        named = other_author_words(message, directory, except_name=author)
+        if named:
+            log_event(
+                logger, logging.INFO, "chat.focused_author.decision",
+                conversation_id=payload.conversation_id, artifact_id=piece["artifact_id"], author=author,
+                answer="-", named=" ".join(named), message=message[:120],
+            )
+            return payload
+        title = str(doc.get("title") or piece.get("title") or "").strip()
+        llm_response = await self.preprocess_llm_service.generate(
+            message=build_focused_author_prompt(message=message, title=title, author=author),
+            response_format=ResponseFormatObject(type="json_object"),
+            system_prompt=None,
+            model_override=None,
+            max_tokens=30,
+        )
+        data = llm_response.parsed_json
+        answer = str(data.get("resposta") or "").strip().upper()[:1] if isinstance(data, dict) else ""
+        log_event(
+            logger, logging.INFO, "chat.focused_author.decision",
+            conversation_id=payload.conversation_id, artifact_id=piece["artifact_id"], author=author, answer=answer,
+            message=message[:120],
+        )
+        if answer != "A":
+            return payload
+        english = normalize_language(payload.language) == "en"
+        request = f"works by {author}" if english else f"obras de {author}"
+        # a peça em foco sai do pedido: já não é uma pergunta sobre ela
+        new_metadata = {key: value for key, value in metadata.items() if key not in {"context_artifact", "visible_artifacts"}}
+        new_metadata["focused_author_request"] = {"artifact_id": piece["artifact_id"], "author": author, "message": message}
+        return payload.model_copy(update={"message": request, "metadata": new_metadata})
 
     # ----- Ficha do autor (CHAT_AUTHOR_CARD) ----- #
 
@@ -3366,6 +3455,106 @@ class ChatService:
         skip = (page - 2) * page_size
         return rest[skip: skip + page_size], (len(rest) > skip + page_size if fetched_all else None)
 
+    def _mention_every_card(self, text: str, cards: list[ArtifactResult], *, language: str | None) -> str:
+        """CHAT_ANSWER_ALL_CARDS: a garantia de que o texto fala de todos os cartões
+        mostrados. A instrução pede-o à AMÁLIA, que em cerca de um décimo dos
+        cartões não a cumpre; os que ficarem por dizer (nem o título nem o n.º de
+        inventário aparecem no texto) são nomeados numa última linha. Cartões com
+        o mesmo título contam pelas vezes que o título aparece. Com um só cartão
+        não se acrescenta nada: a resposta é sobre ele."""
+        if not bool(getattr(self.settings, "CHAT_ANSWER_ALL_CARDS", False)) or len(cards) < 2 or not (text or "").strip():
+            return text
+        folded = fold(text)
+        by_title: dict[str, list[ArtifactResult]] = {}
+        for card in cards:
+            by_title.setdefault(fold(card.title or ""), []).append(card)
+        missing: list[ArtifactResult] = []
+        for title, group in by_title.items():
+            by_inventory = [card for card in group if fold(card.inventory_number or "") and fold(card.inventory_number or "") in folded]
+            # o título como palavras inteiras: «Fé» conta em «1. Fé – modelo…» e não em «conferência»
+            times = len(re.findall(rf"(?<![a-z0-9]){re.escape(title)}(?![a-z0-9])", folded)) if len(title) >= 2 else 0
+            unnamed = [card for card in group if card not in by_inventory]
+            # o título dito n vezes cobre n cartões com esse título (primeiro os que não foram ditos pelo n.º)
+            missing.extend(unnamed[max(times - len(by_inventory), 0):])
+        if not missing:
+            return text
+        english = normalize_language(language) == "en"
+
+        def label(card: ArtifactResult) -> str:
+            title, inventory = str(card.title or "").strip(), str(card.inventory_number or "").strip()
+            if title and inventory:
+                return f"**{title}** ({inventory})"
+            return f"**{title}**" if title else (f"object {inventory}" if english else f"a peça {inventory}")
+
+        order = {card.artifact_id: index for index, card in enumerate(cards)}
+        names = ", ".join(label(card) for card in sorted(missing, key=lambda card: order[card.artifact_id]))
+        tail = f"The cards also show: {names}." if english else f"Nos cartões estão também: {names}."
+        return f"{text.rstrip()}\n\n{tail}"
+
+    async def _author_only_new_answer(
+        self,
+        payload: ChatMessageRequest,
+        response: ChatMessageResponse,
+        *,
+        message: str,
+        cards: list[ArtifactResult],
+        targets: list[TourNavigationTarget],
+        total: int,
+        page_size: int,
+        state: ChatSessionState | None,
+    ) -> str:
+        """CHAT_AUTHOR_ONLY_NEW_ANSWER: a resposta foi escrita para os cartões da
+        pesquisa geral, e os cartões passaram a ser só do autor (saíram os de
+        outros, entraram mais dele). Escreve-se a resposta outra vez, com o
+        mesmo prompt final, sobre os cartões que ficam. Qualquer falha deixa o
+        texto que já estava."""
+        if not bool(getattr(self.settings, "CHAT_AUTHOR_ONLY_NEW_ANSWER", False)) or not cards:
+            return response.reply
+        if not bool(getattr(self.settings, "CHAT_COMPACT_ANSWER_CONTEXT", False)):
+            return response.reply
+        language = normalize_language(payload.language or (state.language if state is not None else None))
+        scope = response.search_scope
+        try:
+            context = self._build_visible_results_retrieval_context(
+                artifact_results=cards, image_matches=[], page=1, page_size=page_size, total=total,
+                prefer_artifact_results=True, include_image_matches_section=False,
+                navigation_targets=None if (scope is not None and scope.is_cross_museum) else targets,
+            )
+            prompt = build_final_answer_prompt_v2(
+                museum_name=(scope.museum_name if scope is not None else None) or payload.museum_name,
+                intent="search", mode="rag", rolling_summary="", filters_state={},
+                user_message=message, rewritten_query=message, retrieval_context=context, language=language,
+                national_treasures=bool(getattr(self.settings, "CHAT_NATIONAL_TREASURES", False)),
+                all_cards=bool(getattr(self.settings, "CHAT_ANSWER_ALL_CARDS", False)),
+            )
+            llm_response = await self.llm_service.generate(
+                message=prompt,
+                response_format=ResponseFormatObject(type="text"),
+                system_prompt=self._final_system_prompt(payload.system_prompt, language),
+                model_override=None,
+            )
+            text = self._sanitize_assistant_reply(
+                str(getattr(llm_response, "text", "") or ""),
+                docs=self._artifact_results_as_prompt_docs(cards, navigation_targets=targets),
+                language=language,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.author_only.new_answer_error", error=exc)
+            return response.reply
+        if not text:
+            return response.reply
+        text = self._mention_every_card(text, cards, language=language)
+        # a conversa guardada fica com o texto que o visitante vê
+        history = getattr(state, "history", None) if state is not None else None
+        if history and str(getattr(history[-1], "role", "")) != "user":
+            history[-1].text = text
+            self.session_store.save(state)
+        log_event(
+            logger, logging.INFO, "chat.author_only.new_answer",
+            conversation_id=response.conversation_id, query_id=response.query_id, cards=len(cards), chars=len(text),
+        )
+        return text
+
     async def _author_only_results(
         self, payload: ChatMessageRequest, response: ChatMessageResponse, *, words: str, message: str | None = None
     ) -> ChatMessageResponse:
@@ -3496,7 +3685,14 @@ class ChatService:
             conversation_id=response.conversation_id, query_id=response.query_id, author=author.name,
             kept=len(kept), removed=len(response.artifact_results) - len(kept), filled=len(fill_cards), total=total, kind=kind,
         )
+        reply = response.reply
+        if len(kept) != len(response.artifact_results) or fill_cards:
+            # os cartões já não são os que a resposta descreveu: escreve-se outra, sobre estes
+            reply = await self._author_only_new_answer(
+                payload, response, message=message, cards=cards, targets=targets, total=total, page_size=page_size, state=state,
+            )
         return response.model_copy(update={
+            "reply": reply,
             "artifact_results": cards,
             "image_matches": images,
             "navigation_targets": targets,
@@ -5510,6 +5706,9 @@ class ChatService:
                 query_id=query_id,
                 **card_selection,
             )
+
+        if requested_format.type == "text" and not self._is_treasure_list_request(retrieval_request):
+            final_reply_text = self._mention_every_card(final_reply_text, paged_artifact_results, language=language)
 
         if not carry_filters:
             state.filters = {}
@@ -12250,6 +12449,7 @@ class ChatService:
                 # só quando os cartões desta resposta levam o aspeto (CHAT_VISUAL_CARD_FACTS)
                 visual_answer_rule=bool(getattr(self.settings, "CHAT_VISUAL_ANSWER_RULE", False))
                 and "    Aspeto na fotografia: " in (retrieval_context or ""),
+                all_cards=bool(getattr(self.settings, "CHAT_ANSWER_ALL_CARDS", False)),
             )
         if select_cards:
             return "\n".join(

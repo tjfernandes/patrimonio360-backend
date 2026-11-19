@@ -122,6 +122,38 @@ Castro?», «What else did Dürer paint?»…) × 3 execuções, sempre «A» na
 origem a isto (a Caridade, 63 Esc, e depois «Que mais obras existem deste autor?») passou a trazer a ficha de Machado
 de Castro. Testes em `tests/test_author_only_results.py` (`TestAuthorCardOnFollowUp`).
 
+## O autor da peça em foco (2026-11-19)
+
+O seguimento acima só funciona se o nome do autor já tiver aparecido na conversa. Com uma peça em foco no minichat e
+sem o nome dito («Que mais obras existem deste autor?» logo depois de abrir a Caridade), a resposta falava só da
+própria peça.
+
+Com `CHAT_FOCUSED_ARTIFACT_AUTHOR`, quando o pedido traz a peça em foco (`metadata.context_artifact`, que o frontend
+já envia), lê-se o autor na ficha dessa peça e pergunta-se ao modelo de pré-processamento o que a mensagem pede
+(`build_focused_author_prompt`, quatro respostas). Só com a resposta A («as outras obras de quem fez esta peça, ou
+saber quem ele foi, sem dizer o nome») o pedido passa a ser «obras de <autor>», e segue como uma pesquisa por esse
+autor, com a ficha. Não se aplica a uma peça selecionada (pergunta sobre ela, «Ver na tour») nem a peças de autor
+desconhecido.
+
+Uma mensagem que diz o nome de outro autor do museu nunca é trocada: procura-se na lista de autores
+(`other_author_words`). Sem isto, o modelo lia «Há obras de Gregório Lopes?» como «deste autor» em duas de três peças.
+
+Medido a 2026-11-19 (`tests/focused_author_cases.py`, 50 mensagens × 3 peças × 3 execuções,
+`scripts/medir_autor_da_peca.py`):
+
+| | Certas |
+|---|---|
+| 18 pedidos das obras do autor | 18 |
+| 16 perguntas sobre a peça | 15 («quem é o autor?» recebe A: mostra as obras e a ficha) |
+| 16 outros pedidos | 16 (15 só com o modelo; «Há obras de Gregório Lopes?» fica certo pela lista de autores) |
+
+A primeira redação, com três respostas, deixava passar «Há obras de Gregório Lopes?», «mostra-me obras de Zurbarán»,
+«Quem foi Josefa de Óbidos?» e «há outras peças parecidas com esta?»: faltava uma resposta própria para o artista que
+a mensagem nomeia. Mediana de 63 ms por chamada.
+
+Quando os cartões passam a ser só do autor, a resposta escreve-se outra vez sobre eles: ver
+`docs/todos-os-cartoes.md` (`CHAT_AUTHOR_ONLY_NEW_ANSWER`).
+
 ## Limites conhecidos
 
 - A ficha só aparece quando a pesquisa mostra pelo menos uma peça do autor.
@@ -142,4 +174,6 @@ CHAT_AUTHOR_CARD=true
 CHAT_AUTHOR_PORTRAITS=true   # opcional: retratos
 CHAT_AUTHOR_ONLY_RESULTS=true   # opcional: só peças do autor nos cartões
 CHAT_AUTHOR_CARD_FOLLOW_UP=true   # opcional: a ficha também em «e deste autor?»
+CHAT_FOCUSED_ARTIFACT_AUTHOR=true   # opcional: «deste autor» é o autor da peça em foco
+CHAT_AUTHOR_ONLY_NEW_ANSWER=true   # opcional: a resposta reescreve-se quando os cartões mudam
 ```

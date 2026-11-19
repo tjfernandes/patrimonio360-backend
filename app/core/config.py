@@ -180,6 +180,12 @@ class Settings(BaseSettings):
     # procura-se então no pedido que a leitura do seguimento resolveu («obras do
     # Machado de Castro»), e só quando a mensagem não tem nome nenhum.
     CHAT_AUTHOR_CARD_FOLLOW_UP: bool = False
+    # Autor da peça em foco: com uma peça à frente no minichat
+    # (`metadata.context_artifact`), «Que mais obras existem deste autor?» passa a
+    # ser «obras de <autor dessa peça>», mesmo que o nome nunca tenha aparecido na
+    # conversa. O autor lê-se da ficha da peça; o modelo de pré-processamento diz
+    # se a mensagem pede as outras obras dele (build_focused_author_prompt).
+    CHAT_FOCUSED_ARTIFACT_AUTHOR: bool = False
     # Retrato do autor na ficha (image_url e créditos), lido de AUTHOR_PORTRAITS_PATH.
     # Os retratos vêm da Wikidata/Wikimedia Commons (docs/retratos-dos-autores.md).
     CHAT_AUTHOR_PORTRAITS: bool = False
@@ -190,6 +196,14 @@ class Settings(BaseSettings):
     # primeira página e nas seguintes («ver mais resultados»). Precisa de
     # CHAT_AUTHOR_CARD. O texto da resposta não muda.
     CHAT_AUTHOR_ONLY_RESULTS: bool = False
+    # Com CHAT_AUTHOR_ONLY_RESULTS: quando os cartões mudam (saem os de outros
+    # autores, entram mais do autor), a resposta escreve-se outra vez sobre os
+    # cartões que ficam. Sem isto o texto falava de peças que já não estavam à
+    # vista, ou de menos peças do que os cartões. Custa mais uma geração da AMÁLIA.
+    CHAT_AUTHOR_ONLY_NEW_ANSWER: bool = False
+    # O texto da resposta fala de todas as peças dos cartões mostrados, uma a uma,
+    # em vez de destacar até três (docs/todos-os-cartoes.md).
+    CHAT_ANSWER_ALL_CARDS: bool = False
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);

@@ -120,6 +120,31 @@ def author_candidates(
     return [group for _got, _share, _count, group in scored[: max(int(limit), 1)]]
 
 
+# Entradas do catálogo que não são pessoas («Autor desconhecido», «Não identificado»).
+UNKNOWN_AUTHOR_WORDS = ("desconhecid", "nao identificad", "anonim", "unknown", "nao atribuid")
+
+
+def is_unknown_author(name: str) -> bool:
+    folded = fold(name)
+    return any(word in folded for word in UNKNOWN_AUTHOR_WORDS)
+
+
+def other_author_words(message: str, directory: AuthorDirectory, *, except_name: str = "") -> list[str]:
+    """As palavras da mensagem (quatro letras ou mais) que estão no nome de algum
+    autor do museu, tirando o autor `except_name` e as entradas que não são
+    pessoas. Serve para saber se a mensagem diz um nome: «Há obras de Gregório
+    Lopes?» dá «gregorio» e «lopes»; «Que mais obras existem deste autor?» não
+    dá nada («autor» só está em «Autor desconhecido»). É uma procura na lista,
+    larga de propósito: «santos» também conta, por haver um «António dos Santos»."""
+    own = set(name_tokens(except_name))
+    names: set[str] = set()
+    for group in directory.groups:
+        if is_unknown_author(group.name):
+            continue
+        names.update(token for token in group.tokens if len(token) >= 4)
+    return [token for token in dict.fromkeys(fold(message).split()) if token in names and token not in own]
+
+
 def words_in_message(message: str, group: AuthorGroup) -> str:
     """As palavras da mensagem que estão no nome do autor, como o visitante as
     escreveu («Há paisagens do Porto?» e «Silva Porto, António Carvalho de» →

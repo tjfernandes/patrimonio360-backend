@@ -91,9 +91,11 @@ class _WithStoredSearch(_Base):
     """Um serviço cuja resposta fica guardada com o pedido de pesquisa, como no chat."""
 
     def _service_with(self, preprocess: _Preprocess, first_page: list[dict], *, catalogue=CATALOGO, flag: bool = True,
-                      request: dict | None = REQUEST, fail_search: bool = False, follow_up: bool = False):
+                      request: dict | None = REQUEST, fail_search: bool = False, follow_up: bool = False,
+                      new_answer: bool = False, all_cards: bool = False, llm=None):
         service = self._service(self._settings(CHAT_AUTHOR_CARD=True, CHAT_AUTHOR_ONLY_RESULTS=flag, CHAT_RETRIEVAL_RESULTS_PAGE_SIZE=8,
-                                               CHAT_AUTHOR_CARD_FOLLOW_UP=follow_up))
+                                               CHAT_AUTHOR_CARD_FOLLOW_UP=follow_up, CHAT_AUTHOR_ONLY_NEW_ANSWER=new_answer,
+                                               CHAT_ANSWER_ALL_CARDS=all_cards, CHAT_COMPACT_ANSWER_CONTEXT=True), llm=llm)
         service._preprocess_llm_service = preprocess
         service.opensearch_gateway = _SearchGateway(catalogue, fail_search=fail_search)
         service._generate_results_page_reply = _no_reply
@@ -351,4 +353,65 @@ class TestAuthorCardOnFollowUp(_WithStoredSearch):
         response = self._ask(self._service_with(preprocess, CATALOGO[:8], request=RESOLVED, follow_up=True), FOLLOW_UP)
         self.assertIsNone(response.author)
         self.assertEqual(len(preprocess.prompts), 1)
+
+
+class _Writer:
+    """A AMÁLIA a escrever a resposta nova; guarda o prompt."""
+
+    def __init__(self, text: str | None = "Encontrei oito obras de Gregório Lopes.") -> None:
+        self.text, self.prompts = text, []
+
+    async def generate(self, *, message, **_kwargs):
+        self.prompts.append(message)
+        if self.text is None:
+            raise RuntimeError("AMÁLIA em baixo")
+        return SimpleNamespace(text=self.text)
+
+
+class TestAuthorOnlyNewAnswer(_WithStoredSearch):
+    """CHAT_AUTHOR_ONLY_NEW_ANSWER: os cartões mudaram, a resposta escreve-se outra vez sobre os que ficam."""
+
+    def test_off_by_default_the_text_stays(self) -> None:
+        self.assertFalse(Settings(_env_file=None).CHAT_AUTHOR_ONLY_NEW_ANSWER)
+        writer = _Writer()
+        response = self._ask(self._service_with(_Preprocess("A"), CATALOGO[:8], llm=writer))
+        self.assertEqual(response.reply, "texto da resposta")
+        self.assertEqual(writer.prompts, [])
+
+    def test_the_answer_is_written_again_about_the_cards_that_stay(self) -> None:
+        writer = _Writer()
+        service = self._service_with(_Preprocess("A"), CATALOGO[:8], new_answer=True, llm=writer)   # l1 o1 l2 o2 l3 o3 l4 o4
+        response = self._ask(service)
+        self.assertEqual([card.artifact_id for card in response.artifact_results], ["l1", "l2", "l3", "l4", "l5", "l6", "l7", "l8"])
+        self.assertEqual(response.reply, "Encontrei oito obras de Gregório Lopes.")
+        prompt = writer.prompts[0]
+        self.assertIn("PERGUNTA: Mostra-me obras de Gregório Lopes.", prompt)
+        for number in range(1, 9):
+            self.assertIn(f"Título: Peça l{number} ", prompt)
+        self.assertNotIn("Peça o1", prompt)
+        self.assertIn("visible_results_count: 8", prompt)
+        self.assertIn("visible_results_total: 19", prompt)
+
+    def test_cards_that_did_not_change_keep_their_text(self) -> None:
+        writer = _Writer()
+        response = self._ask(self._service_with(_Preprocess("A"), LOPES[:8], new_answer=True, llm=writer))
+        self.assertEqual(response.reply, "texto da resposta")
+        self.assertEqual(writer.prompts, [])
+
+    def test_a_failing_writer_keeps_the_old_text(self) -> None:
+        for writer in (_Writer(None), _Writer("")):
+            with self.subTest(text=writer.text):
+                response = self._ask(self._service_with(_Preprocess("A"), CATALOGO[:8], new_answer=True, llm=writer))
+                self.assertEqual(response.reply, "texto da resposta")
+                self.assertEqual(len(response.artifact_results), 8)
+
+    def test_with_all_cards_the_new_text_names_every_card(self) -> None:
+        writer = _Writer("Encontrei obras dele: **Peça l1**, a peça inv l2 e **Peça l3**.")
+        service = self._service_with(_Preprocess("A"), CATALOGO[:8], new_answer=True, all_cards=True, llm=writer)
+        response = self._ask(service)
+        self.assertIn("fala de todas as peças dos cartões", writer.prompts[0])
+        self.assertTrue(response.reply.startswith("Encontrei obras dele: **Peça l1**, a peça inv l2 e **Peça l3**."))
+        self.assertTrue(response.reply.endswith(
+            "Nos cartões estão também: **Peça l4** (inv l4), **Peça l5** (inv l5), **Peça l6** (inv l6), "
+            "**Peça l7** (inv l7), **Peça l8** (inv l8)."))
 
