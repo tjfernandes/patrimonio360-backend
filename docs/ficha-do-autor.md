@@ -15,8 +15,9 @@ deles, e esses dados não chegavam ao chat.
 |---|---|
 | `CHAT_AUTHOR_CARD` | Quando a mensagem diz o nome de um autor das peças mostradas, a resposta leva `author` com a ficha dele |
 | `CHAT_AUTHOR_PORTRAITS` | A ficha leva o retrato do autor e os créditos da imagem, quando o autor tem retrato em `app/data/author_portraits.json` (`docs/retratos-dos-autores.md`) |
+| `CHAT_AUTHOR_ONLY_RESULTS` | Com a ficha na resposta e o visitante a querer as obras desse autor, os cartões são só de peças dele, na primeira página e em «ver mais resultados» (`docs/so-pecas-do-autor.md`) |
 
-O texto da resposta e os cartões são os mesmos com e sem a flag. O campo `author` vem em `POST /chat/messages`, no evento
+O texto da resposta e os cartões são os mesmos com e sem `CHAT_AUTHOR_CARD`; só `CHAT_AUTHOR_ONLY_RESULTS` mexe nos cartões. O campo `author` vem em `POST /chat/messages`, no evento
 `result` do stream e nas rotas de `regenerate`; nas outras respostas é `null`.
 
 | Campo de `author` | De onde vem |
@@ -123,4 +124,5 @@ Juntar ao `.env` e reiniciar o backend:
 ```
 CHAT_AUTHOR_CARD=true
 CHAT_AUTHOR_PORTRAITS=true   # opcional: retratos
+CHAT_AUTHOR_ONLY_RESULTS=true   # opcional: só peças do autor nos cartões
 ```

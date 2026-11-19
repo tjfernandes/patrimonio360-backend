@@ -173,6 +173,12 @@ class Settings(BaseSettings):
     # Os retratos vêm da Wikidata/Wikimedia Commons (docs/retratos-dos-autores.md).
     CHAT_AUTHOR_PORTRAITS: bool = False
     AUTHOR_PORTRAITS_PATH: str | None = None
+    # Quando a resposta leva a ficha do autor e o visitante quer as obras desse
+    # autor (mais uma pergunta curta ao modelo de pré-processamento, medida em
+    # tests/author_card_cases.py), os cartões passam a ser só de peças dele, na
+    # primeira página e nas seguintes («ver mais resultados»). Precisa de
+    # CHAT_AUTHOR_CARD. O texto da resposta não muda.
+    CHAT_AUTHOR_ONLY_RESULTS: bool = False
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);
