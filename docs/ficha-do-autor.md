@@ -106,6 +106,22 @@ Com `CHAT_AUTHOR_PORTRAITS` (desligada por omissão) o retrato vem de `app/data/
 autores do catálogo a imagens do Wikimedia Commons: 340 fichas de autor, de 324 autores. Como foram escolhidos e
 verificados, os números por museu e os créditos que o frontend tem de mostrar estão em `docs/retratos-dos-autores.md`.
 
+## Seguimentos que não dizem o nome (2026-11-19)
+
+Depois de se falar de uma peça, «Que mais obras existem deste autor?» mostrava as obras certas e não trazia a ficha:
+o nome procurava-se na mensagem do visitante, e «deste autor» não tem nome nenhum. A leitura do seguimento já
+resolvia o pedido para «obras do Machado de Castro», mas a ficha não o usava.
+
+Com `CHAT_AUTHOR_CARD_FOLLOW_UP`, quando a mensagem não tem palavras do nome de nenhum autor das peças mostradas, o
+nome procura-se no pedido resolvido que a pesquisa guardou. As duas perguntas ao modelo (se as palavras são o nome de
+um artista; se o visitante quer só as obras dele) levam esse pedido em vez da mensagem. Uma mensagem que já diz um nome
+fica exatamente como estava.
+
+Medido a 2026-11-19 com o modelo real: oito pedidos resolvidos («obras do Machado de Castro», «Quem foi Machado de
+Castro?», «What else did Dürer paint?»…) × 3 execuções, sempre «A» nas duas perguntas. Em produção, a conversa que deu
+origem a isto (a Caridade, 63 Esc, e depois «Que mais obras existem deste autor?») passou a trazer a ficha de Machado
+de Castro. Testes em `tests/test_author_only_results.py` (`TestAuthorCardOnFollowUp`).
+
 ## Limites conhecidos
 
 - A ficha só aparece quando a pesquisa mostra pelo menos uma peça do autor.
@@ -125,4 +141,5 @@ Juntar ao `.env` e reiniciar o backend:
 CHAT_AUTHOR_CARD=true
 CHAT_AUTHOR_PORTRAITS=true   # opcional: retratos
 CHAT_AUTHOR_ONLY_RESULTS=true   # opcional: só peças do autor nos cartões
+CHAT_AUTHOR_CARD_FOLLOW_UP=true   # opcional: a ficha também em «e deste autor?»
 ```
