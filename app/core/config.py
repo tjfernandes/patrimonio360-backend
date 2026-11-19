@@ -379,6 +379,41 @@ class Settings(BaseSettings):
     # O índice das legendas tem todos os museus e o filtro de museu vem depois
     # do kNN, por isso o k é largo (como na avaliação: --k 1000).
     CAPTION_TEXT_KNN_K: int = 1000
+    # CAPTION_TEXT_INDEX aceita vários índices separados por vírgulas (o do corpus
+    # do benchmark e os dos museus legendados depois, como p360_legendas_mnaa_caption8b).
+    # Nem todos os museus têm legendas (a 2026-11-19 falta o CMAG; o MNAA foi
+    # legendado nesse dia). Em replace, um museu sem legendas ficava sem ramo visual
+    # nenhum: lista vazia não é falha, e o texto→imagem não corria. Com esta
+    # flag, um museu sem nenhuma legenda no índice salta o ramo das legendas e
+    # usa o texto→imagem, como antes da experiência. Um museu com legendas que
+    # devolva zero resultados fica como estava (baseline).
+    CAPTION_TEXT_UNCOVERED_MUSEUM_T2I: bool = False
+    # A pergunta escrita é embebida com a instrução «query» do Qwen3-Embedding
+    # antes de ir às legendas, como já acontece no ramo das fichas
+    # (CHAT_RETRIEVAL_QUERY_INSTRUCTION). Desligada, vai sem instrução, como na
+    # variante medida a 2026-09-30.
+    CAPTION_TEXT_QUERY_INSTRUCTION: bool = False
+    # Perguntas pelo aspeto («estátuas brancas», «peças com cavalos»), 2026-11-19.
+    # As fichas quase nunca dizem a cor nem o que se vê (no MNAA, 293 das 299
+    # esculturas não têm material), e o modelo que escolhe os cartões só via as
+    # fichas: rejeitava tudo. Cada flag é independente e, desligada, nada muda.
+    # CHAT_VISUAL_CARD_FACTS: numa pesquisa em que o ramo das legendas trouxe
+    # peças, os cartões dados ao modelo de pré-processamento e à AMÁLIA levam
+    # uma linha «Aspeto na fotografia: …» com o que a legenda da peça diz
+    # (objeto, materiais, cores, motivos, forma).
+    CHAT_VISUAL_CARD_FACTS: bool = False
+    # Com CHAT_VISUAL_CARD_FACTS: quantas peças que só o ramo das legendas
+    # encontrou são também julgadas, pela ordem das legendas. Na fusão ficam atrás
+    # de todas as do texto e nunca chegavam a ser vistas. São julgadas à parte,
+    # só pelo aspeto (build_visual_pick_prompt, «sim» ou «não» por peça), em
+    # paralelo com a pré-seleção, e as aceites juntam-se aos cartões escolhidos.
+    # Com 20, a pergunta demora cerca de 1,5 s. Precisa de CHAT_PRESELECT_CARDS.
+    CHAT_VISUAL_CARD_CANDIDATES: int = 0
+    # CHAT_VISUAL_INTENT_MODEL: quando as regras (retrieval/visual_intent.py)
+    # não veem sinal visual, o modelo de pré-processamento diz se o visitante
+    # descreve as peças pelo aspeto (build_visual_request_prompt); se sim, o
+    # ramo visual corre. As regras que já acertam continuam a mandar.
+    CHAT_VISUAL_INTENT_MODEL: bool = False
 
     @field_validator("CAPTION_TEXT_MODE")
     @classmethod

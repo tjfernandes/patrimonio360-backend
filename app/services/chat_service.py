@@ -53,6 +53,7 @@ from app.prompts.chat_prompts import (
     build_tour_context_prompt,
     card_selection_instruction,
     build_card_preselection_prompt,
+    build_visual_pick_prompt,
 )
 from app.services.author_portraits import AuthorPortraitStore
 from app.services.author_cards import (
@@ -77,6 +78,7 @@ from app.prompts.query_planner_prompts import (
     build_listing_request_prompt,
     build_request_reading_prompt,
     build_retrieval_query_rewrite_prompt,
+    build_visual_request_prompt,
 )
 from app.schemas.chat import (
     ArtifactImageResult,
@@ -1335,6 +1337,7 @@ class ChatService:
         artifact_docs: list[dict[str, object]],
         conversation_id: str,
         query_id: str,
+        message_text: str | None = None,
     ):
         """Ramo texto→imagem da Fase 3, atrás de MULTIMODAL_RETRIEVAL_MODE.
 
@@ -1360,7 +1363,13 @@ class ChatService:
             **decision.as_dict(),
         )
         if not decision.use_visual:
-            return None
+            decision = await self._visual_intent_from_model(
+                message=(message_text or "").strip() or query_text,
+                conversation_id=conversation_id,
+                query_id=query_id,
+            )
+            if decision is None:
+                return None
 
         service = getattr(self, "_multimodal_text_retrieval", None)
         if service is None:
@@ -1391,6 +1400,113 @@ class ChatService:
                 error=exc,
             )
             return None
+
+    async def _visual_intent_from_model(self, *, message: str, conversation_id: str, query_id: str):
+        """CHAT_VISUAL_INTENT_MODEL: as regras não viram sinal visual; o modelo
+        de pré-processamento diz se o visitante descreve as peças pelo aspeto.
+        Só a resposta A liga o ramo visual. Sem resposta utilizável devolve
+        None e a pesquisa segue só com o texto, como antes.
+        """
+        if not message or not bool(getattr(self.settings, "CHAT_VISUAL_INTENT_MODEL", False)):
+            return None
+        from app.services.retrieval.visual_intent import TEXT_AND_VISUAL, VisualIntentDecision
+
+        started_at = time.monotonic()
+        try:
+            llm_response = await asyncio.wait_for(
+                self.preprocess_llm_service.generate(
+                    message=build_visual_request_prompt(message=message),
+                    response_format=ResponseFormatObject(type="json_object"),
+                    system_prompt=None,
+                    model_override=None,
+                    max_tokens=30,
+                ),
+                timeout=3.0,
+            )
+            data = llm_response.parsed_json
+        except Exception as exc:  # noqa: BLE001 — sem resposta fica a pesquisa de texto
+            log_event(logger, logging.WARNING, "multimodal.router.model_error", query_id=query_id, error=exc)
+            return None
+        answer = str(data.get("resposta") or "").strip().upper()[:1] if isinstance(data, dict) else ""
+        log_event(
+            logger, logging.INFO, "multimodal.router.model_decision",
+            conversation_id=conversation_id, query_id=query_id, answer=answer,
+            elapsed_ms=round((time.monotonic() - started_at) * 1000, 1),
+        )
+        if answer != "A":
+            return None
+        return VisualIntentDecision(
+            decision=TEXT_AND_VISUAL,
+            use_visual=True,
+            reason="o modelo de pré-processamento leu o pedido como descrição do aspeto",
+            rule="model_visual",
+            confidence=0.7,
+        )
+
+    @staticmethod
+    def _caption_branch_ranks(multimodal_outcome: Any) -> dict[str, int]:
+        """artifact_id → posição no ramo das legendas, das peças que ele trouxe."""
+        ranks: dict[str, int] = {}
+        for result in getattr(multimodal_outcome, "fused", None) or []:
+            provenance = (getattr(result, "sources", None) or {}).get("text_to_caption")
+            rank = getattr(provenance, "rank", None)
+            if isinstance(rank, int) and result.artifact_id:
+                ranks[result.artifact_id] = rank
+        return ranks
+
+    @staticmethod
+    def _visual_facts_from_caption(struct: dict[str, Any]) -> str:
+        """Uma linha com o que a legenda da fotografia diz da peça."""
+
+        def items(key: str, limit: int) -> list[str]:
+            value = struct.get(key)
+            values = value if isinstance(value, list) else [value]
+            cleaned: list[str] = []
+            for item in values:
+                item_text = re.sub(r"\s+", " ", str(item or "")).strip(" .;")
+                if item_text and item_text.casefold() not in {c.casefold() for c in cleaned}:
+                    cleaned.append(item_text)
+            return cleaned[:limit]
+
+        parts: list[str] = []
+        kind = items("tipo_objeto", 1)
+        if kind:
+            parts.append(f"objeto: {kind[0]}")
+        materials = items("materiais", 5)
+        if materials:
+            parts.append("materiais: " + ", ".join(materials))
+        main_colors = items("cores_principais", 3)
+        if main_colors:
+            parts.append("cores principais: " + ", ".join(main_colors))
+        seen = {color.casefold() for color in main_colors}
+        other_colors = [color for color in items("cores", 8) if color.casefold() not in seen]
+        if other_colors:
+            parts.append("outras cores: " + ", ".join(other_colors))
+        motifs = items("motivos", 6)
+        if motifs:
+            parts.append("motivos: " + ", ".join(motifs))
+        shape = items("forma", 1)
+        if shape:
+            parts.append("forma: " + (shape[0] if len(shape[0]) <= 90 else shape[0][:90].rsplit(" ", 1)[0] + "…"))
+        return "; ".join(parts)
+
+    async def _fetch_visual_card_facts(self, artifact_ids: list[str]) -> dict[str, str]:
+        """artifact_id → linha «Aspeto na fotografia» (CHAT_VISUAL_CARD_FACTS). Vazio em caso de falha."""
+        index = str(getattr(self.settings, "CAPTION_TEXT_INDEX", "") or "").strip()
+        ids = [artifact_id for artifact_id in dict.fromkeys(artifact_ids) if artifact_id]
+        if not index or not ids:
+            return {}
+        try:
+            structs = await self.opensearch_gateway.fetch_caption_structs(index=index, artifact_ids=ids)
+        except Exception as exc:  # noqa: BLE001 — sem legendas os cartões ficam como sempre
+            log_event(logger, logging.WARNING, "chat.visual_card_facts.error", error=exc)
+            return {}
+        facts: dict[str, str] = {}
+        for artifact_id, struct in structs.items():
+            line = self._visual_facts_from_caption(struct)
+            if line:
+                facts[artifact_id] = line
+        return facts
 
     async def _maybe_fuse_image_text(
         self,
@@ -1467,8 +1583,12 @@ class ChatService:
         self,
         artifact_results: list[ArtifactResult],
         navigation_targets: list[TourNavigationTarget] | None = None,
+        visual_facts: dict[str, str] | None = None,
     ) -> list[dict[str, object]]:
         """Fichas dos cartões para os prompts.
+
+        `visual_facts` (CHAT_VISUAL_CARD_FACTS) dá a cada peça o que a legenda
+        da fotografia diz dela; vai para a linha «Aspeto na fotografia».
 
         Com CHAT_IN_TOUR_FROM_NAVIGATION e os alvos de navegação da resposta, uma
         peça com alvo («Ver na tour») fica com in_tour verdadeiro no prompt: o
@@ -1495,6 +1615,9 @@ class ChatService:
             if payload:
                 if navigable and str(payload.get("inventory_number") or "").strip().casefold() in navigable:
                     payload["in_tour"] = True
+                facts = (visual_facts or {}).get(artifact.artifact_id)
+                if facts:
+                    payload["visual_facts"] = facts
                 docs.append(payload)
         return docs
 
@@ -1560,8 +1683,11 @@ class ChatService:
         prefer_artifact_results: bool = False,
         include_image_matches_section: bool = True,
         navigation_targets: list[TourNavigationTarget] | None = None,
+        visual_facts: dict[str, str] | None = None,
     ) -> str:
-        artifact_docs = self._artifact_results_as_prompt_docs(artifact_results, navigation_targets=navigation_targets)
+        artifact_docs = self._artifact_results_as_prompt_docs(
+            artifact_results, navigation_targets=navigation_targets, visual_facts=visual_facts
+        )
         image_docs = (
             self._image_matches_as_visible_prompt_docs(image_matches)
             if image_matches
@@ -4566,6 +4692,8 @@ class ChatService:
         image_matches: list[ImageMatchResult] = []
         artifact_results: list[ArtifactResult] = []
         artifact_image_hits: list[dict[str, Any]] = []
+        # posição de cada peça no ramo das legendas, quando ele correu (perguntas visuais)
+        visual_caption_ranks: dict[str, int] = {}
         text_results_default_page_size = self._text_results_default_page_size()
         text_results_page = max(payload.results_page, 1)
         text_results_page_size = self._resolve_results_page_size(
@@ -4776,6 +4904,7 @@ class ChatService:
             if str(retrieval_request.get("kind") or "") == "text" and not self._is_treasure_list_request(retrieval_request):
                 multimodal_outcome = await self._maybe_fuse_text_to_image(
                     query_text=retrieval_query,
+                    message_text=search_query_message,
                     museum_slug=search_museum_slug,
                     museum_id=search_museum_id,
                     artifact_docs=retrieved_docs,
@@ -4783,6 +4912,7 @@ class ChatService:
                     query_id=query_id,
                 )
             if multimodal_outcome is not None:
+                visual_caption_ranks = self._caption_branch_ranks(multimodal_outcome)
                 # A fusão pode voltar a trazer membros do mesmo conjunto (pelas
                 # legendas ou pelas imagens): junta-se outra vez.
                 retrieved_docs = self._collapse_identical_set_members(list(multimodal_outcome.docs))
@@ -4939,6 +5069,32 @@ class ChatService:
         # pedido antes de a resposta ser escrita: a AMÁLIA só vê esses, e o
         # texto e os cartões ficam a falar das mesmas peças.
         preselection: dict[str, Any] | None = None
+        # CHAT_VISUAL_CARD_FACTS: numa pergunta visual, o que as legendas dizem de
+        # cada peça candidata (e, com CHAT_VISUAL_CARD_CANDIDATES, as peças que só
+        # as legendas encontraram entram na escolha).
+        visual_facts: dict[str, str] = {}
+        visual_extra_candidates: list[ArtifactResult] = []
+        if (
+            visual_caption_ranks
+            and bool(getattr(self.settings, "CHAT_VISUAL_CARD_FACTS", False))
+            and results_page <= 1
+        ):
+            base_count = max(preselect_candidates, len(paged_artifact_results))
+            base_ids = {artifact.artifact_id for artifact in artifact_results[:base_count]}
+            extra_limit = max(int(getattr(self.settings, "CHAT_VISUAL_CARD_CANDIDATES", 0) or 0), 0)
+            visual_extra_candidates = sorted(
+                (
+                    artifact for artifact in artifact_results[base_count:]
+                    if artifact.artifact_id in visual_caption_ranks and artifact.artifact_id not in base_ids
+                ),
+                key=lambda artifact: visual_caption_ranks[artifact.artifact_id],
+            )[:extra_limit]
+            visual_facts = await self._fetch_visual_card_facts(
+                [artifact.artifact_id for artifact in [*artifact_results[:base_count], *visual_extra_candidates]]
+            )
+            if not visual_facts:
+                # sem o aspeto no cartão, o modelo não tinha como as escolher
+                visual_extra_candidates = []
         if (
             bool(getattr(self.settings, "CHAT_PRESELECT_CARDS", False))
             and requested_format.type == "text"
@@ -4948,18 +5104,38 @@ class ChatService:
             and not self._is_treasure_list_request(retrieval_request)
         ):
             widened = preselect_candidates > len(paged_artifact_results) and len(artifact_results) > len(paged_artifact_results)
+            candidate_results = artifact_results[:preselect_candidates] if widened else paged_artifact_results
+            preselect_message = str(router_decision.get("rewritten_query") or "").strip() or original_message
+            # As peças que só o ramo das legendas encontrou são julgadas à parte, pelo
+            # aspeto, ao mesmo tempo que a escolha dos cartões (CHAT_VISUAL_CARD_CANDIDATES).
             (
                 chosen_artifact_results,
                 chosen_image_matches,
                 chosen_navigation_targets,
                 preselection,
-            ) = await self._preselect_cards(
-                user_message=str(router_decision.get("rewritten_query") or "").strip() or original_message,
-                language=language,
-                artifact_results=artifact_results[:preselect_candidates] if widened else paged_artifact_results,
-                image_matches=image_matches if widened else paged_image_matches,
-                navigation_targets=navigation_targets if widened else paged_navigation_targets,
+            ), visual_picks = await asyncio.gather(
+                self._preselect_cards(
+                    user_message=preselect_message,
+                    language=language,
+                    artifact_results=candidate_results,
+                    image_matches=image_matches if widened else paged_image_matches,
+                    navigation_targets=navigation_targets if widened else paged_navigation_targets,
+                    visual_facts=visual_facts,
+                ),
+                self._pick_visual_candidates(
+                    user_message=preselect_message, candidates=visual_extra_candidates, visual_facts=visual_facts,
+                ),
             )
+            if visual_facts:
+                preselection.update(visual_facts=len(visual_facts), visual_candidates=len(visual_extra_candidates))
+            if visual_picks and preselection.get("rule") in {"preselect", "preselect_none"}:
+                # primeiro as escolhidas entre as da pesquisa, depois as do aspeto, pela ordem das legendas
+                chosen_artifact_results = [*chosen_artifact_results, *visual_picks]
+                chosen_image_matches, chosen_navigation_targets = self._results_of(
+                    chosen_artifact_results, image_matches, navigation_targets
+                )
+                preselection.update(rule="preselect", visual_picked=len(visual_picks))
+                widened = True
             if widened and preselection.get("rule") in {"preselect", "preselect_none"}:
                 # as escolhidas, pela ordem da pesquisa, até encher a página
                 page_ids = {artifact.artifact_id for artifact in paged_artifact_results}
@@ -4974,7 +5150,7 @@ class ChatService:
                 # o «ver mais» não as volta a mostrar
                 state.last_paged_retrieval_request["preselected_beyond_page_ids"] = beyond_page
                 preselection.update(
-                    candidates=min(preselect_candidates, len(artifact_results)),
+                    candidates=len(candidate_results),
                     shown_after=len(paged_artifact_results),
                     beyond_page=len(beyond_page),
                 )
@@ -5007,6 +5183,7 @@ class ChatService:
             prefer_artifact_results=True,
             include_image_matches_section=False,
             navigation_targets=prompt_navigation_targets,
+            visual_facts=visual_facts,
         )
         retrieval_mode_for_log = (
             retrieval_kind_for_log
@@ -9935,6 +10112,9 @@ class ChatService:
             lines.append("    " + " | ".join(facts))
             if description:
                 lines.append(f"    Descrição: {description}")
+            visual = text(doc.get("visual_facts"))
+            if visual:
+                lines.append(f"    Aspeto na fotografia: {visual}")
             if provenance:
                 lines.append(f"    Proveniência: {provenance}")
             if isinstance(in_tour, bool):
@@ -11145,6 +11325,74 @@ class ChatService:
         return min(wanted, 50) if wanted > page_size else 0
 
     @staticmethod
+    def _results_of(
+        artifact_results: list[ArtifactResult],
+        image_matches: list[ImageMatchResult],
+        navigation_targets: list[TourNavigationTarget],
+    ) -> tuple[list[ImageMatchResult], list[TourNavigationTarget]]:
+        """As imagens e os alvos de navegação que pertencem a estes cartões."""
+
+        def norm(value: str | None) -> str:
+            return str(value or "").strip().casefold()
+
+        kept = {artifact.artifact_id for artifact in artifact_results}
+        inventories = {norm(artifact.inventory_number) for artifact in artifact_results if norm(artifact.inventory_number)}
+        images = [m for m in image_matches if str(m.artifact_id or "").strip() in kept or norm(m.inventory) in inventories]
+        targets = [t for t in navigation_targets if norm(t.inventory_id) in inventories]
+        return images, targets
+
+    async def _pick_visual_candidates(
+        self,
+        *,
+        user_message: str,
+        candidates: list[ArtifactResult],
+        visual_facts: dict[str, str],
+    ) -> list[ArtifactResult]:
+        """Das peças que só o ramo das legendas encontrou, as que têm o aspeto pedido.
+
+        O modelo de pré-processamento responde «sim» ou «não» a cada uma, com
+        uma linha por peça (título e aspeto). Sem resposta utilizável não
+        entra nenhuma: a escolha dos cartões da pesquisa segue como sempre.
+        """
+        lines = [
+            (artifact, str(artifact.title or "").strip() or "sem título", visual_facts[artifact.artifact_id])
+            for artifact in candidates
+            if visual_facts.get(artifact.artifact_id)
+        ]
+        if not lines:
+            return []
+        prompt = build_visual_pick_prompt(
+            user_message=user_message, pieces=[(title, facts) for _artifact, title, facts in lines]
+        )
+        started_at = time.monotonic()
+        try:
+            response = await asyncio.wait_for(
+                self.preprocess_llm_service.generate(
+                    message=prompt, response_format=ResponseFormatObject(type="json_object"),
+                    max_tokens=40 + 12 * len(lines),
+                ),
+                timeout=float(getattr(self.settings, "CHAT_PRESELECT_CARDS_TIMEOUT_SECONDS", 4.0) or 4.0),
+            )
+            parsed = getattr(response, "parsed_json", None)
+        except Exception as exc:  # noqa: BLE001 — sem resposta não entra nenhuma
+            log_event(logger, logging.WARNING, "chat.visual_pick.error", error=type(exc).__name__, candidates=len(lines))
+            return []
+        picked: list[ArtifactResult] = []
+        if isinstance(parsed, dict):
+            for label, verdict in parsed.items():
+                match = re.search(r"(\d{1,3})", str(label))
+                index = int(match.group(1)) if match else 0
+                if 1 <= index <= len(lines) and str(verdict).strip().casefold().startswith("s"):
+                    artifact = lines[index - 1][0]
+                    if artifact not in picked:
+                        picked.append(artifact)
+        log_event(
+            logger, logging.INFO, "chat.visual_pick",
+            candidates=len(lines), picked=len(picked), elapsed_ms=round((time.monotonic() - started_at) * 1000, 1),
+        )
+        return picked
+
+    @staticmethod
     def _cap_preselected_cards(
         artifact_results: list[ArtifactResult],
         image_matches: list[ImageMatchResult],
@@ -11174,6 +11422,7 @@ class ChatService:
         artifact_results: list[ArtifactResult],
         image_matches: list[ImageMatchResult],
         navigation_targets: list[TourNavigationTarget],
+        visual_facts: dict[str, str] | None = None,
     ) -> tuple[list[ArtifactResult], list[ImageMatchResult], list[TourNavigationTarget], dict[str, Any]]:
         """Pede ao modelo de pré-processamento os cartões que correspondem ao
         pedido (CHAT_PRESELECT_CARDS) e reduz os resultados a esses, pela ordem
@@ -11193,13 +11442,18 @@ class ChatService:
         # Os cartões dados a este modelo ficam como o índice os dá, sem a correção
         # de CHAT_IN_TOUR_FROM_NAVIGATION: a redação desta escolha é sensível e o
         # efeito de lhe mudar a linha «Na visita virtual» não foi medido.
-        cards_context = self._format_docs_compact(docs=self._artifact_results_as_prompt_docs(artifact_results))
+        cards_context = self._format_docs_compact(
+            docs=self._artifact_results_as_prompt_docs(artifact_results, visual_facts=visual_facts)
+        )
         prompt = build_card_preselection_prompt(cards_context=cards_context, user_message=user_message, language=language)
         started_at = time.monotonic()
         try:
             response = await asyncio.wait_for(
                 self.preprocess_llm_service.generate(
-                    message=prompt, response_format=ResponseFormatObject(type="json_object"), max_tokens=120,
+                    message=prompt, response_format=ResponseFormatObject(type="json_object"),
+                    # a lista de rótulos gasta ~6 tokens por cartão: com 120 cabiam 20, e uma
+                    # escolha de mais cartões saía cortada e contava como falha
+                    max_tokens=max(120, 40 + 8 * len(artifact_results)),
                 ),
                 timeout=float(getattr(self.settings, "CHAT_PRESELECT_CARDS_TIMEOUT_SECONDS", 4.0) or 4.0),
             )

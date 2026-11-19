@@ -372,6 +372,32 @@ def build_card_preselection_prompt(*, cards_context: str, user_message: str, lan
     return template.format(cards=cards_context, message=(user_message or "").strip())
 
 
+def build_visual_pick_prompt(*, user_message: str, pieces: list[tuple[str, str]]) -> str:
+    """Escolha pelo aspeto (CHAT_VISUAL_CARD_CANDIDATES): das peças que só o ramo
+    das legendas encontrou, quais têm o aspeto pedido? `pieces` são pares
+    (título, aspeto na fotografia), e a resposta é «sim» ou «não» por peça.
+
+    Redação escolhida a 2026-11-19 com as listas reais de 20 pedidos visuais do
+    MNAA (15 a 25 peças cada) e o Qwen3-VL-8B. Uma resposta por peça foi o que
+    resultou: a pedir só a lista das que correspondem, o modelo devolvia 19 de
+    22 para «esculturas em mármore branco» (com madeira e marfim) e nenhuma de
+    17 para «peças douradas»; com sim/não por peça, 6 (todas de pedra branca) e
+    8 (todas de ouro). Juntar estas peças aos cartões da pré-seleção também não
+    serviu: com 35 cartões o modelo aceitava estátuas castanhas como «brancas».
+    Custa cerca de 1,3 s (mediana, 20 pedidos), em paralelo com a pré-seleção.
+    """
+    lines = "\n".join(f"doc_{index} | {title} | {facts}" for index, (title, facts) in enumerate(pieces, start=1))
+    return (
+        f"Um visitante do museu pede: «{(user_message or '').strip()}»\n\n"
+        "PEÇAS (título e o que se vê na fotografia de cada uma):\n"
+        f"{lines}\n\n"
+        "Para cada peça, diz se o aspeto dela corresponde ao pedido. «sim» só quando a peça é do tipo pedido e tem "
+        "tudo o que o pedido diz da cor, do material ou do que nela aparece; se falha uma dessas coisas "
+        "(o tipo certo mas outra cor ou outro material, por exemplo), «não».\n"
+        'Responde só com JSON, com todas as peças pela ordem: {"doc_1": "sim" ou "não", "doc_2": ...}'
+    )
+
+
 def card_selection_instruction(language: str | None = None) -> str:
     """Instrução do bloco final «[[cartões: …]]», acrescentada ao prompt final."""
     return _CARD_SELECTION_INSTRUCTION_EN if _normalize_language(language) == "en" else _CARD_SELECTION_INSTRUCTION_PT
