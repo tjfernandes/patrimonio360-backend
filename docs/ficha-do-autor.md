@@ -102,7 +102,7 @@ O catálogo de origem não tem retratos de autores. Confirmado a 2026-11-18 em d
 biografia e mais peças): só têm imagens das peças.
 
 Com `CHAT_AUTHOR_PORTRAITS` (desligada por omissão) o retrato vem de `app/data/author_portraits.json`, que liga ids de
-autores do catálogo a imagens do Wikimedia Commons: 339 fichas de autor, de 323 autores. Como foram escolhidos e
+autores do catálogo a imagens do Wikimedia Commons: 340 fichas de autor, de 324 autores. Como foram escolhidos e
 verificados, os números por museu e os créditos que o frontend tem de mostrar estão em `docs/retratos-dos-autores.md`.
 
 ## Limites conhecidos

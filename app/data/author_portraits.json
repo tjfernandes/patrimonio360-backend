@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-18",
+ "generated_at": "2026-11-19",
  "source": "Wikidata (P18) e Wikimedia Commons; ver docs/retratos-dos-autores.md",
  "portraits": {
   "manual:autor:joao_de_castilho": {
@@ -1013,6 +1013,17 @@
    "name": "Vieira Lusitano",
    "catalogue_name": "Vieira Lusitano, Francisco Vieira de Matos, o (1699-1783)",
    "evidence": "iguais"
+  },
+  "raiz:autor:46220": {
+   "image_url": "https://upload.wikimedia.org/wikipedia/commons/4/4f/Possible_self-portrait_of_Nuno_Goncalves_%28from_St_Vincent_Panels%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+   "page_url": "https://commons.wikimedia.org/wiki/File:Possible_self-portrait_of_Nuno_Goncalves_(from_St_Vincent_Panels).jpg",
+   "license": "Public domain",
+   "license_url": null,
+   "credit": "Nuno Gonçalves",
+   "wikidata": "Q139015",
+   "name": "Nuno Gonçalves",
+   "catalogue_name": "Nuno Gonçalves",
+   "evidence": "sem datas no catálogo; escolhido na revisão manual entre as pessoas aceites"
   },
   "raiz:autor:46225": {
    "image_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/Vasco_Fernandes.jpg/330px-Vasco_Fernandes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",

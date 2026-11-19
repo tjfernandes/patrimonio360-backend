@@ -19,10 +19,13 @@ Em `author`, quando o autor tem retrato:
 
 Sem retrato, os quatro campos vêm `null` e a ficha mostra as iniciais, como hoje.
 
-**Os créditos têm de aparecer.** 79 das 339 imagens têm licenças que obrigam a indicar o autor e a licença, com
+**Os créditos têm de aparecer.** 79 das 340 imagens têm licenças que obrigam a indicar o autor e a licença, com
 ligação à origem (Creative Commons BY e BY-SA, e uma Free Art License). Basta uma linha pequena junto do retrato,
-por exemplo «Foto: José Rafael Botelho, CC BY-SA 3.0», com ligação a `image_source_url`. As outras 260 estão em
+por exemplo «Foto: José Rafael Botelho, CC BY-SA 3.0», com ligação a `image_source_url`. As outras 261 estão em
 domínio público, CC0 ou sem restrições.
+
+Nenhuma destas licenças tem custo nem pede registo: são licenças livres, e a única obrigação é a menção do autor e
+da licença. O texto para a sessão do frontend está em `docs/retratos-dos-autores-frontend-prompt.md`.
 
 O crédito vem como está no Commons e nem sempre é um nome limpo («Unknown author», «portuguese»). Não foi corrigido
 à mão.
@@ -78,25 +81,28 @@ O Qwen aceitou 401 pares com imagem, de 390 autores.
   - pessoa certa mas imagem que não serve (7): a imagem na Wikidata é uma obra do autor e não o seu retrato
     (Josefa de Óbidos, Edoardo Gioja) ou mostra mais de uma pessoa (Rodolfo Pinto do Couto, Lucien Lelong,
     Louis Gauffier, Thomas Germain, Pere Serra).
-- **29 autores resolvidos**, com o motivo em `escolhidos.json`: o Qwen tinha aceitado também entradas vazias da
+- **30 autores resolvidos**, com o motivo em `escolhidos.json`: o Qwen tinha aceitado também entradas vazias da
   Wikidata com o mesmo nome (quase sempre investigadores sem datas nem profissão) ou um familiar. Exemplos:
   Ana Salazar, Fátima Lopes, François Boucher, Grão Vasco, «David Teniers, o Moço» (o II e não o III).
 - Ficaram por resolver, sem retrato, os autores com mais de uma pessoa aceite em que não deu para escolher com
-  segurança ou em que a imagem não serve: Nuno Gonçalves (a imagem é um «possível autorretrato»), Luís de Morales
+  segurança ou em que a imagem não serve: Luís de Morales
   (a imagem é uma pintura), Charles Heath, Johannes Möller, José Lucas, entre outros.
 - A imagem de Sarah Afonso tem 46 px de largura e ficou de fora.
+- Nuno Gonçalves tinha ficado de fora porque a imagem que a Wikidata lhe dá é um «possível autorretrato», recortado
+  dos Painéis de São Vicente, com 119 px de largura. Entrou a 2026-11-19 por decisão do responsável do projeto. A
+  ficha mostra-a como retrato, sem essa ressalva.
 
 A pergunta sobre a imagem deixa passar obras do próprio autor que retratam outra pessoa e alguns retratos de grupo:
 foi a revisão à mão que os apanhou.
 
 ## Números
 
-339 fichas de autor do catálogo com retrato, de 323 autores (o catálogo tem o mesmo autor escrito de várias
-maneiras) e 312 pessoas diferentes.
+340 fichas de autor do catálogo com retrato, de 324 autores (o catálogo tem o mesmo autor escrito de várias
+maneiras) e 313 pessoas diferentes.
 
 | Museu | Autores com retrato | Peças com autor cobertas |
 |---|---|---|
-| Museu Nacional de Arte Antiga | 145 de 441 | 334 de 2116 |
+| Museu Nacional de Arte Antiga | 146 de 441 | 342 de 2116 |
 | Museu Nacional Soares dos Reis | 79 de 251 | 498 de 898 |
 | Museu Nacional do Azulejo | 43 de 245 | 1253 de 3238 |
 | Museu Nacional do Traje | 40 de 245 | 451 de 1625 |
@@ -104,7 +110,7 @@ maneiras) e 312 pessoas diferentes.
 | Mosteiro dos Jerónimos | 1 de 6 | 55 de 64 |
 
 Prova de cada retrato, no campo `evidence` do ficheiro: 155 fichas com as datas de nascimento e morte iguais nos
-dois lados, 20 com datas parciais e 164 sem datas no catálogo (nome, época das peças, profissão e a revisão à mão).
+dois lados, 20 com datas parciais e 165 sem datas no catálogo (nome, época das peças, profissão e a revisão à mão).
 
 Autores com muitas peças que ficaram sem retrato, por não se ter encontrado a pessoa na Wikidata, por ela não ter
 imagem ou por a imagem não servir: António de Holanda (atribuído), João Machado Costa, Natércia Costa, José António
