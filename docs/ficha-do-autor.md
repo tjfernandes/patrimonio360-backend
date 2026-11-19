@@ -14,6 +14,7 @@ deles, e esses dados não chegavam ao chat.
 | Flag | O que faz |
 |---|---|
 | `CHAT_AUTHOR_CARD` | Quando a mensagem diz o nome de um autor das peças mostradas, a resposta leva `author` com a ficha dele |
+| `CHAT_AUTHOR_PORTRAITS` | A ficha leva o retrato do autor e os créditos da imagem, quando o autor tem retrato em `app/data/author_portraits.json` (`docs/retratos-dos-autores.md`) |
 
 O texto da resposta e os cartões são os mesmos com e sem a flag. O campo `author` vem em `POST /chat/messages`, no evento
 `result` do stream e nas rotas de `regenerate`; nas outras respostas é `null`.
@@ -26,7 +27,8 @@ O texto da resposta e os cartões são os mesmos com e sem a flag. O campo `auth
 | `artifact_count` | Contagem nas fichas das peças do museu da pesquisa |
 | `in_tour_count` | Quantas dessas peças têm alvo de «Ver na tour» (hotspot ou peça localizada no panorama), com o critério dos cartões. Não usa o campo `in_tour` do índice, que está desatualizado. Nunca é menor do que o número de cartões do autor que a mesma resposta traz com alvo |
 | `entity_ids` | Os ids do autor (mais de um quando o catálogo o tem em várias fichas) |
-| `image_url` | Retrato. Sempre `null`: ver «Retratos». Quando houver, tem de ser um endereço absoluto http(s): o frontend ignora caminhos relativos e outros esquemas (em `image_url` e em `url`) e mostra as iniciais |
+| `image_url` | Retrato, com `CHAT_AUTHOR_PORTRAITS`: ver «Retratos». É sempre um endereço absoluto http(s): o frontend ignora caminhos relativos e outros esquemas (em `image_url` e em `url`) e mostra as iniciais. `null` quando o autor não tem retrato ou com a flag desligada |
+| `image_credit`, `image_license`, `image_source_url` | Créditos do retrato (autor da imagem, licença, página no Wikimedia Commons). `null` sem retrato |
 
 ## Como se decide
 
@@ -97,8 +99,11 @@ faz com a flag ligada.
 ## Retratos
 
 O catálogo de origem não tem retratos de autores. Confirmado a 2026-11-18 em doze páginas de autor (as dos autores com
-biografia e mais peças): só têm imagens das peças. O campo `image_url` existe para o frontend ficar pronto e vem sempre
-`null`. Para ter retratos é preciso uma fonte nova, e isso não foi feito.
+biografia e mais peças): só têm imagens das peças.
+
+Com `CHAT_AUTHOR_PORTRAITS` (desligada por omissão) o retrato vem de `app/data/author_portraits.json`, que liga ids de
+autores do catálogo a imagens do Wikimedia Commons: 340 fichas de autor, de 324 autores. Como foram escolhidos e
+verificados, os números por museu e os créditos que o frontend tem de mostrar estão em `docs/retratos-dos-autores.md`.
 
 ## Limites conhecidos
 
@@ -117,4 +122,5 @@ Juntar ao `.env` e reiniciar o backend:
 
 ```
 CHAT_AUTHOR_CARD=true
+CHAT_AUTHOR_PORTRAITS=true   # opcional: retratos
 ```

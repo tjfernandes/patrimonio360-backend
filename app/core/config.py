@@ -169,6 +169,10 @@ class Settings(BaseSettings):
     # artista (uma pergunta curta, medida em tests/author_card_cases.py). O
     # texto e os cartões não mudam.
     CHAT_AUTHOR_CARD: bool = False
+    # Retrato do autor na ficha (image_url e créditos), lido de AUTHOR_PORTRAITS_PATH.
+    # Os retratos vêm da Wikidata/Wikimedia Commons (docs/retratos-dos-autores.md).
+    CHAT_AUTHOR_PORTRAITS: bool = False
+    AUTHOR_PORTRAITS_PATH: str | None = None
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);
@@ -801,6 +805,13 @@ class Settings(BaseSettings):
         if raw:
             return Path(raw).expanduser().resolve()
         return (Path(__file__).resolve().parents[1] / "data" / "tour_locations.json").resolve()
+
+    @property
+    def author_portraits_path_resolved(self) -> Path:
+        raw = (self.AUTHOR_PORTRAITS_PATH or "").strip()
+        if raw:
+            return Path(raw).expanduser().resolve()
+        return (Path(__file__).resolve().parents[1] / "data" / "author_portraits.json").resolve()
 
     @property
     def poi_tours_dir_resolved(self) -> Path:
