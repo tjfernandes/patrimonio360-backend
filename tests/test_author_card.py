@@ -9,7 +9,10 @@ modelo real (tests/author_card_cases.py).
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 from app.core.config import Settings
@@ -24,6 +27,7 @@ from app.services.author_cards import (
     name_tokens,
     words_in_message,
 )
+from app.services.author_portraits import AuthorPortraitStore, absolute_http_url
 from app.services.opensearch_client import OpenSearchGateway
 from tests.test_tour_location import _Base
 from tests.test_tour_object_targets import _WithObjects
@@ -292,6 +296,95 @@ class TestAuthorInTourCount(_WithObjects):
         targets = [TourNavigationTarget(overlay_id="ov-x", panorama_key="pan_x", inventory_id="0000")]
         response, _ = self._answer([_piece("0000", "a:lopes")], inventories=["0000"], targets=targets)
         self.assertEqual(response.author.in_tour_count, 1)
+
+
+PORTRAITS = {
+    "a:lopes": {"image_url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/Lopes.jpg/330px-Lopes.jpg",
+                "page_url": "https://commons.wikimedia.org/wiki/File:Lopes.jpg", "license": "Public domain", "credit": "Autor desconhecido",
+                "wikidata": "Q724514", "name": "Gregório Lopes"},
+    "a:sequeira-2": {"image_url": "https://upload.wikimedia.org/wikipedia/commons/b/b2/Sequeira.jpg",
+                     "page_url": "https://commons.wikimedia.org/wiki/File:Sequeira.jpg", "license": "CC BY-SA 4.0", "credit": "Maria Silva"},
+    "a:porto": {"image_url": "/imagens/porto.jpg", "page_url": "commons.wikimedia.org/wiki/File:Porto.jpg", "license": "Public domain"},
+    "a:keil": {"image_url": "data:image/png;base64,AAAA", "license": "Public domain"},
+}
+
+
+class TestAuthorPortraits(_Base):
+    """CHAT_AUTHOR_PORTRAITS: o retrato vem do ficheiro dos retratos, por id do autor."""
+
+    def _ask(self, message: str, card: ArtifactResult, *, flag: bool = True, portraits=PORTRAITS, write: bool = True):
+        path = Path(self._tmp.name) / "author_portraits.json"
+        if write:
+            path.write_text(portraits if isinstance(portraits, str) else json.dumps({"portraits": portraits}), encoding="utf-8")
+        service = self._service(self._settings(CHAT_AUTHOR_CARD=True, CHAT_AUTHOR_PORTRAITS=flag, AUTHOR_PORTRAITS_PATH=str(path)))
+        service._preprocess_llm_service = _Preprocess("A")
+        service.opensearch_gateway = _AuthorGateway()
+        answered = ChatMessageResponse(reply="texto", artifact_results=[card])
+
+        async def routed(payload, *, status_cb=None):
+            return answered
+
+        service._handle_message_routed = routed
+        author = asyncio.run(service.handle_message(self._request(message, museum_slug="mnaa", museum_id="mnaa"))).author
+        self.assertIsNotNone(author)
+        return author
+
+    def test_off_by_default(self) -> None:
+        self.assertFalse(Settings(_env_file=None).CHAT_AUTHOR_PORTRAITS)
+        author = self._ask("Mostra-me obras de Gregório Lopes.", _card("p1", "a:lopes"), flag=False)
+        self.assertEqual((author.image_url, author.image_credit, author.image_license, author.image_source_url), (None, None, None, None))
+
+    def test_the_portrait_comes_with_its_credits(self) -> None:
+        author = self._ask("Mostra-me obras de Gregório Lopes.", _card("p1", "a:lopes"))
+        self.assertEqual(author.image_url, "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/Lopes.jpg/330px-Lopes.jpg")
+        self.assertEqual((author.image_credit, author.image_license), ("Autor desconhecido", "Public domain"))
+        self.assertEqual(author.image_source_url, "https://commons.wikimedia.org/wiki/File:Lopes.jpg")
+        self.assertEqual(author.name, "Gregório Lopes")   # o resto da ficha não muda
+
+    def test_any_spelling_of_the_author_brings_the_portrait(self) -> None:
+        # o retrato está na segunda ficha do autor («Sequeira, Domingos António de (1768-1837)»)
+        author = self._ask("Tens obras do Domingos Sequeira?", _card("p1", "a:sequeira-1"))
+        self.assertEqual(author.entity_ids, ["a:sequeira-1", "a:sequeira-2"])
+        self.assertEqual((author.image_url, author.image_license), ("https://upload.wikimedia.org/wikipedia/commons/b/b2/Sequeira.jpg", "CC BY-SA 4.0"))
+
+    def test_only_absolute_http_addresses_are_sent(self) -> None:
+        # o frontend ignora caminhos relativos e outros esquemas: não se enviam
+        self.assertIsNone(self._ask("Quadros de Silva Porto.", _card("p1", "a:porto")).image_url)
+        self.assertIsNone(self._ask("Fala-me da Maria Keil.", _card("p1", "a:keil")).image_url)
+        for value, expected in [("https://a.example/x.jpg", "https://a.example/x.jpg"), ("http://a.example/x.jpg", "http://a.example/x.jpg"),
+                                ("//a.example/x.jpg", None), ("/x.jpg", None), ("x.jpg", None), ("javascript:alert(1)", None),
+                                ("https://a.example/x y.jpg", None), ("", None), (None, None)]:
+            self.assertEqual(absolute_http_url(value), expected, value)
+
+    def test_an_author_without_portrait_keeps_the_card(self) -> None:
+        author = self._ask("Há obras de Soares dos Reis?", _card("p1", "a:reis"))
+        self.assertEqual((author.name, author.image_url, author.image_credit), ("Reis, António Soares dos", None, None))
+
+    def test_a_missing_or_broken_file_leaves_the_card_without_portrait(self) -> None:
+        self.assertIsNone(self._ask("Mostra-me obras de Gregório Lopes.", _card("p1", "a:lopes"), write=False).image_url)
+        self.assertIsNone(self._ask("Mostra-me obras de Gregório Lopes.", _card("p1", "a:lopes"), portraits="{isto não é JSON").image_url)
+        self.assertIsNone(self._ask("Mostra-me obras de Gregório Lopes.", _card("p1", "a:lopes"), portraits="[1, 2]").image_url)
+
+    def test_the_file_is_read_again_when_it_changes(self) -> None:
+        path = Path(self._tmp.name) / "retratos.json"
+        path.write_text(json.dumps({"portraits": {}}), encoding="utf-8")
+        store = AuthorPortraitStore(path)
+        self.assertIsNone(store.portrait_for(["a:lopes"]))
+        path.write_text(json.dumps({"portraits": PORTRAITS}), encoding="utf-8")
+        os.utime(path, (1_900_000_000, 1_900_000_000))
+        self.assertEqual(store.portrait_for(["a:outro", "a:lopes"])["image_source_url"], "https://commons.wikimedia.org/wiki/File:Lopes.jpg")
+
+    def test_the_shipped_file_only_has_usable_portraits(self) -> None:
+        path = Settings(_env_file=None).author_portraits_path_resolved
+        data = json.loads(path.read_text(encoding="utf-8"))
+        self.assertGreater(len(data["portraits"]), 0)
+        for author_id, entry in data["portraits"].items():
+            with self.subTest(author_id):
+                self.assertTrue(entry["image_url"].startswith(("https://upload.wikimedia.org/", "https://thumb.wikimedia.org/")), entry["image_url"])
+                self.assertEqual(absolute_http_url(entry["image_url"]), entry["image_url"])
+                self.assertTrue(entry["page_url"].startswith("https://commons.wikimedia.org/wiki/File:"), entry["page_url"])
+                self.assertTrue(entry["license"])
+                self.assertTrue(entry["wikidata"].startswith("Q"))
 
 
 class TestAuthorFunctions(unittest.TestCase):

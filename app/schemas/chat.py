@@ -523,8 +523,14 @@ class ChatAuthorCard(BaseModel):
     biography: str | None = None
     # página do autor no catálogo de origem
     url: str | None = None
-    # retrato do autor. O catálogo de origem não tem retratos: hoje é sempre None.
+    # Retrato do autor (CHAT_AUTHOR_PORTRAITS): endereço absoluto https de uma imagem da
+    # Wikimedia Commons, ou None. O catálogo de origem não tem retratos. Com retrato vêm
+    # também os créditos, que a licença de muitas imagens obriga a mostrar: autor da
+    # imagem, licença («Public domain», «CC BY-SA 4.0») e a página da imagem no Commons.
     image_url: str | None = None
+    image_credit: str | None = None
+    image_license: str | None = None
+    image_source_url: str | None = None
     # peças deste autor no museu da pesquisa, e quantas delas estão na visita
     artifact_count: int = 0
     in_tour_count: int = 0

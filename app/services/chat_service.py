@@ -54,6 +54,7 @@ from app.prompts.chat_prompts import (
     card_selection_instruction,
     build_card_preselection_prompt,
 )
+from app.services.author_portraits import AuthorPortraitStore
 from app.services.author_cards import (
     AuthorDirectory,
     AuthorGroup,
@@ -3118,6 +3119,7 @@ class ChatService:
         in_tour_count = await self._author_in_tour_count(
             museum_slug=museum_slug, museum_id=museum_id, group=group, response=response
         )
+        portrait = self._author_portrait(group) or {}
         return ChatAuthorCard(
             entity_ids=list(group.ids),
             name=group.name,
@@ -3130,9 +3132,27 @@ class ChatService:
             death_place=fields["death_place"],
             biography=fields["biography"],
             url=fields["url"],
+            image_url=portrait.get("image_url"),
+            image_credit=portrait.get("image_credit"),
+            image_license=portrait.get("image_license"),
+            image_source_url=portrait.get("image_source_url"),
             artifact_count=group.count,
             in_tour_count=in_tour_count,
         )
+
+    def _author_portrait(self, group: AuthorGroup) -> dict[str, str | None] | None:
+        """O retrato do autor (CHAT_AUTHOR_PORTRAITS), do ficheiro dos retratos; None
+        com a flag desligada, sem ficheiro ou sem retrato para este autor."""
+        if not bool(getattr(self.settings, "CHAT_AUTHOR_PORTRAITS", False)):
+            return None
+        store = getattr(self, "_author_portrait_store", None)
+        if store is None:
+            store = self._author_portrait_store = AuthorPortraitStore(self.settings.author_portraits_path_resolved)
+        try:
+            return store.portrait_for(list(group.ids))
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.author_card.portrait_error", error=exc)
+            return None
 
     async def _author_in_tour_count(
         self,
