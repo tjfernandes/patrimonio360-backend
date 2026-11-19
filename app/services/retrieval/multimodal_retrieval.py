@@ -45,6 +45,8 @@ JOINT_IMAGE_TEXT_BRANCH = "joint_image_text"
 # Experiência das legendas: texto da pergunta → legendas geradas por um VLM.
 TEXT_TO_CAPTION_BRANCH = "text_to_caption"
 GLOBAL_VL_RERANK_DIAG_KEY = "global_vl_rerank"
+# Um museu sem legendas volta a ser verificado ao fim deste tempo.
+_CAPTION_COVERAGE_RECHECK_SECONDS = 600.0
 
 
 @dataclass
@@ -71,6 +73,10 @@ class MultimodalTextRetrieval:
         self.settings = settings
         self.gateway = opensearch_gateway
         self.embeddings = embedding_provider
+        # Cobertura do índice das legendas por (índice, museu); ver
+        # _caption_index_lacks_museum.
+        self._caption_covered: set[tuple[str, str]] = set()
+        self._caption_uncovered_at: dict[tuple[str, str], float] = {}
 
     async def fuse_text_search(
         self,
@@ -91,7 +97,12 @@ class MultimodalTextRetrieval:
         # --- ramo texto→legendas (experiência; desligado sem CAPTION_TEXT_INDEX)
         caption_hits: list[BranchHit] | None = None
         caption_index = str(getattr(self.settings, "CAPTION_TEXT_INDEX", "") or "").strip()
-        if caption_index:
+        if caption_index and await self._caption_index_lacks_museum(
+            index=caption_index, museum_id=museum_id, trace_id=trace_id
+        ):
+            # Museu sem legendas: o ramo não corre e fica o texto→imagem.
+            diagnostics[TEXT_TO_CAPTION_BRANCH] = {"index": caption_index, "skipped": "museum_not_in_index"}
+        elif caption_index:
             caption_hits, caption_diag = await self._run_text_to_captions(
                 query_text=query_text,
                 museum_id=museum_id,
@@ -655,6 +666,38 @@ class MultimodalTextRetrieval:
         ]
         return hits, diag
 
+    async def _caption_index_lacks_museum(self, *, index: str, museum_id: str | None, trace_id: str) -> bool:
+        """True quando o índice das legendas não tem nenhuma peça do museu
+        (CAPTION_TEXT_UNCOVERED_MUSEUM_T2I). Em caso de erro na contagem
+        responde False: o ramo das legendas corre como sempre.
+
+        «Tem legendas» fica em memória até reiniciar; «não tem» volta a ser
+        verificado ao fim de alguns minutos, para o museu passar a usar as
+        legendas quando forem indexadas sem ser preciso reiniciar.
+        """
+        if not museum_id or not bool(getattr(self.settings, "CAPTION_TEXT_UNCOVERED_MUSEUM_T2I", False)):
+            return False
+        key = (index, museum_id)
+        if key in self._caption_covered:
+            return False
+        uncovered_at = self._caption_uncovered_at.get(key)
+        if uncovered_at is not None and time.monotonic() - uncovered_at < _CAPTION_COVERAGE_RECHECK_SECONDS:
+            return True
+        try:
+            count = await self.gateway.count_caption_docs(index=index, museum_id=museum_id)
+        except Exception as exc:
+            self._log(
+                trace_id, "multimodal.t2c.coverage_error",
+                {"index": index, "museum_id": museum_id, "error": str(exc)}, level=logging.WARNING,
+            )
+            return False
+        if count > 0:
+            self._caption_covered.add(key)
+            self._caption_uncovered_at.pop(key, None)
+            return False
+        self._caption_uncovered_at[key] = time.monotonic()
+        return True
+
     async def _run_text_to_captions(
         self,
         *,
@@ -669,7 +712,12 @@ class MultimodalTextRetrieval:
         diag: dict[str, Any] = {"index": index, "size": size, "knn_k": knn_k}
         started = time.monotonic()
         try:
-            embedding = await self.embeddings.embed_text(query_text)
+            if bool(getattr(self.settings, "CAPTION_TEXT_QUERY_INSTRUCTION", False)):
+                # a pergunta escrita com a instrução «query» do modelo, como no ramo das fichas
+                embedding = await self.embeddings.embed_text(query_text, as_query=True)
+                diag["as_query"] = True
+            else:
+                embedding = await self.embeddings.embed_text(query_text)
             hits = await self.gateway.search_caption_knn(
                 index=index,
                 museum_id=museum_id,

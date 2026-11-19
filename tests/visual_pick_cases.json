@@ -1,0 +1,2244 @@
+[
+ {
+  "pedido": "estatuas brancas",
+  "pecas": [
+   {
+    "inventario": "1195 Esc",
+    "titulo": "São Roque",
+    "aspeto": "objeto: estátua de São Roque; materiais: pedra; cores principais: branco, castanho, vermelho; outras cores: cinza; motivos: São Roque, Anjo, cão, chaga, túnica, capa; forma: estátua de vulto pleno, São Roque em pé, Anjo ao seu lado, cão aos pés"
+   },
+   {
+    "inventario": "1751 Esc",
+    "titulo": "Santa não identificada",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: castanho; outras cores: branco, vermelho, azul; motivos: santa, vestido, manto, cabelos soltos, atributo; forma: estátua de vulto a 3/4 com as costas planas, de pé, frontal, estática, sobre base"
+   },
+   {
+    "inventario": "505 Esc",
+    "titulo": "sem título",
+    "aspeto": "objeto: estátua de São Leonardo; materiais: madeira, esmalte, vidro; cores principais: branco, azul, preto; outras cores: amarelo, carnal; motivos: São Leonardo, hábito de monge, capuz, tornozelo, Livro, ferros; forma: estátua de vulto pleno, de pé, com a cabeça voltada para o lado esquerdo, com os pés…"
+   },
+   {
+    "inventario": "1051 Esc",
+    "titulo": "sem título",
+    "aspeto": "objeto: estátua de São Bartolomeu; materiais: madeira; cores principais: carnação rosada; outras cores: castanho; motivos: São Bartolomeu, pele esfolada, barba ondulada, cabeleira ondeada, tronco descarnado; forma: estátua de vulto a 3/4 com as costas planas, representada de pé e frontal, com as mãos a…"
+   },
+   {
+    "inventario": "1550 Esc",
+    "titulo": "São Vicente",
+    "aspeto": "objeto: estátua de São Vicente; materiais: pedra, tinta; cores principais: vermelho, verde, preto; outras cores: carnações; motivos: São Vicente, caravela, palma; forma: estátua de vulto pleno, de pé, frontal, com base circular de corte irregular"
+   },
+   {
+    "inventario": "789 Esc",
+    "titulo": "São Jorge",
+    "aspeto": "objeto: estátua de São Jorge; materiais: madeira, pó de cor; cores principais: vermelho, preto, verde; outras cores: castanho, azul anilado, dourado, carnal; motivos: São Jorge, cota de malha, tunicela com flores, manto com gola reta e galão, gesto de desferir golpe; forma: estátua de vulto pleno, de pé e frontal, com braço direito levantado, cabeça inclinada…"
+   },
+   {
+    "inventario": "539 Esc",
+    "titulo": "Santa Escolástica",
+    "aspeto": "objeto: estátua; materiais: madeira, ouro, pintura; cores principais: branco, preto, dourado; outras cores: vermelho, verde; motivos: Santa Escolástica, hábito religioso, véu, touca, livro, ave; forma: estátua de vulto pleno, em pé, com corpo fino, joelho direito em avanço, vestida com…"
+   },
+   {
+    "inventario": "1853 Pint",
+    "titulo": "Retrato de Braz Francisco de Lima",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho, preto, branco; outras cores: vermelho, azul, amarelo; motivos: homem sentado, cão, estatuária, mesa com objetos, inscrição no plinto; forma: figura humana sentada, retratada em meio corpo, com um cão ao lado e estatuária ao fundo"
+   },
+   {
+    "inventario": "981 Esc",
+    "titulo": "São Vicente",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: castanho claro; outras cores: branco; motivos: São Vicente, palma do martírio, caravela, capa com borlas, túnica com pregas verticais redondas; forma: estátua de vulto a 3/4 com as costas planas, de pé e frontal, assente sobre base…"
+   },
+   {
+    "inventario": "2046 Esc",
+    "titulo": "São Marcos",
+    "aspeto": "objeto: estátua de São Marcos; materiais: madeira, douramento, esmalte; cores principais: dourado, vermelho, preto; outras cores: verde; motivos: São Marcos, Livro aberto, boi, barrete; forma: estátua de vulto a 3/4 com as costas planas, representando São Marcos de pé, com a cabeça…"
+   },
+   {
+    "inventario": "1292 Esc",
+    "titulo": "Santa clarissa não identificada",
+    "aspeto": "objeto: estátua de vulto pleno; materiais: madeira, metal, papel-mache; cores principais: castanho, dourado, branco; outras cores: carnal; motivos: hábito da Ordem das Clarissas, rosário com crucifixo, corda de três nós, motivos florais, pregueados verticais, véu; forma: estátua de pé, frontal, com braço direito soerguido e mão semi-cerrada, vestida com…"
+   },
+   {
+    "inventario": "1019 Esc",
+    "titulo": "São Vicente",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: branco, castanho, vermelho; outras cores: dourado, carnal; motivos: São Vicente, tonsa, vestes de diácono, caravela, monograma 'm'; forma: estátua de vulto a 3/4 com as costas escavadas, de pé e frontal, com vestes estruturadas…"
+   },
+   {
+    "inventario": "1015 Esc",
+    "titulo": "São João Evangelista",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: vermelho, verde, preto; outras cores: carnações, castanho; motivos: São João Evangelista, Livro fechado, cabeleira encaracolada, túnica com pregas verticais, manto como toga; forma: estátua de pé, com cabeça voltada para o lado superior direito, mão direita erguida em…"
+   },
+   {
+    "inventario": "1143 Esc",
+    "titulo": "Santo Amaro",
+    "aspeto": "objeto: estátua de Santo Amaro; materiais: madeira, tinta, pó de ouro; cores principais: preto, vermelho, dourado; outras cores: carnal; motivos: Santo Amaro, hábito de frade, capuz, tonsura, livro fechado, báculo com crossa; forma: estátua de vulto a 3/4 com as costas planas, de pé, frontal, estática"
+   },
+   {
+    "inventario": "14129 Grav",
+    "titulo": "Nossa Senhora do Carmo",
+    "aspeto": "objeto: estampa; materiais: papel, metal; cores principais: preto, branco; motivos: Nossa Senhora com o Menino no colo, núvens, escapulário, carmelita ajoelhado, coluna, inscrição em cartela; forma: formato retangular, enquadrado por um ornamento decorativo"
+   },
+   {
+    "inventario": "196 Des",
+    "titulo": "Interior de um forte com estátua de Neptuno (ou Plutão)",
+    "aspeto": "objeto: desenho; materiais: papel, tinta, sépia; cores principais: sépia, castanho; outras cores: branco; motivos: estátua de figura masculina com coroa, ceptro e arpão, pedestal decorado com motivos marinhos, arco de volta perfeita com estrutura de suporte em madeira, escadaria, óculo vasado, corredores; forma: composição de interior arquitetónico com espaço central coberto por abóbada, flanqueado…"
+   },
+   {
+    "inventario": "989 Esc",
+    "titulo": "São Pedro",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: castanho; outras cores: branco; motivos: São Pedro, túnica talar, manto, livro fechado, chave; forma: estátua de vulto a 3/4 com as costas escavadas"
+   },
+   {
+    "inventario": "1022 Esc",
+    "titulo": "São Martinho",
+    "aspeto": "objeto: estátua de São Martinho; materiais: madeira, tinta, esmalte; cores principais: vermelho, verde, azul; outras cores: carnal, branco, castanho; motivos: São Martinho, mitra, báculo, fita com inscrição, vestes episcopais, pregas verticais; forma: estátua de vulto a 3/4, com as costas escavadas, em pé, cabeça ligeiramente inclinada…"
+   },
+   {
+    "inventario": "2382 Esc",
+    "titulo": "Santa não identificada",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: castanho; motivos: santa, livro fechado, véu, cabelos longos, vestido com decote redondo, carcelas verticais; forma: escultura de vulto a 3/4 com as costas planas"
+   },
+   {
+    "inventario": "1826 Esc",
+    "titulo": "São João Evangelista",
+    "aspeto": "objeto: estátua de São João Evangelista; materiais: madeira, dourado, pigmento vermelho, pigmento castanho; cores principais: castanho, vermelho, dourado; motivos: São João Evangelista, Livro fechado, gesto da mão direita aberta, cabelos em madeixas redondas; forma: estátua de vulto a 3/4 com as costas planas, de pé, descalça, com túnica e manto, sobre…"
+   },
+   {
+    "inventario": "1206 Esc",
+    "titulo": "Santíssima Trindade",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: branco, vermelho, verde; outras cores: dourado; motivos: Deus Pai, Cristo crucificado, anjos; forma: escultura de vulto a 3/4 com as costas escavadas"
+   },
+   {
+    "inventario": "804 Esc",
+    "titulo": "Maria Madalena",
+    "aspeto": "objeto: escultura; materiais: marfim; cores principais: castanho, dourado; motivos: Maria Madalena, cabelo ondulado, túnica, manto, base decorada; forma: figura feminina de pé, com cabeça voltada para a esquerda, vestida com túnica cingida no…"
+   },
+   {
+    "inventario": "762 Esc",
+    "titulo": "Danaide",
+    "aspeto": "objeto: escultura; materiais: mármore; cores principais: branco; outras cores: castanho; motivos: Danaide deitada, cabeleira, base esquematizada; forma: figura feminina desnuda deitada sobre uma base não esculpida, com o corpo flectido e a…"
+   },
+   {
+    "inventario": "982 Esc",
+    "titulo": "São Tiago combatendo os Mouros",
+    "aspeto": "objeto: escultura; materiais: pedra, pórtico; cores principais: branco, vermelho, dourado; outras cores: verde, azul; motivos: São Tiago a cavalo, soldado mouro caído, espada, escudo com três símbolos do crescente, manto; forma: grupo escultórico de São Tiago a cavalo, com as costas escavadas, montado sobre uma base…"
+   },
+   {
+    "inventario": "317 Des",
+    "titulo": "Átrio da \"Reggia del Sol\" ou \"Reggia di Diana\"",
+    "aspeto": "objeto: desenho; materiais: papel, sépia; cores principais: sépia; outras cores: branco; motivos: colunas salomónicas, nuvens, arcos de volta perfeita, galeria, abóbadas decoradas com figurações mitológicas, estátua de Diana; forma: representação de uma sala ou átrio de palácio"
+   }
+  ],
+  "sim": [
+   "1195 Esc",
+   "539 Esc",
+   "1019 Esc",
+   "762 Esc"
+  ]
+ },
+ {
+  "pedido": "estatuas totalmente brancas",
+  "pecas": [
+   {
+    "inventario": "1751 Esc",
+    "titulo": "Santa não identificada",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: castanho; outras cores: branco, vermelho, azul; motivos: santa, vestido, manto, cabelos soltos, atributo; forma: estátua de vulto a 3/4 com as costas planas, de pé, frontal, estática, sobre base"
+   },
+   {
+    "inventario": "1195 Esc",
+    "titulo": "São Roque",
+    "aspeto": "objeto: estátua de São Roque; materiais: pedra; cores principais: branco, castanho, vermelho; outras cores: cinza; motivos: São Roque, Anjo, cão, chaga, túnica, capa; forma: estátua de vulto pleno, São Roque em pé, Anjo ao seu lado, cão aos pés"
+   },
+   {
+    "inventario": "505 Esc",
+    "titulo": "sem título",
+    "aspeto": "objeto: estátua de São Leonardo; materiais: madeira, esmalte, vidro; cores principais: branco, azul, preto; outras cores: amarelo, carnal; motivos: São Leonardo, hábito de monge, capuz, tornozelo, Livro, ferros; forma: estátua de vulto pleno, de pé, com a cabeça voltada para o lado esquerdo, com os pés…"
+   },
+   {
+    "inventario": "1051 Esc",
+    "titulo": "sem título",
+    "aspeto": "objeto: estátua de São Bartolomeu; materiais: madeira; cores principais: carnação rosada; outras cores: castanho; motivos: São Bartolomeu, pele esfolada, barba ondulada, cabeleira ondeada, tronco descarnado; forma: estátua de vulto a 3/4 com as costas planas, representada de pé e frontal, com as mãos a…"
+   },
+   {
+    "inventario": "1292 Esc",
+    "titulo": "Santa clarissa não identificada",
+    "aspeto": "objeto: estátua de vulto pleno; materiais: madeira, metal, papel-mache; cores principais: castanho, dourado, branco; outras cores: carnal; motivos: hábito da Ordem das Clarissas, rosário com crucifixo, corda de três nós, motivos florais, pregueados verticais, véu; forma: estátua de pé, frontal, com braço direito soerguido e mão semi-cerrada, vestida com…"
+   },
+   {
+    "inventario": "539 Esc",
+    "titulo": "Santa Escolástica",
+    "aspeto": "objeto: estátua; materiais: madeira, ouro, pintura; cores principais: branco, preto, dourado; outras cores: vermelho, verde; motivos: Santa Escolástica, hábito religioso, véu, touca, livro, ave; forma: estátua de vulto pleno, em pé, com corpo fino, joelho direito em avanço, vestida com…"
+   },
+   {
+    "inventario": "1550 Esc",
+    "titulo": "São Vicente",
+    "aspeto": "objeto: estátua de São Vicente; materiais: pedra, tinta; cores principais: vermelho, verde, preto; outras cores: carnações; motivos: São Vicente, caravela, palma; forma: estátua de vulto pleno, de pé, frontal, com base circular de corte irregular"
+   },
+   {
+    "inventario": "789 Esc",
+    "titulo": "São Jorge",
+    "aspeto": "objeto: estátua de São Jorge; materiais: madeira, pó de cor; cores principais: vermelho, preto, verde; outras cores: castanho, azul anilado, dourado, carnal; motivos: São Jorge, cota de malha, tunicela com flores, manto com gola reta e galão, gesto de desferir golpe; forma: estátua de vulto pleno, de pé e frontal, com braço direito levantado, cabeça inclinada…"
+   },
+   {
+    "inventario": "1079 Esc",
+    "titulo": "Santa clarissa não identificada",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: verde, vermelho, ocre; outras cores: carnações; motivos: Santa Clarissa, Livro dos Evangelhos, véu, túnica, manto, firmal; forma: estátua de vulto pleno, em posição frontal, de pé, com braço direito flectido e mão…"
+   },
+   {
+    "inventario": "2382 Esc",
+    "titulo": "Santa não identificada",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: castanho; motivos: santa, livro fechado, véu, cabelos longos, vestido com decote redondo, carcelas verticais; forma: escultura de vulto a 3/4 com as costas planas"
+   },
+   {
+    "inventario": "1015 Esc",
+    "titulo": "São João Evangelista",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: vermelho, verde, preto; outras cores: carnações, castanho; motivos: São João Evangelista, Livro fechado, cabeleira encaracolada, túnica com pregas verticais, manto como toga; forma: estátua de pé, com cabeça voltada para o lado superior direito, mão direita erguida em…"
+   },
+   {
+    "inventario": "762 Esc",
+    "titulo": "Danaide",
+    "aspeto": "objeto: escultura; materiais: mármore; cores principais: branco; outras cores: castanho; motivos: Danaide deitada, cabeleira, base esquematizada; forma: figura feminina desnuda deitada sobre uma base não esculpida, com o corpo flectido e a…"
+   },
+   {
+    "inventario": "1206 Esc",
+    "titulo": "Santíssima Trindade",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: branco, vermelho, verde; outras cores: dourado; motivos: Deus Pai, Cristo crucificado, anjos; forma: escultura de vulto a 3/4 com as costas escavadas"
+   },
+   {
+    "inventario": "761 Esc",
+    "titulo": "Apolo",
+    "aspeto": "objeto: busto; materiais: mármore; cores principais: branco; motivos: Apolo, cabeleira ondulada, torção da cabeça à direita, torção do tronco à esquerda; forma: busto de Apolo, representando o tronco e a cabeça, com os ombros e o pescoço visíveis, e…"
+   },
+   {
+    "inventario": "2046 Esc",
+    "titulo": "São Marcos",
+    "aspeto": "objeto: estátua de São Marcos; materiais: madeira, douramento, esmalte; cores principais: dourado, vermelho, preto; outras cores: verde; motivos: São Marcos, Livro aberto, boi, barrete; forma: estátua de vulto a 3/4 com as costas planas, representando São Marcos de pé, com a cabeça…"
+   },
+   {
+    "inventario": "1670 Esc",
+    "titulo": "Santo diácono não identificado",
+    "aspeto": "objeto: estátua de santo; materiais: madeira, dourado, esmalte; cores principais: vermelho, castanho, dourado; outras cores: carnal; motivos: santo diácono, Livro dos Evangelhos, tonsura, túnica estampada com flores, dalmática estampada com motivos florais, pregas verticais e angulosas nas vestes; forma: estátua de vulto pleno, de pé, frontal, assente sobre base circular, com o Livro dos…"
+   },
+   {
+    "inventario": "63 Esc",
+    "titulo": "Caridade",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: castanho; motivos: figura feminina, criança ao colo, criança segura pela mão direita, vestido, manto, véu; forma: figura feminina de corpo inteiro, de pé, com duas crianças, uma ao colo e outra segura…"
+   },
+   {
+    "inventario": "1143 Esc",
+    "titulo": "Santo Amaro",
+    "aspeto": "objeto: estátua de Santo Amaro; materiais: madeira, tinta, pó de ouro; cores principais: preto, vermelho, dourado; outras cores: carnal; motivos: Santo Amaro, hábito de frade, capuz, tonsura, livro fechado, báculo com crossa; forma: estátua de vulto a 3/4 com as costas planas, de pé, frontal, estática"
+   },
+   {
+    "inventario": "989 Esc",
+    "titulo": "São Pedro",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: castanho; outras cores: branco; motivos: São Pedro, túnica talar, manto, livro fechado, chave; forma: estátua de vulto a 3/4 com as costas escavadas"
+   },
+   {
+    "inventario": "1019 Esc",
+    "titulo": "São Vicente",
+    "aspeto": "objeto: estátua; materiais: madeira; cores principais: branco, castanho, vermelho; outras cores: dourado, carnal; motivos: São Vicente, tonsa, vestes de diácono, caravela, monograma 'm'; forma: estátua de vulto a 3/4 com as costas escavadas, de pé e frontal, com vestes estruturadas…"
+   },
+   {
+    "inventario": "558 Esc",
+    "titulo": "Mater Dolorosa",
+    "aspeto": "objeto: escultura de meio vulto; materiais: cerâmica; cores principais: branco; outras cores: azul; motivos: Mater Dolorosa, figura humana desfalecida, vestido cintado, manto com capuz abotoado à frente, calçada, braços de outra figura; forma: figura sentada, corpo desfalecido, cabeça pendente, pernas dobradas, braços abandonados…"
+   },
+   {
+    "inventario": "349 Esc",
+    "titulo": "Santa Maria Egipcíaca",
+    "aspeto": "objeto: escultura; materiais: madeira, resina; cores principais: vermelho, dourado, castanho; outras cores: branco; motivos: Santa Maria Egipcíaca, cabelos encaracolados, manto com arabescos estilizados, lágrimas em resina; forma: vulto pleno"
+   }
+  ],
+  "sim": [
+   "762 Esc",
+   "761 Esc",
+   "558 Esc"
+  ]
+ },
+ {
+  "pedido": "esculturas em mármore branco",
+  "pecas": [
+   {
+    "inventario": "762 Esc",
+    "titulo": "Danaide",
+    "aspeto": "objeto: escultura; materiais: mármore; cores principais: branco; outras cores: castanho; motivos: Danaide deitada, cabeleira, base esquematizada; forma: figura feminina desnuda deitada sobre uma base não esculpida, com o corpo flectido e a…"
+   },
+   {
+    "inventario": "2411 Esc",
+    "titulo": "Nossa Senhora da Conceição",
+    "aspeto": "objeto: escultura de vulto pleno; materiais: marfim, prata; cores principais: bege, branco; outras cores: preto; motivos: Nossa Senhora da Conceição, coroa, Espírito Santo, crescente lunar, vestido pregueado, manto com pregas escalonadas; forma: figura feminina de pé"
+   },
+   {
+    "inventario": "1201 Esc",
+    "titulo": "São Marcos",
+    "aspeto": "objeto: escultura; materiais: madeira; cores principais: castanho, vermelho, preto; outras cores: carnações; motivos: São Marcos, Livro dos Evangelhos, tinteiro, estojo com inscrição, leão alado, turbante; forma: escultura de vulto a 3/4 com as costas escavadas"
+   },
+   {
+    "inventario": "822 Esc",
+    "titulo": "Nossa Senhora da Piedade",
+    "aspeto": "objeto: escultura de meio vulto; materiais: alabastro; cores principais: branco, castanho; motivos: Virgem Maria, Cristo Morto, Nossa Senhora da Piedade; forma: placa com as costas planas, representando a Virgem Maria sentada, amparando o corpo do…"
+   },
+   {
+    "inventario": "803 Esc",
+    "titulo": "Nossa Senhora",
+    "aspeto": "objeto: escultura; materiais: marfim; cores principais: bege, dourado, vermelho; motivos: Virgem orante, cabelo ondulado, vestido com pregas, manto, gola e punhos decorados com motivo rendilhado, colar; forma: figura feminina de pé, com as mãos postas à frente do peito, vestida com um manto e um…"
+   },
+   {
+    "inventario": "558 Esc",
+    "titulo": "Mater Dolorosa",
+    "aspeto": "objeto: escultura de meio vulto; materiais: cerâmica; cores principais: branco; outras cores: azul; motivos: Mater Dolorosa, figura humana desfalecida, vestido cintado, manto com capuz abotoado à frente, calçada, braços de outra figura; forma: figura sentada, corpo desfalecido, cabeça pendente, pernas dobradas, braços abandonados…"
+   },
+   {
+    "inventario": "231 Esc",
+    "titulo": "São Jerónimo",
+    "aspeto": "objeto: escultura; materiais: madeira, pintura; cores principais: vermelho, branco, castanho; outras cores: preto; motivos: São Jerónimo, leão, pedra; forma: escultura de vulto pleno, de pé, com cabeça voltada para a esquerda, assente sobre base…"
+   },
+   {
+    "inventario": "1195 Esc",
+    "titulo": "São Roque",
+    "aspeto": "objeto: estátua de São Roque; materiais: pedra; cores principais: branco, castanho, vermelho; outras cores: cinza; motivos: São Roque, Anjo, cão, chaga, túnica, capa; forma: estátua de vulto pleno, São Roque em pé, Anjo ao seu lado, cão aos pés"
+   },
+   {
+    "inventario": "1725 Esc",
+    "titulo": "Virgem com o Menino",
+    "aspeto": "objeto: escultura; materiais: pedra calcária, bolus, folha de ouro; cores principais: verde, branco, vermelho; outras cores: dourado; motivos: Virgem Maria, Menino Jesus, orbe, manto, cabelos; forma: escultura de vulto a 3/4 com as costas planas, corpo inteiro, de pé, com o Menino Jesus…"
+   },
+   {
+    "inventario": "349 Esc",
+    "titulo": "Santa Maria Egipcíaca",
+    "aspeto": "objeto: escultura; materiais: madeira, resina; cores principais: vermelho, dourado, castanho; outras cores: branco; motivos: Santa Maria Egipcíaca, cabelos encaracolados, manto com arabescos estilizados, lágrimas em resina; forma: vulto pleno"
+   },
+   {
+    "inventario": "2529 Esc",
+    "titulo": "Menino Jesus Salvator Mundi",
+    "aspeto": "objeto: escultura; materiais: marfim, prata; cores principais: bege; outras cores: prata; motivos: Menino Jesus, crucifixo, túnica, manto, friso rendilhado; forma: figura em pé, descalça, sobre peanha baixa, segurando crucifixo em prata na mão direita e…"
+   },
+   {
+    "inventario": "625 Esc",
+    "titulo": "Natividade",
+    "aspeto": "objeto: placa de marfim; materiais: marfim; cores principais: bege claro; outras cores: branco; motivos: Nossa Senhora ajoelhada com auréola, mãos postas, São José com auréola, segurando o Menino Jesus em manjedoura, anjos, animais do presépio, grupo de figuras, Anjo anunciador com filactera; forma: placa rectangular composta por dois segmentos também rectangulares, esculpida em baixo e…"
+   },
+   {
+    "inventario": "1200 Esc",
+    "titulo": "Virgem da Misericórdia (título iconográfico)",
+    "aspeto": "objeto: escultura; materiais: madeira; cores principais: castanho, vermelho, verde; outras cores: dourado, carnal; motivos: Virgem Maria, Deus Menino, cruz, coroa, véu, vestido ablusado; forma: escultura de vulto a 3/4 com as costas planas, assente sobre base circular de corte…"
+   },
+   {
+    "inventario": "2046 Esc",
+    "titulo": "São Marcos",
+    "aspeto": "objeto: estátua de São Marcos; materiais: madeira, douramento, esmalte; cores principais: dourado, vermelho, preto; outras cores: verde; motivos: São Marcos, Livro aberto, boi, barrete; forma: estátua de vulto a 3/4 com as costas planas, representando São Marcos de pé, com a cabeça…"
+   },
+   {
+    "inventario": "63 Esc",
+    "titulo": "Caridade",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: castanho; motivos: figura feminina, criança ao colo, criança segura pela mão direita, vestido, manto, véu; forma: figura feminina de corpo inteiro, de pé, com duas crianças, uma ao colo e outra segura…"
+   },
+   {
+    "inventario": "1984 Des",
+    "titulo": "Paisagem noturna. Vista de jardim com estátua de Hércules",
+    "aspeto": "objeto: desenho; materiais: papel castanho, tinta preta, aguarela opaca branca; cores principais: castanho, branco; motivos: paisagem noturna, lua cheia, árvores, estátua de Hércules sobre pedestal; forma: composição horizontal, com paisagem e estátua à direita"
+   },
+   {
+    "inventario": "639 Esc",
+    "titulo": "Virgem do Rosário",
+    "aspeto": "objeto: escultura; materiais: osso; cores principais: branco, ouro; outras cores: carmim, azul acinzentado; motivos: Virgem, Menino Jesus, rosário, estrelas, cruz; forma: escultura de vulto pleno, em pé, com o Menino Jesus sentado no braço esquerdo, encostado…"
+   },
+   {
+    "inventario": "2382 Esc",
+    "titulo": "Santa não identificada",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: castanho; motivos: santa, livro fechado, véu, cabelos longos, vestido com decote redondo, carcelas verticais; forma: escultura de vulto a 3/4 com as costas planas"
+   },
+   {
+    "inventario": "1206 Esc",
+    "titulo": "Santíssima Trindade",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: branco, vermelho, verde; outras cores: dourado; motivos: Deus Pai, Cristo crucificado, anjos; forma: escultura de vulto a 3/4 com as costas escavadas"
+   },
+   {
+    "inventario": "84 Our",
+    "titulo": "Virgem com o Menino",
+    "aspeto": "objeto: escultura; materiais: prata, madeira; cores principais: prata, ouro; outras cores: vermelho; motivos: Virgem Maria, Menino Jesus, coroa, capa, botões, cabeças de querubins; forma: escultura em prata representando a Virgem Maria com o Menino Jesus, colocada sobre uma…"
+   },
+   {
+    "inventario": "241 Esc",
+    "titulo": "Santa Basilissa",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: branco; motivos: Santa Basilissa, vestido, manto, sandálias, toucado de carrapito, palma martirial; forma: figura feminina em pé, assente sobre peanha quadrangular lisa, com vestido e manto,…"
+   },
+   {
+    "inventario": "1212 Esc",
+    "titulo": "Virgem com o Menino",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: branco; outras cores: vermelho, azul; motivos: Virgem, Menino Jesus, coroa, véu, cinto, jóia em forma de rombo; forma: escultura de vulto a 3/4 com as costas escavadas, assente sobre base circular"
+   }
+  ],
+  "sim": [
+   "762 Esc",
+   "822 Esc",
+   "1195 Esc",
+   "1206 Esc",
+   "241 Esc",
+   "1212 Esc"
+  ]
+ },
+ {
+  "pedido": "peças douradas",
+  "pecas": [
+   {
+    "inventario": "1193 Joa",
+    "titulo": "Ornamentos de vestuário",
+    "aspeto": "objeto: ornamento de vestuário; materiais: ouro, esmalte, fio; cores principais: ouro, vermelho, branco; outras cores: castanho; motivos: aljôfares, flor, folhas, enrolamentos, cabochão, pérolas simuladas; forma: formato de S, formato lobulado, formato reduzido"
+   },
+   {
+    "inventario": "907 Joa",
+    "titulo": "Brincos",
+    "aspeto": "objeto: brincos; materiais: prata, ouro, crisoberilos; cores principais: castanho, branco; motivos: laçada, túlipa, perímetro perlado; forma: três elementos articulados: elemento superior com dois discos sobre uma túlipa, elemento…"
+   },
+   {
+    "inventario": "723 Joa",
+    "titulo": "Pendente",
+    "aspeto": "objeto: pendente; materiais: ouro, diamantes; cores principais: ouro; outras cores: transparente; motivos: enrolamentos fitomórficos, elementos vegetalistas, engaste tronco-cónico, lágrima, diamantes; forma: composta por dois elementos articulados, o superior em forma de laça e o inferior em…"
+   },
+   {
+    "inventario": "388 Our",
+    "titulo": "Custódia",
+    "aspeto": "objeto: custódia; materiais: ouro, pedras de cor; cores principais: castanho, dourado; outras cores: vermelho, azul, verde, roxo; motivos: querubins, nuvens, cabeças de querubim, cruz; forma: resplendor circular com raios setiformes, assente em pedestal com quatro pés decorados…"
+   },
+   {
+    "inventario": "1944 Our",
+    "titulo": "Prato individual de sobremesa",
+    "aspeto": "objeto: prato; materiais: prata; cores principais: ouro; outras cores: castanho; motivos: Armas Reais Portuguesas, grinaldas de folhas, florinhas, volutas, filetes enfeixados; forma: formato circular com bordo ligeiramente contracurvado"
+   },
+   {
+    "inventario": "754 Joa",
+    "titulo": "Pendente",
+    "aspeto": "objeto: pendente; materiais: ouro, diamantes; cores principais: ouro; outras cores: azul; motivos: letras IHS, enrolamentos recortados, laça estilizada, coroa fechada; forma: forma de escudo com bordas curvas, com moldura ornamental e placa central elíptica"
+   },
+   {
+    "inventario": "629 Joa",
+    "titulo": "Pendente",
+    "aspeto": "objeto: pendente; materiais: ouro, diamante; cores principais: ouro; outras cores: branco; motivos: cruz, borboleta estilizada, lágrima; forma: forma de cruz composta por três elementos articulados: elemento superior em forma de cruz…"
+   },
+   {
+    "inventario": "1726 Our",
+    "titulo": "Faca",
+    "aspeto": "objeto: faca; materiais: ouro; cores principais: ouro; motivos: filetes, motivos vegetalistas; forma: lâmina afiada, cabo decorado com filetes laterais e concheado na junção com a lâmina"
+   },
+   {
+    "inventario": "1197 Joa",
+    "titulo": "Adorno de cabeça ou de peito",
+    "aspeto": "objeto: Adorno de cabeça ou de peito; materiais: ouro, diamantes, prata; cores principais: branco, amarelado; outras cores: ouro; motivos: plumas, diamante ovalado, setas, arco; forma: composta por três plumas, sendo a central a mais larga, unidas sob um diamante ovalado,…"
+   },
+   {
+    "inventario": "707 Joa",
+    "titulo": "Colar com pendente",
+    "aspeto": "objeto: colar com pendente; materiais: ouro, diamante; cores principais: castanho; outras cores: branco; motivos: medalhões de flores, laça estilizada, girandola; forma: malha de medalhões recortados e cinzelados, com pendente central em forma de laça…"
+   },
+   {
+    "inventario": "738 Joa",
+    "titulo": "Colar",
+    "aspeto": "objeto: colar; materiais: ouro; cores principais: azul, branco, castanho; motivos: florão, rodilhões; forma: cadeia com elos em forma de florão, com pendente em forma de cruz"
+   },
+   {
+    "inventario": "1942 Our",
+    "titulo": "Prato individual de sobremesa",
+    "aspeto": "objeto: prato; materiais: prata; cores principais: ouro; motivos: Armas Reais Portuguesas, grinaldas de folhas, florinhas, volutas, silvado; forma: circular, com bordo ligeiramente contracurvado"
+   },
+   {
+    "inventario": "1718 Our",
+    "titulo": "Saleiro",
+    "aspeto": "objeto: saleiro; materiais: ouro; cores principais: ouro; motivos: vieira, peixes, conchas, algas; forma: composta por uma vieira de duas metades articuladas, assente sobre o dorso de dois peixes…"
+   },
+   {
+    "inventario": "78 Min",
+    "titulo": "Retrato de D. Pedro (futuro D. Pedro V)",
+    "aspeto": "objeto: miniatura; materiais: marfim, bronze, veludo; cores principais: castanho, preto, dourado; outras cores: azul, vermelho, branco; motivos: retrato de D. Pedro, farda de oficial, galonas, gola levantada com ramagens douradas, hábito do tosão d'Ouro, banda das três ordens; forma: circular"
+   },
+   {
+    "inventario": "577 Our",
+    "titulo": "Cofre",
+    "aspeto": "objeto: cofre; materiais: ouro; cores principais: castanho; outras cores: verde; motivos: rosetas, florões, flor de liz, lagarto, serpentes; forma: parelelipipédico, assente sobre quatro pés, com tampa piramidal truncada"
+   },
+   {
+    "inventario": "63 Joa",
+    "titulo": "Guarnição de corpete",
+    "aspeto": "objeto: Guarnição de corpete; materiais: prata, topázio; cores principais: rosa, amarelo; outras cores: castanho; motivos: flores, fitas; forma: triangular ligeiramente convexa"
+   },
+   {
+    "inventario": "437 Joa",
+    "titulo": "Roseta",
+    "aspeto": "objeto: pendente; materiais: ouro, cristal de rocha; cores principais: ouro, branco; outras cores: transparente; motivos: estrela de oito pontas, estrela de mais pontas desencontradas, florão; forma: circular"
+   }
+  ],
+  "sim": [
+   "1193 Joa",
+   "723 Joa",
+   "754 Joa",
+   "629 Joa",
+   "1726 Our",
+   "1197 Joa",
+   "1718 Our",
+   "437 Joa"
+  ]
+ },
+ {
+  "pedido": "pinturas com barcos",
+  "pecas": [
+   {
+    "inventario": "467 Pint",
+    "titulo": "Naufrágio",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho, preto, amarelo-claro; outras cores: cinza, branco; motivos: barco naufragando contra rochas, homem socorrendo náufrago, ruínas de edificação, vagas, céu nublado, figuras humanas; forma: composição horizontal, com cena marítima em primeiro plano e fundo montanhoso com ruínas"
+   },
+   {
+    "inventario": "1128 Des",
+    "titulo": "Construção de uma embarcação de grande porte",
+    "aspeto": "objeto: desenho; materiais: papel, tinta da china; cores principais: castanho; outras cores: preto, branco; motivos: homens a trabalhar, estrutura de postes de madeira, cavaletes, cavername de navio; forma: composição horizontal, representando uma cena de construção naval"
+   },
+   {
+    "inventario": "3267 Des",
+    "titulo": "Vista da barra de Lisboa e entrada do Tejo",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: azul, branco, castanho; outras cores: cinza, verde-oliva, preto; motivos: embarcações de várias tipologias, farol do Bugio, forte de S. Julião da Barra, trecho da costa do lado de Lisboa, céu com nuvens; forma: composição paisagística horizontal, com elementos marítimos e costeiros dispostos em plano"
+   },
+   {
+    "inventario": "2730 Des",
+    "titulo": "Paisagem com lago e pescadores num barco",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: azul, castanho, verde; outras cores: cinza, amarelo-ocre, branco; motivos: árvore, caminho, figuras humanas, lago, barco, pescadores; forma: formato retangular"
+   },
+   {
+    "inventario": "499 Pint",
+    "titulo": "Desembarque de Afonso de Albuquerque",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho, bege, cinza; outras cores: preto, branco; motivos: figuras humanas, estrado elevado, baldaquino, escada, multidão, desembarque de Afonso de Albuquerque; forma: formato retangular, com moldura de madeira dourada"
+   },
+   {
+    "inventario": "733 Des",
+    "titulo": "Estudo para o Massacre a Bordo do Navio 'Patristen'",
+    "aspeto": "objeto: desenho; materiais: papel, lápis preto; cores principais: preto, branco; motivos: três pares de figuras masculinas trajando à maneira do século XVIII, figuras deitadas sobre enxergas, móvel de pé, cadeiras, arcas, castiçal com vela; forma: folha de papel com composição interior"
+   },
+   {
+    "inventario": "390 Pint",
+    "titulo": "Panorama da Cidade de Lisboa no Século XVIII",
+    "aspeto": "objeto: pintura; materiais: tela; cores principais: azul, castanho, branco; outras cores: vermelho, amarelo, verde, preto; motivos: vista panorâmica da cidade de Lisboa, navios no rio, edifícios e estruturas urbanas, anjos, guirlandas, figuras humanas; forma: formato retangular horizontal"
+   },
+   {
+    "inventario": "14220 Grav",
+    "titulo": "Nossa Senhora da Boa Viagem",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: Nossa Senhora coroada, com o menino ao colo, segurando uma embarcação; anjos; embarcações; nuvens; moldura decorativa; inscrição; forma: composta por moldura ornamental, com Nossa Senhora e o menino no centro, sobre nuvens, e…"
+   },
+   {
+    "inventario": "1874 Pint",
+    "titulo": "Fuga para o Egipto",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: azul, rosa, branco; outras cores: castanho, verde-escuro, cinza; motivos: Sagrada Família, dois anjos, barca, cisnes, cavalete, penhasco; forma: formato retangular vertical"
+   },
+   {
+    "inventario": "7070 Grav",
+    "titulo": "Coche: pintura da proa do primeiro coche da embaixada",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: figuras humanas nus ou parcialmente vestidos, chamíssos, figuras aladas, mapa mundi, compasso, elementos vegetais; forma: formato retangular com bordas onduladas"
+   },
+   {
+    "inventario": "1366 Pint",
+    "titulo": "Painel dos Pescadores",
+    "aspeto": "objeto: painel de pintura; materiais: madeira de carvalho, tinta, óleo, têmpera; cores principais: castanho, verde, branco; outras cores: preto; motivos: penitente ajoelhado, três personagens em pé envoltos numa rede de pesca, três indivíduos em plano mais recuado, flutuadores de cortiça na corda da rede; forma: painel vertical retangular"
+   },
+   {
+    "inventario": "1560 Mov",
+    "titulo": "Biombo",
+    "aspeto": "objeto: biombo; materiais: pinho, papel de amoreira, seda, cobre, laca; cores principais: ouro, preto, vermelho; outras cores: azul, castanho, verde, branco, cinza; motivos: barco de grande porte, barcos menores, pessoas em trajes asiáticos, cidades com casas baixas, cerejeiras em flor, nuvens; forma: biombo baixo de seis folhas articuladas, com moldura lacada e faixa de seda debruada"
+   },
+   {
+    "inventario": "2729 Des",
+    "titulo": "Naufrágio",
+    "aspeto": "objeto: desenho; materiais: papel, tinta; cores principais: castanho; forma: folha retangular, com manchas e linhas rápidas distribuídas sobretudo pela metade…"
+   },
+   {
+    "inventario": "6890 Cer",
+    "titulo": "Placa",
+    "aspeto": "objeto: placa; materiais: porcelana; cores principais: branco, cinza; motivos: paisagem, rio, barcos, edifício fortificado, personagens; forma: retangular"
+   },
+   {
+    "inventario": "3335 Des",
+    "titulo": "sem título",
+    "aspeto": "objeto: desenho; materiais: papel, tela; cores principais: castanho, preto; outras cores: vermelho, amarelo, verde; forma: planta"
+   },
+   {
+    "inventario": "14274 Grav",
+    "titulo": "Quer bote?",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: azul, castanho, vermelho; outras cores: branco, cinza; motivos: homem de pé, homem com chapéu, homem com capa, homem com calças azuis, homem descalço, cavalo ao fundo; forma: formato retangular"
+   },
+   {
+    "inventario": "7069 Grav",
+    "titulo": "Coche: pintura da popa do primeiro coche da embaixada",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: figura feminina sentada, vestida de Pallas, segurando escudo, figura masculina em pé, com túnica, segurando lança, figura masculina caída no chão, figura masculina ajoelhada, figura alada, em movimento, no canto superior direito, figura alada, em movimento, no canto superior esquerdo; forma: formato retangular com moldura ornamental, com cantos arredondados e decorados com…"
+   }
+  ],
+  "sim": [
+   "467 Pint",
+   "3267 Des",
+   "14220 Grav",
+   "1560 Mov",
+   "6890 Cer"
+  ]
+ },
+ {
+  "pedido": "quadros onde aparecem cães",
+  "pecas": [
+   {
+    "inventario": "1853 Pint",
+    "titulo": "Retrato de Braz Francisco de Lima",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho, preto, branco; outras cores: vermelho, azul, amarelo; motivos: homem sentado, cão, estatuária, mesa com objetos, inscrição no plinto; forma: figura humana sentada, retratada em meio corpo, com um cão ao lado e estatuária ao fundo"
+   },
+   {
+    "inventario": "14297 Grav",
+    "titulo": "Costumes Portugueses, nº 12, O Petitorio para cazas necessitadas",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco, cinza; motivos: homem a receber esmola de uma mulher numa janela, cão ao lado do homem, grupo de homens com tochas ao fundo, edifícios urbanos ao fundo, céu noturno com nuvens; forma: fólio retangular com borda decorativa, contendo uma cena representada em tons de cinza,…"
+   },
+   {
+    "inventario": "14290 Grav",
+    "titulo": "Costumes Portugueses, nº 5, O Limpa Candieiros",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: homem a limpar um candeeiro, criança, mulher, homem com chapéu alto, cão; forma: fólio com imagem central em preto e branco, enquadrada por texto"
+   },
+   {
+    "inventario": "14301 Grav",
+    "titulo": "Costumes Portugueses, nº 16, O Homem pregando editaes pelas esquinas",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: homem a colar um edital numa parede, dois homens a observar, um mendigo, um cão, uma casa, vegetação; forma: fólio retangular com imagem centralizada"
+   },
+   {
+    "inventario": "14288 Grav",
+    "titulo": "Costumes Portugueses, nº 3, Saloio retirando-se do mercado",
+    "aspeto": "objeto: gravura; materiais: papel, tinta; cores principais: preto, branco; motivos: homem montado numa mula, cão, vara, casario, mulher, bebé; forma: fólio retangular com imagem centralizada e legenda abaixo"
+   },
+   {
+    "inventario": "645 Des",
+    "titulo": "Quatro Santas e um Anjo",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: branco, azul, castanho; outras cores: vermelho; motivos: quatro santas, um anjo, boceta de perfumes, chama, coroa, palma; forma: formato arqueado"
+   },
+   {
+    "inventario": "2376 Des",
+    "titulo": "Apolo e Minerva acompanhados por uma bacante",
+    "aspeto": "objeto: desenho; materiais: papel, tinta castanha, lápis preto (vestígios); cores principais: castanho; motivos: Apolo, Minerva, bacante, cães, pandeireta, vaso; forma: composição circular"
+   },
+   {
+    "inventario": "14289 Grav",
+    "titulo": "Costumes Portugueses, nº 4, O Pobre dos Bonecos",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: homem com capa e chapéu, jovem descalço, duas mulheres com véus, criança, teatro de fantoches, cena de rua; forma: fólio retangular com borda decorativa, contendo uma cena figurada em preto e branco"
+   },
+   {
+    "inventario": "14/274 Ilum",
+    "titulo": "S. Roque",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: castanho, vermelho, preto; outras cores: azul, dourado, branco; motivos: S. Roque, bordão de peregrino, saco à tiracolo, chaga, rochas, árvores; forma: quadro com enquadramento em moldura de castanho e dourado, dividido em três tarjas…"
+   },
+   {
+    "inventario": "22/96 Ilum",
+    "titulo": "Oração a S. Roque",
+    "aspeto": "objeto: fólio manuscrito; materiais: velino, ouro; cores principais: laranja, preto, vermelho; outras cores: cinzento, azul, cor-de-rosa, castanho; motivos: S. Roque sentado, com túnica azul, manto vermelho e chapéu, com ferida na perna, anjo de túnica cor-de-rosa, com asas, tratando a ferida, cão com pão na boca, flores decorativas, capitais decoradas com motivos fitomórficos, texto em latim; forma: fólio retangular com tarja circundante, contendo um retângulo central com texto e uma…"
+   },
+   {
+    "inventario": "1391 Pint",
+    "titulo": "Regresso da caça",
+    "aspeto": "objeto: pintura; materiais: cobre; cores principais: castanho, amarelo, cinzento; outras cores: verde, vermelho, preto; motivos: grupo de cavaleiros e peões, personagem feminina com falcão, criado com três cães, construção em ruínas, paisagem campestre, rio; forma: formato retangular"
+   },
+   {
+    "inventario": "2861 Des",
+    "titulo": "Paisagem de Hilversum",
+    "aspeto": "objeto: desenho; materiais: papel, carvão; cores principais: castanho; outras cores: bege; motivos: caminho, bosque, homem, cão; forma: formato retangular vertical"
+   },
+   {
+    "inventario": "13/98v. Ilum",
+    "titulo": "Criação dos Animais Terrestres",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, ouro; cores principais: azul, castanho, dourado; outras cores: verde, amarelo, rosa, branco, preto; motivos: Deus-Pai sentado sobre as nuvens, com tiara, túnica e capa, segurando um ceptro e abençoando, anjos em nuvem atrás de Deus-Pai, paisagem com árvores, criação dos animais terrestres: cães, coelhos, bode, ovelha, macaco, raposa, elefante, unicórnio, javali, leão, porco, chita, veado, cavalo, camelo, burro; forma: composição em moldura arqueada, com enquadramento em tons de castanho e dourado, imitando…"
+   },
+   {
+    "inventario": "593 Des",
+    "titulo": "Os anjos visitando Abraão",
+    "aspeto": "objeto: desenho; materiais: papel, sépia, carvão; cores principais: castanho; outras cores: bege; motivos: três anjos, Abraão ajoelhado, Abraão escolhendo um carneiro, Abraão servindo repasto, tronco de árvore; forma: composição vertical com três cenas distintas"
+   },
+   {
+    "inventario": "59 Pint",
+    "titulo": "São Lucas e São Marcos",
+    "aspeto": "objeto: painel pintado; materiais: madeira, tinta, óleo; cores principais: amarelo, azul, castanho; outras cores: preto, vermelho, branco; motivos: São Lucas, São Marcos, touro, leão, cálamo, raspadeira; forma: retangular"
+   },
+   {
+    "inventario": "337 Des",
+    "titulo": "Bodas de Canaã",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: sanguínea; outras cores: branco; motivos: figuras humanas sentadas e deitadas em torno de uma mesa, criados transportando jarros, figura no fundo transportando bandeja com comida, colunas, arcada, draperia pendente; forma: composição horizontal, em plano de vista frontal, com figuras dispostas em diferentes…"
+   },
+   {
+    "inventario": "1195 Esc",
+    "titulo": "São Roque",
+    "aspeto": "objeto: estátua de São Roque; materiais: pedra; cores principais: branco, castanho, vermelho; outras cores: cinza; motivos: São Roque, Anjo, cão, chaga, túnica, capa; forma: estátua de vulto pleno, São Roque em pé, Anjo ao seu lado, cão aos pés"
+   },
+   {
+    "inventario": "7110 Grav",
+    "titulo": "Peças de luminária: Candelabros de quatro braços e lustres de oito braços.",
+    "aspeto": "objeto: gravura; materiais: papel, água-forte; cores principais: preto, branco; motivos: candelabros de quatro braços, lustre de oito braços, figura angelical, ornamentos decorativos; forma: desenho de três candelabros de quatro braços numerados 1, 2 e 3, e dois lustres de oito…"
+   }
+  ],
+  "sim": [
+   "1853 Pint",
+   "14297 Grav",
+   "14290 Grav",
+   "14301 Grav",
+   "14288 Grav",
+   "2376 Des",
+   "22/96 Ilum",
+   "1391 Pint",
+   "2861 Des",
+   "13/98v. Ilum",
+   "1195 Esc"
+  ]
+ },
+ {
+  "pedido": "peças com dragões",
+  "pecas": [
+   {
+    "inventario": "1104 Mov",
+    "titulo": "Aparador",
+    "aspeto": "objeto: aparador; materiais: madeira; cores principais: castanho; motivos: bustos masculino e feminino em medalhões, grifos, enrolamentos de fitas, dragões afrentados e alados, motivos florais e vegetalistas; forma: móvel de plano rectangular de estrutura apainelada, com tampo fixo, duas gavetas lado a…"
+   },
+   {
+    "inventario": "1842 Esc",
+    "titulo": "Santa Margarida",
+    "aspeto": "objeto: escultura de vulto a 3/4; materiais: madeira, metal, papel; cores principais: vermelho, verde, castanho; outras cores: dourado, carnações; motivos: Santa Margarida, dragão, corrente, toucado decorado com flores, túnica estampada com motivos florais, tunicela com pregas verticais; forma: figura de pé"
+   },
+   {
+    "inventario": "679 Esc",
+    "titulo": "sem título",
+    "aspeto": "objeto: medalhão; materiais: esmalte, vidro, cerâmica; cores principais: azul, branco; outras cores: amarelo, verde; motivos: busto de guerreiro, elmo com asas e golfinho, couraça com asas de grifo e cabeça de leão, escudo com dragão, folhas de louro, pinheiro; forma: círculo"
+   },
+   {
+    "inventario": "1847 Our",
+    "titulo": "Chaleira com escalfador",
+    "aspeto": "objeto: Chaleira com escalfador; materiais: prata, ébano; cores principais: prateada; outras cores: preto; motivos: cabeça de chinês com chapéu de abas longas, dragão, cisne, volutas, cabeças de carneiro, grinaldas de louro; forma: corpo em forma de abóbora gomada"
+   },
+   {
+    "inventario": "1848 Our",
+    "titulo": "Chaleira com escalfador",
+    "aspeto": "objeto: chaleira com escalfador; materiais: prata, madeira, ébano; cores principais: prata, castanho; motivos: cabeça de chinês com chapéu de abas longas, dragão, cisne, volutas, grinaldas de louro, cabeças de carneiro; forma: corpo em forma de abóbora, tampa em forma de cabeça de chinês, pega articulada com…"
+   },
+   {
+    "inventario": "53 Pint",
+    "titulo": "Santa Margarida e Santa Maria Madalena",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: azul, vermelho, castanho; outras cores: dourado, branco, cinza; motivos: Santa Margarida, Santa Maria Madalena, dragão, vaso de perfumes, livro, aureolas com inscrições; forma: formato retangular, representação em busto das duas figuras"
+   },
+   {
+    "inventario": "7455 Cer",
+    "titulo": "Garrafa",
+    "aspeto": "objeto: garrafa; materiais: porcelana, vidrado; cores principais: azul, branco; motivos: cena com torre e montanha, cena com galinha e dragão, cena com insetos voadores, decoração vegetal; forma: base quadrada, corpo rectangular com faces irregulares, topo ligeiramente arqueado,…"
+   },
+   {
+    "inventario": "713 Mov",
+    "titulo": "Cadeira",
+    "aspeto": "objeto: cadeira; materiais: couro, madeira, latão; cores principais: castanho, preto; outras cores: dourado; motivos: dragões afrontados, putti empunhando lanças, folhagem de acanto, flores de acanto, cabeças de pássaro, florão; forma: espaldar e assento retangulares, prumadas retas, travessas dianteira e traseira mais…"
+   },
+   {
+    "inventario": "445 Mov",
+    "titulo": "Cadeira",
+    "aspeto": "objeto: cadeira; materiais: couro, madeira, latão; cores principais: castanho; outras cores: dourado; motivos: dragões afrontados, folhagem de acanto, florão, folhas horizontais; forma: espaldar e assento retangulares, prumadas retas, travessas dianteira e traseira elevadas,…"
+   },
+   {
+    "inventario": "806 Our",
+    "titulo": "Salva",
+    "aspeto": "objeto: salva; materiais: prata, ouro; cores principais: ouro, preto, vermelho; outras cores: azul, branco; motivos: medalhão de esmaltes com decoração geométrica, torsal de louros, folhas de cardo, guerreiros, homens silvestres, leões; forma: disco circular com centro elevado, rebordo alteado e liso"
+   },
+   {
+    "inventario": "738 Pint",
+    "titulo": "Salomé com a cabeça de São João Baptista",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho; cores principais: preto, branco, castanho; outras cores: vermelho, dourado; motivos: Salomé, cabeça de São João Baptista, dragão alado; forma: painel retangular, representando a figura de Salomé a meio corpo, segurando uma salva com…"
+   },
+   {
+    "inventario": "752 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana, vidrado; cores principais: branco, azul; motivos: dois leões, enrolamento de lótus, oito objectos preciosos estilizados, fitas ondulantes, flores, troncos com ramos e folhagens; forma: caldeira arredondada, aba estreita, direita e oblíqua, sobre pé inclinado para o interior"
+   },
+   {
+    "inventario": "1057 Esc",
+    "titulo": "Santa Margarida",
+    "aspeto": "objeto: escultura; materiais: pedra, esmalte; cores principais: branco, vermelho, verde; outras cores: dourado, carnal; motivos: Santa Margarida, coroa de flores, cabeleira, manto, cinto de fivela, dragão derrotado; forma: figura feminina em pé, frontal, com mãos postas em atitude orante, assentada sobre base…"
+   },
+   {
+    "inventario": "446 Mov",
+    "titulo": "Cadeira",
+    "aspeto": "objeto: cadeira; materiais: couro, madeira, latão; cores principais: castanho; outras cores: dourado; motivos: figura feminina, pássaro, dragões, folhagem de acanto, florões, pináculos; forma: espaldar e assento retangulares, prumadas retas, travessas dianteira e traseira elevadas,…"
+   },
+   {
+    "inventario": "1641 Mov",
+    "titulo": "Biombo (par)",
+    "aspeto": "objeto: biombo articulado; materiais: madeira, papel, folha de ouro, seda, cobre; cores principais: ouro, preto, verde; outras cores: branco, vermelho, azul, castanho, cinza; motivos: nau com velas recolhidas, tripulação em acrobacias, pessoas desembarcando, pavão, animais exóticos em jaulas, grupo de pessoas com roupas variadas; forma: seis folhas articuladas"
+   },
+   {
+    "inventario": "7110 Grav",
+    "titulo": "Peças de luminária: Candelabros de quatro braços e lustres de oito braços.",
+    "aspeto": "objeto: gravura; materiais: papel, água-forte; cores principais: preto, branco; motivos: candelabros de quatro braços, lustre de oito braços, figura angelical, ornamentos decorativos; forma: desenho de três candelabros de quatro braços numerados 1, 2 e 3, e dois lustres de oito…"
+   },
+   {
+    "inventario": "795 Our",
+    "titulo": "Sacrário",
+    "aspeto": "objeto: sacrário; materiais: prata; cores principais: prateada; motivos: coração coroado, folhagem, figura de São Miguel esmagando o dragão, figura de Fé, figura de Esperança, cabeça de querubim; forma: quadrangular, rematado por frontão polilobado"
+   },
+   {
+    "inventario": "14/290v. Ilum",
+    "titulo": "Santa Margarida",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: castanho, dourado, vermelho; outras cores: branco, azul, preto; motivos: Santa Margarida, dragão alado, pomba do Espírito Santo, crucifixo, prisão, auréola; forma: quadro com enquadramento em tons de castanho e dourado, simulando moldura arquitectónica…"
+   },
+   {
+    "inventario": "2164 Tec",
+    "titulo": "Colcha",
+    "aspeto": "objeto: colcha; materiais: linho, algodão, estopa; cores principais: amarelo, azul claro; outras cores: amarelo torrado; motivos: embarcação com dois tripulantes, bandeiras com a Cruz de Cristo, monstros marinhos, cavaleiros combatendo dragões, tigres, veados; forma: quadrada"
+   },
+   {
+    "inventario": "4620 Tec",
+    "titulo": "Capa",
+    "aspeto": "objeto: capa; materiais: tafetá de algodão, seda; cores principais: branco, amarelo; motivos: sereias tocando instrumentos musicais, fauna marítima, águias bicéfalas coroadas, decoração fitomórfica, pequenas aves afrontadas; forma: formada por panos triangulares ligados por renda de agulha, com barra de rectângulos e…"
+   }
+  ],
+  "sim": [
+   "1104 Mov",
+   "1842 Esc",
+   "679 Esc",
+   "1847 Our",
+   "1848 Our",
+   "53 Pint",
+   "7455 Cer",
+   "713 Mov",
+   "445 Mov",
+   "738 Pint",
+   "1057 Esc",
+   "446 Mov",
+   "795 Our",
+   "14/290v. Ilum",
+   "2164 Tec"
+  ]
+ },
+ {
+  "pedido": "pinturas com anjos",
+  "pecas": [
+   {
+    "inventario": "458 Des",
+    "titulo": "Dois anjos músicos",
+    "aspeto": "objeto: desenho; materiais: papel, tinta castanha; cores principais: castanho; motivos: dois anjos músicos, nuvens, harpa, viola de arco; forma: composição vertical, com figuras sentadas e em movimento entre nuvens"
+   },
+   {
+    "inventario": "2579 Des",
+    "titulo": "Anjo com atributos da Paixão",
+    "aspeto": "objeto: desenho; materiais: papel, tinta da china; cores principais: castanho; motivos: anjo, túnica, manto, firmal, coroa de espinhos, látego; forma: figura humana de corpo inteiro, em pé, com os pés apoiados no chão"
+   },
+   {
+    "inventario": "474 Esc",
+    "titulo": "Glória de Anjos - Elementos de Presépio",
+    "aspeto": "objeto: Glória de Anjos - Elementos de Presépio; materiais: madeira, gesso, pintura; cores principais: rosa, verde-azulado, bege; outras cores: castanho, branco; motivos: três anjos, cabelos encaracolados, asas com penugem farta, túnica lisa, gestos de celebração; forma: grupo escultórico dinâmico, com três figuras em movimento, dispostas em glória"
+   },
+   {
+    "inventario": "1170 Pint",
+    "titulo": "Anunciação",
+    "aspeto": "objeto: painel de pintura; materiais: madeira de carvalho, tinta, óleo; cores principais: vermelho, azul, castanho; outras cores: branco, preto, dourado; motivos: anjo, Virgem Maria, pomba, bastão, tapete, livro de orações; forma: painel retangular com moldura de madeira"
+   },
+   {
+    "inventario": "195 Pint",
+    "titulo": "Arcanjo São Miguel",
+    "aspeto": "objeto: painel pintado; materiais: madeira, tinta, óleo; cores principais: azul, castanho, dourado; outras cores: vermelho, branco, preto; motivos: Arcanjo São Miguel, demónio negro alado, balança, espada, auréola, almas; forma: painel vertical retangular, com moldura de madeira dourada"
+   },
+   {
+    "inventario": "645 Des",
+    "titulo": "Quatro Santas e um Anjo",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: branco, azul, castanho; outras cores: vermelho; motivos: quatro santas, um anjo, boceta de perfumes, chama, coroa, palma; forma: formato arqueado"
+   },
+   {
+    "inventario": "22/35v. Ilum",
+    "titulo": "Anunciação",
+    "aspeto": "objeto: página de livro; materiais: velino, ouro; cores principais: azul, vermelho, castanho; outras cores: rosa, verde, ouro, branco; motivos: Anjo, Maria, pomba do Espírito Santo, baldaquino, cortinas, flores; forma: fólio retangular com borda decorativa"
+   },
+   {
+    "inventario": "14/279 Ilum",
+    "titulo": "Anjo Custódio",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: dourado, vermelho, azul; outras cores: castanho, rosa, verde, preto; motivos: anjo, armadura, túnica dourada, jóia, fitas, asas; forma: quadro com enquadramento em moldura de castanho e dourado, contendo ilustração central e…"
+   },
+   {
+    "inventario": "22/64v. Ilum",
+    "titulo": "Horas da Virgem-Anunciação aos Pastores",
+    "aspeto": "objeto: fólio de livro de horas; materiais: velino, ouro; cores principais: amarelo, vermelho, azul; outras cores: castanho, branco, verde, rosa; motivos: anjo com asas coloridas e auréola de luz, três pastores, rebanho de ovelhas, cão sentado, grupo de pastores ao fundo, flores; forma: fólio retangular com borda decorativa e quadro central arqueado"
+   },
+   {
+    "inventario": "546 Pint",
+    "titulo": "A Virgem, o Menino e um Anjo",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: branco, ouro, castanho; outras cores: vermelho, azul; motivos: Virgem sentada, Menino Jesus, anjo, fruto, flor, mármore; forma: painel retangular, inserido numa estrutura arquitetónica de mármore com arcos e nichos"
+   },
+   {
+    "inventario": "593 Des",
+    "titulo": "Os anjos visitando Abraão",
+    "aspeto": "objeto: desenho; materiais: papel, sépia, carvão; cores principais: castanho; outras cores: bege; motivos: três anjos, Abraão ajoelhado, Abraão escolhendo um carneiro, Abraão servindo repasto, tronco de árvore; forma: composição vertical com três cenas distintas"
+   },
+   {
+    "inventario": "13/38v. Ilum",
+    "titulo": "Arcanjo S. Miguel",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: rosa claro, dourado, azul; outras cores: vermelho, verde, castanho, amarelo; motivos: Arcanjo S. Miguel, coroa com cruz, asas com penas coloridas, ceptro, peitoral com relicário, cadeias com medalhões; forma: figura humana alada, em pé, sobre nuvens, com asas abertas, vestida com veste e manto,…"
+   },
+   {
+    "inventario": "932 Pint",
+    "titulo": "Anunciação",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: verde, castanho, vermelho; outras cores: amarelo, branco, dourado; motivos: anjo, Virgem Maria, baldaquino, tapete oriental, armário, cachorrinho; forma: painel retangular com moldura de madeira"
+   },
+   {
+    "inventario": "1279 Pint",
+    "titulo": "Anunciação",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: azul, castanho, branco; outras cores: vermelho, amarelo; motivos: anjo, Virgem, dove, livro, arquitectura interior; forma: painel retangular com composição figurativa"
+   },
+   {
+    "inventario": "58 Pint",
+    "titulo": "Virgem com o Menino e um Anjo",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: vermelho, azul, castanho; outras cores: branco, cinza, verde; motivos: Virgem sentada, Menino, Anjo, fruto, prato, colher; forma: formato retangular, com composição figurada em plano frontal"
+   },
+   {
+    "inventario": "36 Pint",
+    "titulo": "Anunciação",
+    "aspeto": "objeto: painel pintado; materiais: madeira, tinta, óleo; cores principais: azul, castanho, branco; outras cores: vermelho, dourado, verde; motivos: Virgem Maria, arcanjo São Gabriel, pomba do Espírito Santo, cortinado, livro aberto, coluna; forma: painel retangular, com composição centralizada, dividido em plano de fundo e plano de…"
+   },
+   {
+    "inventario": "14/278 Ilum",
+    "titulo": "Arcanjo S. Miguel",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: carmim, castanho, dourado; outras cores: vermelho, preto, azul, verde, rosa; motivos: Arcanjo S. Miguel, Lúcifer, espada, asas, manto, armadura; forma: quadro com moldura em tons de castanho e dourado, contendo cena central de combate e…"
+   },
+   {
+    "inventario": "2216 Des",
+    "titulo": "Os Anjos entregam a S. Nicolau de Bari as insígnias de bispo de Mira",
+    "aspeto": "objeto: desenho; materiais: papel, lápis negro, giz branco; cores principais: castanho; outras cores: branco; motivos: grupo de quatro homens, figura à esquerda apontando para si próprio, jovem apresentando insígnias de bispo (barrete episcopal e báculo), grupo de quatro anjos, edifício com cúpula e pórtico de colunas com frontão triangular; forma: folha retangular com quadrícula a lápis"
+   },
+   {
+    "inventario": "1179 Pint",
+    "titulo": "A Virgem, o Menino e Anjos (verso); Cristo abençoando (reverso)",
+    "aspeto": "objeto: painel de madeira pintado a óleo; materiais: madeira de carvalho, tinta, óleo; cores principais: vermelho, azul, castanho; outras cores: branco, dourado, verde, cinza; motivos: Virgem Maria, Menino Jesus, dois anjos, taça com figo, sinal da benção, montes; forma: formato retangular, com composição vertical"
+   },
+   {
+    "inventario": "14/280 Ilum",
+    "titulo": "Anjo Custódio",
+    "aspeto": "objeto: fólio de livro de horas; materiais: pergaminho, têmpera, ouro; cores principais: preto, vermelho, ouro; outras cores: branco; motivos: anjo custódio, texto em latim; forma: fólio retangular, com esquadria sanguínea que delimita um retângulo central contendo o…"
+   }
+  ],
+  "sim": [
+   "458 Des",
+   "2579 Des",
+   "474 Esc",
+   "1170 Pint",
+   "645 Des",
+   "22/35v. Ilum",
+   "14/279 Ilum",
+   "22/64v. Ilum",
+   "546 Pint",
+   "593 Des",
+   "932 Pint",
+   "1279 Pint",
+   "58 Pint",
+   "36 Pint",
+   "2216 Des",
+   "1179 Pint",
+   "14/280 Ilum"
+  ]
+ },
+ {
+  "pedido": "quadros com caveiras",
+  "pecas": [
+   {
+    "inventario": "1066 Pint",
+    "titulo": "Santo António e Vanitas (reverso)",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: castanho, azul, preto; outras cores: branco, amarelo; motivos: santo António, hábito franciscano, Menino Jesus, cruz, livro, caveira; forma: painel retangular, com representação em meio-corpo no lado direito e caveira em nicho no…"
+   },
+   {
+    "inventario": "563 Esc",
+    "titulo": "Calvário",
+    "aspeto": "objeto: placa esculpida; materiais: osso; cores principais: branco; motivos: Cristo crucificado, São João Evangelista, Longino, Virgem, três Santas Mulheres, arcos quebrados; forma: placa rectangular"
+   },
+   {
+    "inventario": "814 Esc",
+    "titulo": "Calvário",
+    "aspeto": "objeto: placa esculpida; materiais: osso; cores principais: castanho; outras cores: claro, escuro; motivos: Cristo crucificado, São João Evangelista, Virgem, Santas Mulheres, arcos quebrados, gabeteles floridos; forma: placa rectangular"
+   },
+   {
+    "inventario": "13/53v. Ilum",
+    "titulo": "Ofício dos Mortos",
+    "aspeto": "objeto: fólio de livro de horas; materiais: pergaminho, têmpera, ouro; cores principais: castanho, dourado, preto; outras cores: branco, vermelho, azul; motivos: cerimonial fúnebre, igreja com arquitetura gótica, religiosos em oração, urna coberta com tecido negro e armas de Portugal, tocheiro com três velas acesas, bandeiras com escudo português; forma: fólio com enquadramento moldurado, imitando madeira, contendo cena central em formato…"
+   },
+   {
+    "inventario": "14/129v. Ilum",
+    "titulo": "Ofício dos Mortos",
+    "aspeto": "objeto: fólio de livro de horas; materiais: pergaminho, têmpera, ouro; cores principais: preto, branco, azul; outras cores: vermelho, dourado, castanho; motivos: cerimonial fúnebre, urna sobre catafalco, religiosos sentados, religiosos em pé, tochas, bandeiras com escudo português; forma: fólio retangular, com iluminura central em formato arqueado e tarja representando cortejo…"
+   },
+   {
+    "inventario": "3304 Des",
+    "titulo": "Morte de Camões",
+    "aspeto": "objeto: desenho; materiais: papel, carvão, giz branco; cores principais: castanho, bege; outras cores: branco; motivos: duas figuras masculinas, figura sentada à direita com barba, cabeça apoiada na mão esquerda, figura idosa sentada à esquerda com pernas estendidas, mãos erguidas e olhos voltados para cima, folha de papel escrita sobre o catre, castiçal alto com chama, janela gótica de dois lumes à esquerda; forma: composição interior com duas figuras sentadas, uma em cadeira de braços e outra em catre,…"
+   },
+   {
+    "inventario": "2607 Des",
+    "titulo": "São Francisco de Assis",
+    "aspeto": "objeto: desenho; materiais: papel, tinta castanha, sanguínea; cores principais: castanho; outras cores: sanguínea; motivos: São Francisco de Assis, crucifixo, caveira, mesa; forma: figura humana em perfil, sentada, com túnica e capuz, segurando um crucifixo com a mão…"
+   },
+   {
+    "inventario": "14157 Grav",
+    "titulo": "Senhor Jesus de São Pedro do Carvalhal",
+    "aspeto": "objeto: litografia; materiais: papel; cores principais: preto, branco; motivos: Jesus Cristo crucificado, cruz, cabeça de morto, serpente, muralhas de cidade, montanhas; forma: formato retangular com moldura arqueada superior e ornamentos decorativos ao longo dos…"
+   },
+   {
+    "inventario": "13/51v. Ilum",
+    "titulo": "Ofício dos Mortos",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: castanho, dourado, verde; outras cores: branco, vermelho, azul, amarelo; motivos: homem deitado numa cama com dossel, religiosos franciscanos, crucifixo, livro, mitra, báculo; forma: quadro com enquadramento moldurado, em tons de castanho e dourado, imitando madeira, com…"
+   },
+   {
+    "inventario": "13/52 Ilum",
+    "titulo": "Ofício dos Mortos",
+    "aspeto": "objeto: fólio de livro de horas; materiais: pergaminho, têmpera, ouro; cores principais: castanho, dourado, preto; outras cores: branco; motivos: inicial 'I' iluminada, estrelas, ramos secos entrelaçados, texto em latim; forma: fólio retangular com enquadramento decorativo"
+   },
+   {
+    "inventario": "44 Min",
+    "titulo": "São Francisco",
+    "aspeto": "objeto: miniatura; materiais: marfim, madeira, metal; cores principais: castanho, branco, preto; outras cores: amarelo; motivos: São Francisco, caveira, cruz; forma: rectangular"
+   },
+   {
+    "inventario": "14289 Grav",
+    "titulo": "Costumes Portugueses, nº 4, O Pobre dos Bonecos",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: homem com capa e chapéu, jovem descalço, duas mulheres com véus, criança, teatro de fantoches, cena de rua; forma: fólio retangular com borda decorativa, contendo uma cena figurada em preto e branco"
+   },
+   {
+    "inventario": "14237 Grav",
+    "titulo": "Senhor Jesus do Calvário de Elvas",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: Senhor Jesus crucificado, Nossa Senhora, Maria Madalena, São João, moldura decorativa, inscrição; forma: imagem retangular com moldura arqueada, enquadrando a cena da Cruxificação"
+   },
+   {
+    "inventario": "1705 Pint",
+    "titulo": "Calvário",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: azul, vermelho, castanho; outras cores: branco, cinzento; motivos: Cristo na cruz, Virgem Maria, São João Evangelista; forma: formato retangular, com figura central de Cristo na cruz, flanqueada à esquerda pela…"
+   },
+   {
+    "inventario": "849 Pint",
+    "titulo": "Deposição no Túmulo",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: castanho, azul, vermelho; outras cores: branco, preto, dourado; motivos: Cristo deitado no túmulo, José de Arimatéia, Nicodemos, Virgem Maria, São João, três santas mulheres; forma: painel retangular com moldura de madeira esculpida e dourada"
+   },
+   {
+    "inventario": "14115 Grav",
+    "titulo": "São Francisco de Borja",
+    "aspeto": "objeto: gravura; materiais: papel, buril; cores principais: preto, branco; motivos: São Francisco de Borja a meio corpo, Nossa Senhora com o Menino nas nuvens, caveira coroada, motivos vegetalistas, inscrição; forma: formato retangular com moldura decorativa"
+   },
+   {
+    "inventario": "645 Des",
+    "titulo": "Quatro Santas e um Anjo",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: branco, azul, castanho; outras cores: vermelho; motivos: quatro santas, um anjo, boceta de perfumes, chama, coroa, palma; forma: formato arqueado"
+   },
+   {
+    "inventario": "7110 Grav",
+    "titulo": "Peças de luminária: Candelabros de quatro braços e lustres de oito braços.",
+    "aspeto": "objeto: gravura; materiais: papel, água-forte; cores principais: preto, branco; motivos: candelabros de quatro braços, lustre de oito braços, figura angelical, ornamentos decorativos; forma: desenho de três candelabros de quatro braços numerados 1, 2 e 3, e dois lustres de oito…"
+   },
+   {
+    "inventario": "2999 Des",
+    "titulo": "Três cabeças",
+    "aspeto": "objeto: desenho; materiais: papel, lápis preto; cores principais: preto, branco; motivos: três cabeças: um velho de barbas coberto por manto, chorando; um jovem de cabelo encaracolado, inclinado e olhando para o velho; uma mulher com véu, observando o velho; forma: composição de três bustos em perfil e três quartos, dispostos em plano inclinado"
+   },
+   {
+    "inventario": "14197 Grav",
+    "titulo": "Cruxificação",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: Jesus Cristo na cruz, Maria Madalena ajoelhada, cruz com inscrição 'INRI', decoração ornamental em espirais e folhagens, legenda com texto em latim; forma: formato retangular, enquadrado por um ornamento decorativo em espirais e folhagens, com…"
+   },
+   {
+    "inventario": "1835 Pint",
+    "titulo": "Calvário",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: castanho, vermelho, preto; outras cores: branco, cinza, amarelo, azul; motivos: Cristo pregado na cruz, São João, Virgem Maria, Santa Maria Madalena, outras Santas Mulheres, soldados; forma: formato retangular vertical"
+   }
+  ],
+  "sim": [
+   "1066 Pint",
+   "2607 Des",
+   "44 Min",
+   "14115 Grav"
+  ]
+ },
+ {
+  "pedido": "retratos de senhoras com colares de pérolas",
+  "pecas": [
+   {
+    "inventario": "2201 Pint",
+    "titulo": "Retrato de Amélia, condessa de Burnay",
+    "aspeto": "objeto: pintura; materiais: madeira, tinta; cores principais: preto, branco, castanho; outras cores: vermelho, azul, dourado; motivos: mulher, flores, coroa de flores, colar; forma: retrato de busto em oval"
+   },
+   {
+    "inventario": "1981 Pint",
+    "titulo": "Retrato de D. Leonor de Áustria",
+    "aspeto": "objeto: Retrato de D. Leonor de Áustria; materiais: madeira de carvalho, óleo, ouro, rubis, esmeraldas; cores principais: vermelho, preto, ouro; outras cores: verde, branco, castanho; motivos: D. Leonor de Áustria, coroa de joias, colar com rubis e pérolas, brincos, anel com rubi, roupa com mangas de babados; forma: quadro retangular com moldura decorada"
+   },
+   {
+    "inventario": "180 Min",
+    "titulo": "Retrato de Homem",
+    "aspeto": "objeto: miniatura; materiais: marfim, metal, pérolas; cores principais: branco, azul, dourado; outras cores: castanho; motivos: retrato masculino, cabeleira branca, sobrecasaca azul com botões dourados, camisa branca com lenço e laço, fundo neutro e claro; forma: oval"
+   },
+   {
+    "inventario": "1086 Pint",
+    "titulo": "Retrato de Mariana Benedita Vitória de Sequeira",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho-escuro, branco, rosa; outras cores: cetim, pele; motivos: jovem mulher sentada, piano, gola de renda, debroado a cetim, pele; forma: retangular"
+   },
+   {
+    "inventario": "1731 Pint",
+    "titulo": "Mulher com um jarro",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho, branco, azul; outras cores: vermelho, preto; motivos: mulher, jarro, flor, orelhas de pérola; forma: busto de lado, olhando para o espectador, vestes decotadas, jarro ou pichel segurado…"
+   },
+   {
+    "inventario": "128 Min",
+    "titulo": "Retrato de Homem",
+    "aspeto": "objeto: miniatura; materiais: marfim, ouro; cores principais: castanho, dourado, branco; outras cores: azul; motivos: retrato de homem, peruca branca, casaca debruada, colete debruado, camisa branca, lenço branco; forma: forma oval"
+   },
+   {
+    "inventario": "707 Joa",
+    "titulo": "Colar com pendente",
+    "aspeto": "objeto: colar com pendente; materiais: ouro, diamante; cores principais: castanho; outras cores: branco; motivos: medalhões de flores, laça estilizada, girandola; forma: malha de medalhões recortados e cinzelados, com pendente central em forma de laça…"
+   },
+   {
+    "inventario": "453 Pint",
+    "titulo": "Retrato de Maria de Medici (?)",
+    "aspeto": "objeto: pintura a óleo; materiais: tela; cores principais: preto, dourado, vermelho; outras cores: branco, castanho; motivos: mulher, águia imperial, lenço, mesa, vase com flores; forma: figura humana em pé, de busto, com braços ligeiramente afastados do corpo, uma mão…"
+   },
+   {
+    "inventario": "2362 Des",
+    "titulo": "Retrato de uma mulher negra de perfil",
+    "aspeto": "objeto: desenho; materiais: papel, tinta da China; cores principais: preto, bege; motivos: retrato de uma mulher negra em busto e de perfil, virada para a direita; forma: busto em perfil"
+   },
+   {
+    "inventario": "1851 Pint",
+    "titulo": "Retrato de D. Maria Antónia de Melo",
+    "aspeto": "objeto: pintura; materiais: tela, tinta; cores principais: preto, branco, castanho; outras cores: vermelho, dourado; motivos: mulher, gola de pele, escudo heráldico, inscrição; forma: retrato a meio corpo"
+   },
+   {
+    "inventario": "46 Min",
+    "titulo": "Retrato de D. Eugénia de Almeida Furtado",
+    "aspeto": "objeto: miniatura pintada; materiais: marfim, madeira, ouro; cores principais: laranja, branco, castanho; outras cores: vermelho, ouro; motivos: retrato de D. Eugénia de Almeida Furtado, cabelo escuro penteado romântico, vestido laranja, camisa com folhos de renda, punhos de renda, joia no peito; forma: forma rectangular"
+   },
+   {
+    "inventario": "94 Min",
+    "titulo": "Auto-retrato de D. Maria das Dores Furtado",
+    "aspeto": "objeto: miniatura; materiais: marfim, madeira, gesso, ouro; cores principais: branco, castanho, azul; outras cores: preto, vermelho; motivos: auto-retrato de D. Maria das Dores Furtado, vestido com flores bordadas, decote aberto sobre os ombros, folhos nas mangas, rendas, laço na cintura; forma: forma rectangular"
+   },
+   {
+    "inventario": "1186 Joa",
+    "titulo": "Retrato de homem",
+    "aspeto": "objeto: pendente; materiais: ouro, prata, cristal de rocha, marfim; cores principais: azul, branco, ouro; outras cores: vermelho, preto; motivos: retrato de homem, insígnia de cavaleiro da Ordem de Santiago, penteado à época; forma: oval"
+   },
+   {
+    "inventario": "187 - 188 Min",
+    "titulo": "Retratos dos Condes de La Tour du Pin",
+    "aspeto": "objeto: díptico de miniaturas; materiais: marfim, cabelo, couro, metal amarelo; cores principais: branco, azul, castanho; outras cores: vermelho, dourado; motivos: retrato de jovem casal, vestido branco império, sobrecasaca azul, cabelo branco revolto, cabelo loiro penteado, paisagem ao fundo; forma: duas miniaturas retangulares unidas por charneira, com molduras de metal amarelo e…"
+   },
+   {
+    "inventario": "391 Joa",
+    "titulo": "Colar",
+    "aspeto": "objeto: colar; materiais: prata, crisoberilos; cores principais: prata; motivos: flores, folhas, laça, pomba; forma: colar com pendente em forma de laça com várias laçadas, da qual pende uma secção de malha…"
+   },
+   {
+    "inventario": "1282 Des",
+    "titulo": "Estudo para Retrato da Viscondessa de Vila Nova da Rainha",
+    "aspeto": "objeto: desenho; materiais: papel, carvão, giz branco; cores principais: cinzento; outras cores: branco; motivos: retrato de senhora em corpo inteiro, capa sobre os ombros, mão esquerda sobre o peito; forma: figura humana em posição sentada, em corpo inteiro"
+   }
+  ],
+  "sim": [
+   "2201 Pint",
+   "1981 Pint",
+   "1731 Pint"
+  ]
+ },
+ {
+  "pedido": "santos com um livro na mão",
+  "pecas": [
+   {
+    "inventario": "1382 Pint",
+    "titulo": "Santo André",
+    "aspeto": "objeto: painel pintado; materiais: tela; cores principais: amarelo pardo; outras cores: castanho, preto; motivos: Santo André, livro aberto, cruz em X; forma: figura humana em pé, de perfil parcial, com manto amplo e pé descalço"
+   },
+   {
+    "inventario": "14110 Grav",
+    "titulo": "Santo Agostinho",
+    "aspeto": "objeto: gravura; materiais: papel, metal; cores principais: preto, branco; motivos: Santo Agostinho, báculo, menino, livro, coração em chamas, atril; forma: retangular"
+   },
+   {
+    "inventario": "952 Esc",
+    "titulo": "Santo André",
+    "aspeto": "objeto: escultura; materiais: madeira; cores principais: carnal, vermelho, azul; outras cores: castanho, branco; motivos: Santo André, Livro aberto, Cruz em haspa; forma: escultura de vulto a 3/4 com as costas escavadas, representado de pé, ligeiramente…"
+   },
+   {
+    "inventario": "64 Pint",
+    "titulo": "Santo António e o Menino",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: castanho, bege, vermelho; outras cores: azul, dourado; motivos: Santo António, Menino Jesus, livro de horas, livros, castiçal, estante; forma: painel retangular vertical, com figura central de Santo António de joelhos, em frente a…"
+   },
+   {
+    "inventario": "2026 Des",
+    "titulo": "Santo António pregando aos peixes",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: castanho; motivos: Santo António de pé, com hábito, segurando um lírio e uma cruz, dirigindo-se aos peixes, três acompanhantes à sua volta, chama envolta numa amêndoa mística sob a cabeça do Santo, cabeças de querubins alinhadas à esquerda e à direita, ponte ao fundo, moldura recortada nas margens superior e inferior; forma: composição vertical, com moldura recortada nas margens superior e inferior, em formato de…"
+   },
+   {
+    "inventario": "1041 Esc",
+    "titulo": "Santo Antão",
+    "aspeto": "objeto: escultura; materiais: pedra, pigmento; cores principais: verde, castanho, carnações; outras cores: branco; motivos: Santo Antão, livro fechado, porco; forma: escultura de vulto a 3/4 com as costas planas, sobre base octogonal"
+   },
+   {
+    "inventario": "14143 Grav",
+    "titulo": "S. Bartolomeu",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: preto, branco; motivos: S. Bartolomeu, cabeça com nimbo, veste com franjas, livro, faca, paisagem com edifício; forma: retangular com moldura decorativa"
+   },
+   {
+    "inventario": "2404 Esc",
+    "titulo": "Santo António",
+    "aspeto": "objeto: escultura; materiais: osso; cores principais: castanho claro; outras cores: branco; motivos: Santo António, Menino Jesus, livro, corda franciscana, folhas de acanto; forma: figura de pé, frontal, sobre peanha poligonal decorada"
+   },
+   {
+    "inventario": "538 Esc",
+    "titulo": "Santo António",
+    "aspeto": "objeto: escultura; materiais: madeira, dourado, esmalte, pó de ouro, pó de cobre; cores principais: preto, dourado, vermelho; outras cores: castanho, branco; motivos: Santo António, Menino Jesus, livro fechado, hábito franciscano, cinto mendicante, ramagens; forma: escultura de vulto pleno, Santo António em pé, com o Menino Jesus sobre o Livro, os pés…"
+   },
+   {
+    "inventario": "1196 Des",
+    "titulo": "Profeta ou Evangelista sentado sobre nuvens",
+    "aspeto": "objeto: desenho; materiais: papel, tinta castanha; cores principais: castanho; motivos: nu masculino sentado sobre nuvens, livro segurado junto à perna direita, livro apoiado sobre a perna esquerda, nuvens; forma: figura humana sentada, com as pernas dobradas, corpo inclinado para a frente, cabeça…"
+   },
+   {
+    "inventario": "513 Esc",
+    "titulo": "Santo António",
+    "aspeto": "objeto: escultura; materiais: madeira, esmalte, ouro; cores principais: preto, dourado, vermelho; outras cores: verde, branco; motivos: Santo António, Menino Jesus, querubins, hábito franciscano, capuz, livro aberto; forma: figura de pé, com o braço esquerdo sustentando um livro aberto sobre o qual se assentam…"
+   },
+   {
+    "inventario": "13/110v. Ilum",
+    "titulo": "Santo Antão",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: vermelho, castanho, dourado; outras cores: azul, verde, branco, cinza; motivos: Santo Antão, livro, porco, leão, bode, cabra; forma: quadro com enquadramento arqueado, rodeado por uma moldura retangular com inscrição"
+   },
+   {
+    "inventario": "14/293 Ilum",
+    "titulo": "São Bento",
+    "aspeto": "objeto: fólio de livro de horas; materiais: pergaminho, ouro, tinta; cores principais: ouro, vermelho, preto; outras cores: azul, verde; motivos: inicial iluminada, motivos vegetalistas; forma: fólio retangular, com esquadria sanguínea"
+   },
+   {
+    "inventario": "1670 Esc",
+    "titulo": "Santo diácono não identificado",
+    "aspeto": "objeto: estátua de santo; materiais: madeira, dourado, esmalte; cores principais: vermelho, castanho, dourado; outras cores: carnal; motivos: santo diácono, Livro dos Evangelhos, tonsura, túnica estampada com flores, dalmática estampada com motivos florais, pregas verticais e angulosas nas vestes; forma: estátua de vulto pleno, de pé, frontal, assente sobre base circular, com o Livro dos…"
+   },
+   {
+    "inventario": "2382 Esc",
+    "titulo": "Santa não identificada",
+    "aspeto": "objeto: escultura; materiais: pedra; cores principais: castanho; motivos: santa, livro fechado, véu, cabelos longos, vestido com decote redondo, carcelas verticais; forma: escultura de vulto a 3/4 com as costas planas"
+   },
+   {
+    "inventario": "14275 Grav",
+    "titulo": "Almas Santas",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: vermelho, verde, azul; outras cores: castanho, branco, preto; motivos: homem, chapéu de feltro, capa, camisa, calças, meias; forma: figura humana em pé, em pose frontal, com um braço levantado a ajustar o chapéu e o outro…"
+   },
+   {
+    "inventario": "14194 Grav",
+    "titulo": "São Pedro",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: São Pedro, chaves, livro; forma: figura humana de corpo inteiro, em pé, com vestes longas e desabotoadas, segurando chaves…"
+   },
+   {
+    "inventario": "14/294 Ilum",
+    "titulo": "Santo António",
+    "aspeto": "objeto: fólio de livro de horas; materiais: pergaminho, ouro, têmpera; cores principais: ouro, vermelho, azul; outras cores: preto, branco; motivos: inicial iluminada, motivos vegetalistas; forma: fólio retangular, com esquadria sanguínea"
+   },
+   {
+    "inventario": "14/271v. Ilum",
+    "titulo": "S. João Baptista",
+    "aspeto": "objeto: fólio de livro de horas; materiais: pergaminho, ouro, tinta; cores principais: ouro, preto, vermelho; outras cores: azul, verde; motivos: inicial iluminada, motivos vegetalistas, texto em latim; forma: fólio retangular, com esquadria sanguínea"
+   },
+   {
+    "inventario": "14200 Grav",
+    "titulo": "Santo Amaro Abade",
+    "aspeto": "objeto: gravura; materiais: papel, buril; cores principais: preto, branco; motivos: Santo Amaro Abade, báculo, livro, pórtico, inscrição; forma: figura sentada em um pórtico decorado, sobre pequena peanha"
+   },
+   {
+    "inventario": "14193 Grav",
+    "titulo": "São Roque",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: São Roque, cão, cajado, chave, cruz, cabeça de anjo; forma: composta por um retângulo com bordas ornamentadas, contendo uma figura central de São…"
+   }
+  ],
+  "sim": [
+   "1382 Pint",
+   "952 Esc",
+   "513 Esc",
+   "1670 Esc"
+  ]
+ },
+ {
+  "pedido": "porcelana azul e branca",
+  "pecas": [
+   {
+    "inventario": "7583 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana; cores principais: azul, branco; motivos: paisagem aquática, figura humana a cavalo, ponte, rochedos verticais, árvores, pagodes; forma: prato com aba inclinada para o interior, covo acentuado, e côncavo ao centro"
+   },
+   {
+    "inventario": "6943 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana; cores principais: azul, branco; motivos: aves, flores, motivos vegetalistas, símbolos chineses, colunelos, selos suspensos por fitas; forma: prato com aba recortada"
+   },
+   {
+    "inventario": "3162 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana; cores principais: azul, branco; motivos: flores de ameixeira, crisântemos, flor de lótus, ramagens, cabeças de ruyi, quadricula; forma: aba larga e ligeiramente recortada"
+   },
+   {
+    "inventario": "7455 Cer",
+    "titulo": "Garrafa",
+    "aspeto": "objeto: garrafa; materiais: porcelana, vidrado; cores principais: azul, branco; motivos: cena com torre e montanha, cena com galinha e dragão, cena com insetos voadores, decoração vegetal; forma: base quadrada, corpo rectangular com faces irregulares, topo ligeiramente arqueado,…"
+   },
+   {
+    "inventario": "331 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: cerâmica, esmalte branco; cores principais: branco, azul; motivos: paisagem, quatro pássaros, motivo vegetalista centrado, elementos vegetalistas, riscas paralelas, folhagens; forma: circular, com aba"
+   },
+   {
+    "inventario": "7581 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana; cores principais: azul-cobalto, branco; motivos: quatro leões, bola, faixas ondulantes, flores de cinco pétalas, enrolamentos, arcaria; forma: covo profundo, aba estreita recortada e inclinada para o interior"
+   },
+   {
+    "inventario": "2396 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: cerâmica, esmalte; cores principais: azul, branco; motivos: animais, motivos vegetalistas, símbolos chineses, quadrícula, folhas de acanto, enrolamentos; forma: disco circular com aba"
+   },
+   {
+    "inventario": "7458 Cer",
+    "titulo": "Gomil",
+    "aspeto": "objeto: gomil; materiais: porcelana; cores principais: branco, azul; motivos: flores de lotus, monogramas IHS, enrolamentos, friso com círculos concêntricos e ramos de flores, chamas, motivos vegetalistas; forma: forma piriforme sobre uma base ligeiramente cónica, com asa e bico encurvado em forma de…"
+   },
+   {
+    "inventario": "3764 Cer",
+    "titulo": "Chávena",
+    "aspeto": "objeto: chávena; materiais: porcelana, ouro; cores principais: branco, azul, castanho; outras cores: dourado; motivos: paisagem marítima, personagens, barco, edifícios, árvores, friso de motivos ondeados; forma: cilíndrica, com asa curva"
+   },
+   {
+    "inventario": "1186 Vid",
+    "titulo": "Terrina com tampa",
+    "aspeto": "objeto: Terrina com tampa; materiais: porcelana; cores principais: branco, vermelho, azul; outras cores: preto, castanho; motivos: paisagens, motivos vegetalistas, figuras humanas, barcos, casa, árvores; forma: paralelipípedo com cantos facetados, tampa abaulada com pega em forma de pera"
+   },
+   {
+    "inventario": "6743 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana, vidrado; cores principais: branco, azul; motivos: duas fénix, flores de lótus, entrecruzados, medalhões com flor e botões de lótus, diagramas, botões de lótus; forma: grande prato covo em calota rebaixada com bordo extrovertido, formando lábio, recortado,…"
+   },
+   {
+    "inventario": "3765 Cer",
+    "titulo": "Pires",
+    "aspeto": "objeto: pires; materiais: porcelana; cores principais: branco, azul, castanho; outras cores: dourado; motivos: paisagem, colmeia, árvore, fundo com estrutura de madeira, fundo com banco, friso decorativo; forma: aba larga esvasada"
+   },
+   {
+    "inventario": "5194 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana; cores principais: branco, preto, ouro; outras cores: vermelho ferro, rubi; motivos: paisagem ribeirinha, casas, pagodes, árvores, rochedos, barco; forma: côvo"
+   },
+   {
+    "inventario": "5897 Cer",
+    "titulo": "Gomil",
+    "aspeto": "objeto: gomil; materiais: cerâmica; cores principais: branco, azul; motivos: grifos, decoração em azul com elementos renascentistas de estilo compêndiário faentino; forma: corpo globular, com dois bicos e duas asas modeladas em forma de grifos"
+   },
+   {
+    "inventario": "7151 Cer",
+    "titulo": "Kendi",
+    "aspeto": "objeto: kendi; materiais: porcelana, vidrado; cores principais: branco, azul cobalto; motivos: ramo de flores, cabaça, rola de pintura, cabeça de ruyi, pêssego, objecto precioso; forma: corpo globular"
+   }
+  ],
+  "sim": [
+   "7583 Cer",
+   "6943 Cer",
+   "3162 Cer",
+   "331 Cer",
+   "7581 Cer",
+   "2396 Cer",
+   "6743 Cer",
+   "5194 Cer",
+   "7151 Cer"
+  ]
+ },
+ {
+  "pedido": "móveis com embutidos de madrepérola",
+  "pecas": [
+   {
+    "inventario": "1666 Mov",
+    "titulo": "Cofre",
+    "aspeto": "objeto: cofre; materiais: madeira, madrepérola; cores principais: preto, ouro, prata; outras cores: castanho; motivos: círculos radiados, losangos, zigzag, elementos vegetalistas, enrolamentos de kuzu; forma: baú com tampa arqueada, laterais fechadas, cantoneiras recortadas e gravadas, argolas…"
+   },
+   {
+    "inventario": "35 Mov",
+    "titulo": "Contador",
+    "aspeto": "objeto: cómoda; materiais: madeira, marfim, metal dourado; cores principais: castanho, dourado; outras cores: branco; motivos: círculos concêntricos, nagas, colares, coroas, brincos, olhos; forma: arca sobre trempe com seis gavetas aparentes, sustentada por pernas esculpidas em forma…"
+   },
+   {
+    "inventario": "1636 Mov",
+    "titulo": "Mesa",
+    "aspeto": "objeto: mesa; materiais: madeira de teca, sissó, marfim, latão; cores principais: castanho, avermelhado, branco; outras cores: preto; motivos: estrelas em circunferências secantes; forma: tampo rectangular com balanço lateral e duas gavetas no aro. Pernas rectas ligadas por…"
+   },
+   {
+    "inventario": "1415 Mov",
+    "titulo": "Cómoda",
+    "aspeto": "objeto: cómoda; materiais: madeira de pau santo, latão; cores principais: castanho; outras cores: dourado; motivos: mísulas (modilhões) entalhadas, palmetas entalhadas, volutas entalhadas, pluma estilizada, folhagem, volutas e folhagem assimétricas; forma: cómoda com tampo rectangular, frente ondulada, cantos dianteiros recortados, três…"
+   },
+   {
+    "inventario": "10 Mov",
+    "titulo": "Mesa",
+    "aspeto": "objeto: mesa; materiais: madeira, marfim, latão; cores principais: castanho, marfim, dourado; outras cores: vermelho, azul, amarelo, preto; motivos: círculos concêntricos, olho de perdiz, pássaros estilizados; forma: tampo retangular com acentuado balanço lateral; aro com duas gavetas; trempe alta com…"
+   },
+   {
+    "inventario": "1669 Mov",
+    "titulo": "Escritório",
+    "aspeto": "objeto: escritório; materiais: pau-santo, teca, marfim, metal; cores principais: castanho, branco, dourado; motivos: motivos florais estilizados, ramo de flores aberto, duplo filete de marfim; forma: formato paralelipipédico, com tampa frontal de abater, assente em pés de meia-bolacha,…"
+   },
+   {
+    "inventario": "44 Cx",
+    "titulo": "Escritório",
+    "aspeto": "objeto: escritório; materiais: madeira, marfim, sissó, teca, cobre; cores principais: castanho, preto, marfim; outras cores: dourado; motivos: brasão, pomba, ramo, medalhões ovalados; forma: caixa retangular com batente aberto, composto por sete compartimentos, sendo seis gavetas…"
+   },
+   {
+    "inventario": "824 Mov",
+    "titulo": "Cómoda",
+    "aspeto": "objeto: cómoda; materiais: madeira, mármore; cores principais: castanho, branco, cinzento; outras cores: dourado; motivos: desenho geométrico espinhado, flor de madrepérola; forma: tampo de mármore com recorte ondulado à frente"
+   },
+   {
+    "inventario": "1057 Mov",
+    "titulo": "Cómoda",
+    "aspeto": "objeto: cómoda; materiais: madeira de carvalho, pau-rosa, sicupira, mármore, laca japonesa; cores principais: preto, ouro, castanho; outras cores: alaranjado; motivos: paisagens naturalistas, ilhas, construções orientais, aves, árvores, plantas aquáticas; forma: caixa paralelepipédica com tampo de mármore, quatro pernas troncopiramidais, frentes de…"
+   },
+   {
+    "inventario": "823 Mov",
+    "titulo": "Cómoda",
+    "aspeto": "objeto: cómoda; materiais: madeira, mármore; cores principais: castanho, branco; outras cores: cinzento; motivos: desenho geométrico espinhado, flor de madrepérola; forma: tampo de mármore com recorte ondulado à frente"
+   },
+   {
+    "inventario": "99 Cx",
+    "titulo": "Cofre",
+    "aspeto": "objeto: cofre; materiais: madeira, madrepérola, prata; cores principais: preto, castanho, prateado; outras cores: rosa, azul; motivos: peónias, troncos floridos de cerejeira, campainhas, folhagem, feijoeiro do Japão; forma: baú com tampa arqueada, laterais com argolas, fechadura de ferrolho com escudete quadrado…"
+   },
+   {
+    "inventario": "1665 Mov",
+    "titulo": "Cofre",
+    "aspeto": "objeto: cofre; materiais: madeira, madrepérola, cobre; cores principais: preto, branco, castanho; outras cores: dourado; motivos: quadrícula, motivos triangulares, escudete quadrado, crisantemo; forma: baú com lados elevados e tampa curvada"
+   },
+   {
+    "inventario": "47 Cx",
+    "titulo": "Cofre",
+    "aspeto": "objeto: cofre; materiais: madeira, madrepérola, cobre; cores principais: preto, castanho, iridescente; outras cores: ouro; motivos: glicinias, campainhas, folhagem, padrões geométricos; forma: baú com tampa curvada, lados elevados, argola de suspensão no topo, fechadura de ferrolho…"
+   },
+   {
+    "inventario": "1672 Mov",
+    "titulo": "Escritório",
+    "aspeto": "objeto: escritório; materiais: madeira, marfim, ouro; cores principais: preto, dourado; outras cores: branco; motivos: florões estilizados, motivos fitomórficos, enrolamentos de plantas, flores estilizadas, puxadores em forma de face masculina com barba; forma: formato paralelipédico com tampa frontal de abater, interior dividido em oito gavetas"
+   },
+   {
+    "inventario": "6 Cx",
+    "titulo": "Gaveta-escrivaninha",
+    "aspeto": "objeto: gaveta-escrivaninha; materiais: madeira, marfim, chumbo; cores principais: castanho, branco, dourado; motivos: losangos, tremidos, espelho em forma de flor; forma: pequena caixa rectangular com duas gavetas sobrepostas, assenta em pés torneados em forma…"
+   },
+   {
+    "inventario": "1737 Mov",
+    "titulo": "Cómoda-Papeleira",
+    "aspeto": "objeto: cómoda-papeleira; materiais: madeira, metal amarelo; cores principais: castanho; outras cores: dourado; motivos: volutas, folhas de acanto; forma: corpo superior com tampa rebatível"
+   },
+   {
+    "inventario": "1290 Mov",
+    "titulo": "Mesa-escritório",
+    "aspeto": "objeto: Mesa-escritório; materiais: madeira, marfim, laca; cores principais: castanho, preto; outras cores: marfim; motivos: círculos concêntricos pontuados, faixa de sissó, padrão geométrico; forma: estrado com tampo lateralmente saliente, gaveta-escrivaninha no aro, pernas torneadas em…"
+   },
+   {
+    "inventario": "1545 Mov",
+    "titulo": "Cómoda (par)",
+    "aspeto": "objeto: cómoda; materiais: madeira, mármore, latão, bronze; cores principais: castanho, dourado; outras cores: branco; motivos: folhagem, ornamentos decorativos, puxadores em forma de folhas, ferragens cinzeladas; forma: frente e ilhargas onduladas, tampo de mármore moldurado e ligeiramente saliente, três…"
+   },
+   {
+    "inventario": "1073 Mov",
+    "titulo": "Mesa",
+    "aspeto": "objeto: mesa; materiais: madeira, latão; cores principais: castanho, preto; outras cores: dourado; motivos: florão, filete, pássaros estilizados, argolas; forma: tampo rectangular mais saliente lateralmente"
+   },
+   {
+    "inventario": "1104 Mov",
+    "titulo": "Aparador",
+    "aspeto": "objeto: aparador; materiais: madeira; cores principais: castanho; motivos: bustos masculino e feminino em medalhões, grifos, enrolamentos de fitas, dragões afrentados e alados, motivos florais e vegetalistas; forma: móvel de plano rectangular de estrutura apainelada, com tampo fixo, duas gavetas lado a…"
+   },
+   {
+    "inventario": "479 Mov",
+    "titulo": "Mesa de costura (de estrado)",
+    "aspeto": "objeto: Mesa de costura (de estrado); materiais: madeira de castanho, marfim, ferro; cores principais: castanho, amarelo, vermelho; outras cores: branco; motivos: flor de oito pétalas, coração, ponteado; forma: estrado com tampa de abrir, aro com gaveta, pernas torneadas com quadras de união de…"
+   },
+   {
+    "inventario": "1659 Mov",
+    "titulo": "Mesa de costura e de toilette",
+    "aspeto": "objeto: Mesa de costura e de toilette; materiais: mogno, madeira, ébano; cores principais: castanho, verde, preto; outras cores: dourado; motivos: cariátides, garra e bola, peanha central; forma: cintura circular, cinco pernas em forma de 'S' alongado, base em forma de estrela, peanha…"
+   },
+   {
+    "inventario": "1580 Mov",
+    "titulo": "Cómoda-papeleira miniatura",
+    "aspeto": "objeto: cómoda-papeleira miniatura; materiais: madeira, marfim, corno, prata, veludo; cores principais: branco, verde, vermelho; outras cores: alaranjado, preto, amarelo; motivos: motivos geométricos, motivos florais, veado, monograma J e E entrelaçados; forma: cómoda com alçado, tampa inclinada, gavetas com puxadores em prata, forro de veludo,…"
+   },
+   {
+    "inventario": "1492 Mov",
+    "titulo": "Cómoda-papeleira",
+    "aspeto": "objeto: cómoda-papeleira; materiais: madeira, latão; cores principais: castanho, dourado; motivos: rocaille; forma: tampo articulado"
+   }
+  ],
+  "sim": [
+   "1666 Mov",
+   "824 Mov",
+   "823 Mov",
+   "99 Cx",
+   "47 Cx"
+  ]
+ },
+ {
+  "pedido": "tapeçarias com cenas de batalha",
+  "pecas": [
+   {
+    "inventario": "2060 Des",
+    "titulo": "Cena de Batalha",
+    "aspeto": "objeto: desenho; materiais: papel, tinta sépia; cores principais: sépia; motivos: cavaleiros em combate, cavalos, homens caídos, árvore partida, estandarte, cavaleiro com chapéu; forma: folha retangular"
+   },
+   {
+    "inventario": "32 Tap",
+    "titulo": "A reconciliação de Marco António e Otávio / História de Marco António",
+    "aspeto": "objeto: tapeçaria; materiais: algodão, metais; cores principais: castanho, azul, vermelho; outras cores: amarelo, bege, preto; motivos: Marco António, Otávio, Octávia, legiões, colunas salomónicas, figuras em combate; forma: retangular, com bordas decoradas"
+   },
+   {
+    "inventario": "63 Tap",
+    "titulo": "A Família de Dario aos pés de Alexandre",
+    "aspeto": "objeto: tapeçaria; materiais: algodão, metais; cores principais: castanho, vermelho, azul; outras cores: branco, dourado, verde, rosa, amarelo; motivos: Alexandre o Grande, Heféstio, família de Dario, tenda, grinaldas de flores, medalhões com panóplias; forma: retangular, com cercadura decorativa"
+   },
+   {
+    "inventario": "3 Tap",
+    "titulo": "A Procissão de Marco Aurélio/Série de tapeçarias: História de Marco Aurélio",
+    "aspeto": "objeto: tapeçaria; materiais: algodão, lã; cores principais: castanho, vermelho, azul; outras cores: bege, amarelo, verde, branco; motivos: procissão de Marco Aurélio ao templo do deus Jano, imperador rodeado por condenados, figuras em atitude de reverência, coluna com capitélis decorados, pássaros exóticos, figuras de anjos; forma: retangular, com bordas decoradas"
+   },
+   {
+    "inventario": "4 tap",
+    "titulo": "Os cães de Marco Aurélio/ Série de tapeçarias: História de Marco Aurélio",
+    "aspeto": "objeto: tapeçaria; materiais: tecido, fios de seda, fios de lã; cores principais: castanho, vermelho, azul; outras cores: bege, amarelo, preto; motivos: cães deitados, homens em armadura, homem com coroa, legenda em cartela, decoração floral, pássaros; forma: formato retangular, com borda decorativa e cartela com inscrição na parte inferior"
+   },
+   {
+    "inventario": "106 Tap",
+    "titulo": "A Pintura",
+    "aspeto": "objeto: tapeçaria; materiais: algodão, metais; cores principais: castanho, vermelho, bege; outras cores: azul, ouro; motivos: Apeles, Alexandre o Grande, Compasque, modelo, cavaletes, telas; forma: retangular, com cercadura imitando moldura em talha dourada"
+   },
+   {
+    "inventario": "1 Tap",
+    "titulo": "Assuero entrega o anel a Mardoqueu / História de Ester",
+    "aspeto": "objeto: tapeçaria; materiais: fio de lã, fio de seda, fio de ouro; cores principais: castanho, vermelho, azul; outras cores: amarelo, verde, dourado; motivos: Assuero entrega o anel a Mardoqueu, Ester e Mardoqueu entregam cartas seladas, figuras humanas, colunas, pórtico, árvores; forma: quadrada, com borda decorativa"
+   },
+   {
+    "inventario": "64 Tap",
+    "titulo": "O casamento de Alexandre o Grande com Roxana/Série: A História de Alexandre",
+    "aspeto": "objeto: tapeçaria; materiais: algodão, metais; cores principais: castanho, vermelho, azul; outras cores: branco, dourado, verde, rosa, bege; motivos: casamento de Alexandre o Grande com Roxana, entrega da coroa, figura de Roxana, figura de Oxiartes, figura de Heféstio, soldados; forma: retangular, com cercadura decorativa"
+   },
+   {
+    "inventario": "28 Tap",
+    "titulo": "Baptismo de Cristo",
+    "aspeto": "objeto: tapeçaria; materiais: tecido, fios de lã, fios de seda, fios de ouro; cores principais: azul escuro, vermelho, castanho; outras cores: bege, dourado, verde, amarelo; motivos: Jesus Cristo, São João Baptista, anjo, Padre Eterno, pomba, árvore; forma: retangular, com cercadura decorativa"
+   },
+   {
+    "inventario": "5 Tap",
+    "titulo": "Os físicos tentam dissuadir Marco Aurélio do estudo da Filosofia/Série de tapeçarias: História de Marco Aurélio",
+    "aspeto": "objeto: tapeçaria; materiais: algodão, metais; cores principais: castanho, vermelho, azul; outras cores: amarelo, bege, preto; motivos: Marco Aurélio sentado, físicos, letrados hebreus, livros, chefe de anjo, legenda; forma: retangular, com borda decorativa"
+   },
+   {
+    "inventario": "75 Tap",
+    "titulo": "Vertumno e Pomona (?)",
+    "aspeto": "objeto: tapeçaria; materiais: algodão, lã; cores principais: azul, castanho, bege; outras cores: vermelho, branco, verde; motivos: figuras humanas, árvore, rede de pesca, peixe, floresta, cena de pesca; forma: quadrado, com borda decorativa"
+   },
+   {
+    "inventario": "359 Des",
+    "titulo": "Cena Guerreira (Dário e Alexandre)",
+    "aspeto": "objeto: desenho; materiais: papel, sépia; cores principais: sépia; motivos: figuras humanas em composição dividida em duas cenas, guerreiro sentado num banco suportado por um grifo, homem ajoelhado com as mãos cruzadas sobre o peito, homem de pé envolto num manto, grupo de três guerreiros; forma: friso horizontal"
+   },
+   {
+    "inventario": "8 Tap",
+    "titulo": "Marco Aurélio recomenda o seu filho aos filósofos (fragmento)/Série de tapeçarias: História de Marco Aurélio",
+    "aspeto": "objeto: fragmento de tapeçaria; materiais: tecido, fios de lã; cores principais: castanho, vermelho, amarelo; outras cores: azul, bege, verde, rosa; motivos: homem de perfil com capa vermelha e túnica amarela, putti, grinaldas de flores, aves, figura deitada com pano vermelho; forma: formato retangular, com bordas decoradas"
+   },
+   {
+    "inventario": "2062 Tec",
+    "titulo": "Tira",
+    "aspeto": "objeto: tira; materiais: linho, seda; cores principais: verde, dourado; motivos: episódios da história do Rei David, figuras humanas, vegetação exuberante, animais, legenda; forma: tira retangular com bordas decoradas"
+   },
+   {
+    "inventario": "19 Pint",
+    "titulo": "São Tiago combatendo os Mouros",
+    "aspeto": "objeto: painel de pintura; materiais: madeira de carvalho, tinta, óleo; cores principais: castanho, azul, branco; outras cores: vermelho, amarelo, preto; motivos: São Tiago montado num cavalo branco, São Tiago com uma espada levantada, um mouro caído no chão, um mouro em pé com escudo vermelho, exército de cristãos e muçulmanos em combate, paisagem rochosa ao fundo; forma: formato vertical retangular"
+   },
+   {
+    "inventario": "3413 Tec",
+    "titulo": "Colcha . Grande fragmento",
+    "aspeto": "objeto: colcha; materiais: algodão; cores principais: azul escuro, vermelho; outras cores: castanho; motivos: medalhão circular com octógono central decorado com vegetalismo, corôa circular com elementos geométricos, florais, humanos e animais, cenas de caçadas com homens a pé e a cavalo, armados de arcos e flechas e espingardas, perseguidos por gazelas e javalis, cenas de interior com mobiliário e altíssimas cadeiras; forma: retangular, com barra principal e barras laterais"
+   },
+   {
+    "inventario": "36 Tp",
+    "titulo": "Tapete",
+    "aspeto": "objeto: tapete; materiais: linho; cores principais: amarelo escuro, azul escuro, preto; outras cores: castanho escuro, castanho, amarelo, beije claro, beije, verde claro; motivos: medalhão central em forma de florão, elementos fitomórficos esquemáticos, animais quadrúpedes, aves, flor de lis, enrolamento com cipreste; forma: retangular, sem cantos marcados"
+   }
+  ],
+  "sim": [
+   "2060 Des",
+   "359 Des"
+  ]
+ },
+ {
+  "pedido": "peças de vidro transparente",
+  "pecas": [
+   {
+    "inventario": "322 Vid",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: vidro; cores principais: transparente; motivos: estrela, circunferências concêntricas; forma: forma circular com aba estreita"
+   },
+   {
+    "inventario": "284 Vid",
+    "titulo": "Castiçal",
+    "aspeto": "objeto: castiçal; materiais: vidro; cores principais: transparente; forma: pés formado por uma grande esfera oca e achatada, haste formada por um pequeno cilíndro…"
+   },
+   {
+    "inventario": "116 Vid",
+    "titulo": "Castiçal",
+    "aspeto": "objeto: castiçal; materiais: vidro; cores principais: transparente; forma: base circular em forma de campânula muito alta, terminando numa bolacha achatada; pé…"
+   },
+   {
+    "inventario": "163 Vid",
+    "titulo": "Doceira",
+    "aspeto": "objeto: doceira; materiais: vidro; cores principais: transparente; forma: pote de base circular com alma, bojo alto ligeiramente mais largo na zona de aplicação…"
+   },
+   {
+    "inventario": "252 Vid",
+    "titulo": "Jarra com asas",
+    "aspeto": "objeto: jarra; materiais: vidro; cores principais: transparente; forma: bojo em forma de pêra, gargalo alto e estreito com rebordo, duas asas terminando em…"
+   },
+   {
+    "inventario": "245 Vid",
+    "titulo": "Jarra com asas",
+    "aspeto": "objeto: jarra; materiais: vidro; cores principais: transparente; outras cores: castanho; motivos: arcos, cadeado, pingos; forma: base circular, bojo em forma de ampulheta, gargalo estrangulado com duas asas tubulares"
+   },
+   {
+    "inventario": "571 Vid",
+    "titulo": "Castiçal",
+    "aspeto": "objeto: castiçal; materiais: vidro; cores principais: transparente; forma: base circular ligeiramente cónica, haste formada pela sobreposição de esferas achatadas e…"
+   },
+   {
+    "inventario": "96 Vid",
+    "titulo": "Caneca portuguesa",
+    "aspeto": "objeto: caneca; materiais: vidro; cores principais: transparente; outras cores: branco; motivos: flores, folhas; forma: base circular; bojo esférico e curto; gargalo alto e cilíndrico; asa em forma de fita…"
+   },
+   {
+    "inventario": "933 Vid",
+    "titulo": "Garrafa",
+    "aspeto": "objeto: garrafa; materiais: vidro; cores principais: transparente; motivos: elementos vegetalistas; forma: base circular, bojo largo e muito achatado, gargalo alto e cilíndrico, rebordo na parte…"
+   },
+   {
+    "inventario": "63 Vid",
+    "titulo": "Frasco",
+    "aspeto": "objeto: frasco; materiais: vidro; cores principais: transparente; motivos: flores, pétalas geometrizadas; forma: bojo esférico, gargalo curto e estreito, base circular cónica, tampa de enroscar com a…"
+   },
+   {
+    "inventario": "17 Vid",
+    "titulo": "Galheteiro",
+    "aspeto": "objeto: galheteiro; materiais: vidro; cores principais: transparente; forma: pé com base circular"
+   },
+   {
+    "inventario": "1091 Vid",
+    "titulo": "Copo com pé",
+    "aspeto": "objeto: copo com pé; materiais: vidro; cores principais: transparente; forma: base circular plana"
+   },
+   {
+    "inventario": "388 Vid",
+    "titulo": "Copo",
+    "aspeto": "objeto: copo; materiais: vidro; cores principais: transparente; outras cores: dourado; motivos: grinaldas de folhas, bolhas, laços; forma: quase cilíndrica, facetado, com filete na borda"
+   },
+   {
+    "inventario": "730 Vid",
+    "titulo": "Jarro",
+    "aspeto": "objeto: jarro; materiais: vidro; cores principais: transparente; motivos: sulcos em forma de losangos, sulcos em forma de flores; forma: base circular e cónica, bojo em forma de esfera achatada, gargalo alto e estreito…"
+   },
+   {
+    "inventario": "67 Vid",
+    "titulo": "Fruteiro",
+    "aspeto": "objeto: fruteiro; materiais: vidro; cores principais: transparente; outras cores: castanho; motivos: folhagens; forma: prato circular com rebordo, pé em forma de balaustre ôco, base circular com ligeiro…"
+   },
+   {
+    "inventario": "851 Vid",
+    "titulo": "Garrafa",
+    "aspeto": "objeto: garrafa; materiais: vidro; cores principais: transparente; outras cores: ouro; motivos: grinaldas de folhas, grinaldas de pérolas, motivos vegetalistas, estrelas; forma: base circular, bocal estreito, gargalo com caneluras, tampa em forma de pastilha com…"
+   },
+   {
+    "inventario": "360 Vid",
+    "titulo": "Caneca",
+    "aspeto": "objeto: caneca; materiais: vidro; cores principais: transparente; outras cores: dourado; motivos: folhas; forma: em forma de trombeta com asa de forma tubular"
+   },
+   {
+    "inventario": "391 Vid",
+    "titulo": "Copo",
+    "aspeto": "objeto: copo; materiais: vidro; cores principais: transparente; outras cores: dourado; motivos: grinaldas de folhas, bolhas, laços; forma: forma quase cilíndrica, facetada, com filete na borda"
+   },
+   {
+    "inventario": "937 Vid",
+    "titulo": "Porró",
+    "aspeto": "objeto: porró; materiais: vidro; cores principais: transparente, opalino; forma: garrafa com bico e base com alma. Bojo largo e achatado com grande bico inserido - largo…"
+   },
+   {
+    "inventario": "399 Vid",
+    "titulo": "Copo",
+    "aspeto": "objeto: copo; materiais: vidro; cores principais: transparente; outras cores: dourado; motivos: grinaldas de folhas, bolhas, laços; forma: forma quase cilíndrica, facetada, com filete na borda"
+   },
+   {
+    "inventario": "396 Vid",
+    "titulo": "Copo",
+    "aspeto": "objeto: copo; materiais: vidro; cores principais: transparente; outras cores: dourado; motivos: grinaldas de folhas, bolhas, laços; forma: forma quase cilíndrica, facetada, com filete na borda"
+   },
+   {
+    "inventario": "604 Vid",
+    "titulo": "Castiçal",
+    "aspeto": "objeto: castiçal; materiais: vidro; cores principais: castanho, transparente; outras cores: dourado; motivos: grinaldas, motivos vegetalistas; forma: base circular plana, pé alto facetado formado por um nó achatado, por dois balaustres…"
+   },
+   {
+    "inventario": "511 Vid",
+    "titulo": "Garrafa",
+    "aspeto": "objeto: garrafa; materiais: vidro; cores principais: castanho, transparente; motivos: estrelas, fitas; forma: base circular e plana"
+   },
+   {
+    "inventario": "1 Vid",
+    "titulo": "Cantir",
+    "aspeto": "objeto: cantir; materiais: vidro; cores principais: transparente, branco; forma: base circular e ligeiramente cónica com alma; pé em forma de cilindro; bojo largo e…"
+   },
+   {
+    "inventario": "603 Vid",
+    "titulo": "Castiçal",
+    "aspeto": "objeto: castiçal; materiais: vidro; cores principais: transparente; outras cores: ouro; motivos: grinaldas, laços, motivos vegetalistas; forma: base circular plana, pé alto em forma de dois balaustre sobrepostos sobre pequeno nó,…"
+   }
+  ],
+  "sim": [
+   "322 Vid",
+   "284 Vid",
+   "116 Vid",
+   "163 Vid",
+   "252 Vid",
+   "571 Vid",
+   "933 Vid",
+   "63 Vid",
+   "17 Vid",
+   "1091 Vid",
+   "730 Vid"
+  ]
+ },
+ {
+  "pedido": "tecidos vermelhos com fios de ouro",
+  "pecas": [
+   {
+    "inventario": "1193 Joa",
+    "titulo": "Ornamentos de vestuário",
+    "aspeto": "objeto: ornamento de vestuário; materiais: ouro, esmalte, fio; cores principais: ouro, vermelho, branco; outras cores: castanho; motivos: aljôfares, flor, folhas, enrolamentos, cabochão, pérolas simuladas; forma: formato de S, formato lobulado, formato reduzido"
+   },
+   {
+    "inventario": "614 Tec",
+    "titulo": "Fragmento de bordado",
+    "aspeto": "objeto: fragmento de bordado; materiais: veludo, fio de ouro; cores principais: vermelho, ouro, azul; outras cores: branco, castanho, verde; motivos: duas figuras masculinas, uma criança, peónias, pássaros, legenda; forma: retangular"
+   },
+   {
+    "inventario": "1 Tap",
+    "titulo": "Assuero entrega o anel a Mardoqueu / História de Ester",
+    "aspeto": "objeto: tapeçaria; materiais: fio de lã, fio de seda, fio de ouro; cores principais: castanho, vermelho, azul; outras cores: amarelo, verde, dourado; motivos: Assuero entrega o anel a Mardoqueu, Ester e Mardoqueu entregam cartas seladas, figuras humanas, colunas, pórtico, árvores; forma: quadrada, com borda decorativa"
+   },
+   {
+    "inventario": "1917 Tec",
+    "titulo": "Casula",
+    "aspeto": "objeto: Casula; materiais: veludo, seda, papel dourado; cores principais: vermelho, dourado, verde; outras cores: azul, branco; motivos: motivos ornamentais, malhas ogivais, romãs semi-abertas, folhas, corola, rosáceas; forma: forma de casula, com gola em V e bordas arredondadas"
+   },
+   {
+    "inventario": "1554 Tec",
+    "titulo": "Estola",
+    "aspeto": "objeto: estola; materiais: lhama, fio de ouro; cores principais: bege, vermelho; outras cores: ouro; motivos: elementos vegetalistas entrelaçados, motivos florais e vegetalistas, franja; forma: estola com duas faixas laterais de tecido vermelho, cruzadas no centro por uma faixa…"
+   },
+   {
+    "inventario": "1757 Tec",
+    "titulo": "Frontal de altar",
+    "aspeto": "objeto: frontal de altar; materiais: seda, ouro, fio de ouro; cores principais: branco, vermelho, ouro; motivos: malhas ogivais, elementos em espiral, achadrezado com formas anelares, composição floral, troncoa ondeantes com flores de lótus, motivo serpenteante contínuo; forma: formado por quatro painéis, com tiras laterais, barra inferior e frontaleiras bordadas"
+   },
+   {
+    "inventario": "8 Tap",
+    "titulo": "Marco Aurélio recomenda o seu filho aos filósofos (fragmento)/Série de tapeçarias: História de Marco Aurélio",
+    "aspeto": "objeto: fragmento de tapeçaria; materiais: tecido, fios de lã; cores principais: castanho, vermelho, amarelo; outras cores: azul, bege, verde, rosa; motivos: homem de perfil com capa vermelha e túnica amarela, putti, grinaldas de flores, aves, figura deitada com pano vermelho; forma: formato retangular, com bordas decoradas"
+   },
+   {
+    "inventario": "2232 Tec",
+    "titulo": "Alcatifa de estrado",
+    "aspeto": "objeto: Alcatifa de estrado; materiais: linho, seda, fio metálico; cores principais: vermelho, dourado, verde; outras cores: rosa, amarelo, azul; motivos: medalhão central, flores, folhas, enrolamentos lineares, cercaduras; forma: quadrada, com três cercaduras e medalhão central"
+   },
+   {
+    "inventario": "4572 Tec",
+    "titulo": "Fragmento de sebasto (?)",
+    "aspeto": "objeto: fragmento de sebasto; materiais: veludo, linho; cores principais: vermelho, ouro; outras cores: verde, azul; motivos: santo sentado, arca com livro, atributo não identificado, paisagem, enrolamentos, cartelas com folhas e frutos; forma: tira vertical"
+   },
+   {
+    "inventario": "1856 Tec",
+    "titulo": "Casula",
+    "aspeto": "objeto: Casula; materiais: cetim, seda, ouro; cores principais: branco, vermelho, ouro; motivos: sebastos, elementos em S, flores de lótus, motivos afrontados, elementos em espiral, achadrezado; forma: casula de costas largas com base ligeiramente arredondada"
+   },
+   {
+    "inventario": "652 Tec",
+    "titulo": "Casula",
+    "aspeto": "objeto: casula; materiais: cetim, seda, ouro; cores principais: vermelho, cetim branco, ouro; outras cores: azul, castanho, verde; motivos: ramos com folhas codiformes, coroas, ramo de cravos, enrolamentos fitomórficos, influrescência, sebastos; forma: casula com sebastos e tira exterior, com gola redonda"
+   },
+   {
+    "inventario": "1754 Tec",
+    "titulo": "Pano de armar",
+    "aspeto": "objeto: Pano de armar; materiais: seda, fio laminado de papel dourado, fio seda; cores principais: vermelho, dourado; outras cores: verde; motivos: armas de uma família portuguesa, ornatos irradiantes, motivos florais, enrolamentos, perlados; forma: retangular"
+   },
+   {
+    "inventario": "3 Tap",
+    "titulo": "A Procissão de Marco Aurélio/Série de tapeçarias: História de Marco Aurélio",
+    "aspeto": "objeto: tapeçaria; materiais: algodão, lã; cores principais: castanho, vermelho, azul; outras cores: bege, amarelo, verde, branco; motivos: procissão de Marco Aurélio ao templo do deus Jano, imperador rodeado por condenados, figuras em atitude de reverência, coluna com capitélis decorados, pássaros exóticos, figuras de anjos; forma: retangular, com bordas decoradas"
+   },
+   {
+    "inventario": "1758 Tec",
+    "titulo": "Frontal de altar",
+    "aspeto": "objeto: Frontal de altar; materiais: seda, ouro; cores principais: branco, vermelho; outras cores: ouro; motivos: sebastos, sanefas, ramagens lanceoladas, flores de lis, motivos vegetalistas estilizados, anáis; forma: Retangular, com frontaleira decorada e galão debruando toda a peça, exceto a extremidade…"
+   },
+   {
+    "inventario": "1920 Tec",
+    "titulo": "Dalmática",
+    "aspeto": "objeto: Dalmática; materiais: veludo, fio de ouro laminado, seda, papel dourado; cores principais: vermelho, ouro; outras cores: azul, verde, castanho; motivos: malhas ogivais, romãs semi-abertas, folhas, corola, medalhão com ponta dupla, rosáceas; forma: Dalmática com mangas curtas, decote redondo, bordado em toda a superfície, com galões…"
+   },
+   {
+    "inventario": "87 Tap",
+    "titulo": "Fragmento de tecido copta",
+    "aspeto": "objeto: fragmento de tecido copta; materiais: linho, lã; cores principais: vermelho, castanho, preto; outras cores: azul, verde; motivos: medalhões ovais, figuras desnudadas, caçadores, motivos estilizados, elementos vegetalistas; forma: banda vertical"
+   },
+   {
+    "inventario": "584 Tec",
+    "titulo": "Frontal de altar",
+    "aspeto": "objeto: Frontal de altar; materiais: veludo cortado, cetim, fio de ouro, fio de seda; cores principais: vermelho, ouro, creme; outras cores: azul, verde; motivos: motivo cordiforme invertido, elementos vegetais, coroas, frutos bulbosos, inflorescências em forma de tulipa, inflorescência radial quadrilobada; forma: frontaleira com sebastos e duas tiras verticais, três painéis, barra inferior"
+   },
+   {
+    "inventario": "103 Tap",
+    "titulo": "Fragmento de tecido copta",
+    "aspeto": "objeto: fragmento de tecido copta; materiais: linho, lã; cores principais: vermelho, preto, branco; outras cores: verde, castanho; motivos: figura humana em pose de dança, bolbos, flores vermelhas, flores brancas, decoração vegetalista; forma: quadrado"
+   },
+   {
+    "inventario": "1926 Tec",
+    "titulo": "Alcatifa de estrado",
+    "aspeto": "objeto: Alcatifa de estrado; materiais: linho, seda, fio metálico; cores principais: vermelho, verde, amarelo; outras cores: cinza, bege, rosa, azul; motivos: elementos florais geometrizados, flor ladeada por duas folhas, malha reticular; forma: retangular, com três cercaduras decorativas"
+   },
+   {
+    "inventario": "539 Tec",
+    "titulo": "Frontal de altar",
+    "aspeto": "objeto: Frontal de altar; materiais: veludo, seda, linho, ouro, prata; cores principais: carmim, ouro; outras cores: prata, azul, vermelho, castanho; motivos: Traição de Judas, Ecce Homo, Flagelação, Caminho do Calvário, Última Ceia, volutas; forma: estrutura compositiva com tecido base e bordados narrativos e ornamentais; frontaleira e…"
+   }
+  ],
+  "sim": [
+   "614 Tec",
+   "1917 Tec",
+   "1554 Tec",
+   "1757 Tec",
+   "8 Tap",
+   "2232 Tec",
+   "4572 Tec",
+   "1856 Tec",
+   "652 Tec",
+   "1754 Tec",
+   "1758 Tec",
+   "1920 Tec",
+   "584 Tec",
+   "103 Tap",
+   "539 Tec"
+  ]
+ },
+ {
+  "pedido": "pinturas de com fruta",
+  "pecas": [
+   {
+    "inventario": "1472 Pint",
+    "titulo": "Cristo em casa de Marta",
+    "aspeto": "objeto: pintura; materiais: madeira de carvalho; cores principais: castanho, amarelo, vermelho; outras cores: branco, preto; motivos: Cristo, Marta, quatro personagens, faisão, vegetais, frutos; forma: formato retangular, com cena interior"
+   },
+   {
+    "inventario": "1066 Pint",
+    "titulo": "Santo António e Vanitas (reverso)",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: castanho, azul, preto; outras cores: branco, amarelo; motivos: santo António, hábito franciscano, Menino Jesus, cruz, livro, caveira; forma: painel retangular, com representação em meio-corpo no lado direito e caveira em nicho no…"
+   },
+   {
+    "inventario": "572 Pint",
+    "titulo": "Os Filisteus atacados pela Peste na Cidade de Azot",
+    "aspeto": "objeto: pintura; materiais: tela; cores principais: castanho, vermelho, azul; outras cores: amarelo, branco, cinza; motivos: homens, mulheres, crianças, corpos caídos, pessoas transportando corpos, edifícios monumentais; forma: composição horizontal, cena urbana com figuras em primeiro plano e fundo arquitetónico"
+   },
+   {
+    "inventario": "596 Pint",
+    "titulo": "Cristo Deposto da Cruz",
+    "aspeto": "objeto: pintura; materiais: papel, tela; cores principais: castanho, amarelo-claro; outras cores: bege, cinza-escuro; motivos: Cristo morto, duas personagens levantando o corpo de Cristo; forma: composição centralizada, com o corpo de Cristo ocupando quase toda a superfície da tela"
+   },
+   {
+    "inventario": "1698 Pint",
+    "titulo": "Estudo para a Lamentação sobre Cristo morto",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho, vermelho, azul; outras cores: branco, amarelo, cinza; motivos: Cristo morto, Virgem, São João Evangelista, Maria Madalena, Calvário, monte Golgota; forma: formato retangular, com moldura de madeira"
+   },
+   {
+    "inventario": "15 Pint",
+    "titulo": "Morte da Virgem",
+    "aspeto": "objeto: painel de pintura; materiais: madeira de carvalho, tinta, óleo; cores principais: vermelho, verde, castanho; outras cores: amarelo, preto, branco; motivos: Virgem deitada, São João, apóstolos, círio, leito, banqueta; forma: painel retangular com moldura decorativa"
+   },
+   {
+    "inventario": "2201 Pint",
+    "titulo": "Retrato de Amélia, condessa de Burnay",
+    "aspeto": "objeto: pintura; materiais: madeira, tinta; cores principais: preto, branco, castanho; outras cores: vermelho, azul, dourado; motivos: mulher, flores, coroa de flores, colar; forma: retrato de busto em oval"
+   },
+   {
+    "inventario": "14283 Grav",
+    "titulo": "Merca a Laranja da China?",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: azul, vermelho, branco; outras cores: preto, amarelo, verde; motivos: mulher, cabeça coberta, vestido azul, saia vermelha, faixa branca, cesto de frutas; forma: figura humana em pé, com cesto sobre a cabeça, sobre fundo de montanhas"
+   },
+   {
+    "inventario": "101 Pint",
+    "titulo": "Sete Mártires de Marrocos",
+    "aspeto": "objeto: painel pintado; materiais: madeira, tinta; cores principais: branco, vermelho, amarelo; outras cores: castanho, preto; motivos: sete pregadores franciscanos, quatro algozes mouros, execução por degolação, paisagem baixa, céu luminoso; forma: painel retangular horizontal, com composição em friso"
+   },
+   {
+    "inventario": "1225 Pint",
+    "titulo": "Estigmatização de São Francisco",
+    "aspeto": "objeto: painel pintado; materiais: madeira de pinho, têmpera; cores principais: branco, castanho, azul; outras cores: vermelho, amarelo, verde, cinza; motivos: São Francisco de Assis, frade dormindo, estigmas, anjo, pássaros, paisagem com casario e rochedos; forma: painel retangular vertical"
+   },
+   {
+    "inventario": "1845 Pint",
+    "titulo": "Estigmatização de São Francisco",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: castanho, verde, amarelo; outras cores: branco, cinza, vermelho; motivos: São Francisco de Assis, frade dormindo, estigmas, pássaro, halo, paisagem com rochas e árvores; forma: formato vertical retangular"
+   },
+   {
+    "inventario": "1731 Pint",
+    "titulo": "Mulher com um jarro",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho, branco, azul; outras cores: vermelho, preto; motivos: mulher, jarro, flor, orelhas de pérola; forma: busto de lado, olhando para o espectador, vestes decotadas, jarro ou pichel segurado…"
+   },
+   {
+    "inventario": "2607 Des",
+    "titulo": "São Francisco de Assis",
+    "aspeto": "objeto: desenho; materiais: papel, tinta castanha, sanguínea; cores principais: castanho; outras cores: sanguínea; motivos: São Francisco de Assis, crucifixo, caveira, mesa; forma: figura humana em perfil, sentada, com túnica e capuz, segurando um crucifixo com a mão…"
+   },
+   {
+    "inventario": "276 Pint",
+    "titulo": "São Francisco recebendo os Estigmas",
+    "aspeto": "objeto: painel pintado; materiais: madeira de carvalho, tinta, óleo; cores principais: castanho, azul, branco; outras cores: vermelho, cinza; motivos: São Francisco de Assis, estigmas, crucifixo, serafim, monge franciscano, livro; forma: painel vertical retangular, com moldura de madeira"
+   },
+   {
+    "inventario": "1506 Pint",
+    "titulo": "Lamentação sobre Cristo morto",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: branco, castanho, vermelho; outras cores: azul, dourado; motivos: Cristo morto, Virgem Maria, São João, Maria Madalena, anjo, coroa de espinhos; forma: composição vertical, com figuras dispostas em plano inclinado"
+   },
+   {
+    "inventario": "2391 Des",
+    "titulo": "Paragem durante uma caçada",
+    "aspeto": "objeto: desenho a têmpera de várias cores; materiais: papel; cores principais: castanho, verde, azul; outras cores: amarelo, branco, preto; motivos: grupo de homens e animais, cavaleiros, homem a pé, cães, veados, perdizes; forma: composição horizontal, com figuras dispostas em torno de uma árvore morta, com paisagem…"
+   },
+   {
+    "inventario": "1868 Pint",
+    "titulo": "Lamentação sobre o Corpo de Cristo / São Francisco / Santo António",
+    "aspeto": "objeto: painel de pintura; materiais: madeira de castanho; cores principais: castanho, vermelho, azul; outras cores: branco, cinza, preto; motivos: Cristo Morto, São João Evangelista, Virgem, Santa Madalena, cruz vazia, soldados; forma: painel vertical retangular"
+   },
+   {
+    "inventario": "51 Min",
+    "titulo": "Auto-retrato de D. Francisca de Almeida Furtado",
+    "aspeto": "objeto: miniatura; materiais: marfim, madeira, ouro; cores principais: preto, cinzento, castanho; outras cores: dourado, branco; motivos: auto-retrato de D. Francisca de Almeida Furtado, saia de seda moiré, jaqueta bordada a dourado, decote em bico com renda, joia de fecho, brincos de ouro em forma de fuso; forma: forma rectangular"
+   },
+   {
+    "inventario": "7093 Grav",
+    "titulo": "Canapée ou sauffa pour broderie en bosse, Fruits, fleurs en soye de couleurs",
+    "aspeto": "objeto: gravura; materiais: papel, tinta; cores principais: preto, branco; motivos: pássaros, flores, frutos, ornamentos vegetais, travejamento, pés de cabra; forma: canapé ou sofá visto de frente, com assento e encosto decorados, pernas galbadas com…"
+   }
+  ],
+  "sim": [
+   "1472 Pint",
+   "14283 Grav",
+   "7093 Grav"
+  ]
+ },
+ {
+  "pedido": "quadros escuros com uma vela acesa",
+  "pecas": [
+   {
+    "inventario": "1580 Des",
+    "titulo": "Candelabro com seis suportes para velas e outros estudos",
+    "aspeto": "objeto: desenho; materiais: papel, tinta; cores principais: castanho; forma: desenho técnico com representação de um candelabro com seis suportes para velas,…"
+   },
+   {
+    "inventario": "1929 Our",
+    "titulo": "Castiçal com serpentina de quatro lumes",
+    "aspeto": "objeto: castiçal; materiais: prata; cores principais: prata; motivos: grinalda, volutas, flores, folhas, concheados, cartelas; forma: base sobrelevada, haste em forma de urna, quatro braços curvados com encaixes para velas,…"
+   },
+   {
+    "inventario": "3304 Des",
+    "titulo": "Morte de Camões",
+    "aspeto": "objeto: desenho; materiais: papel, carvão, giz branco; cores principais: castanho, bege; outras cores: branco; motivos: duas figuras masculinas, figura sentada à direita com barba, cabeça apoiada na mão esquerda, figura idosa sentada à esquerda com pernas estendidas, mãos erguidas e olhos voltados para cima, folha de papel escrita sobre o catre, castiçal alto com chama, janela gótica de dois lumes à esquerda; forma: composição interior com duas figuras sentadas, uma em cadeira de braços e outra em catre,…"
+   },
+   {
+    "inventario": "1928 Our",
+    "titulo": "Castiçal com serpentina de quatro lumes",
+    "aspeto": "objeto: castiçal; materiais: prata; cores principais: prateada; motivos: grinalda, volutas, flores, concheados, cartelas, folhas; forma: base sobrelevada, haste em forma de urna, quatro braços curvados com arandelas móveis em…"
+   },
+   {
+    "inventario": "1567 Des",
+    "titulo": "Candelabro",
+    "aspeto": "objeto: Candelabro; materiais: papel, tinta; cores principais: castanho; motivos: motivos vegetalistas, feixe de palmas, suportes para velas, base circular, pormenor da base vista de topo; forma: Candelabro com base circular, feixe de palmas e sete suportes para velas; pormenor da…"
+   },
+   {
+    "inventario": "6970 Cer",
+    "titulo": "Candelabro",
+    "aspeto": "objeto: candelabro; materiais: latão, porcelana; cores principais: branco, dourado; outras cores: vermelho, azul, rosa, verde; motivos: cisne, flores; forma: base ornamental em latão dourado com relevo em gosto rocaille, sobre a qual repousa um…"
+   },
+   {
+    "inventario": "1932 Our",
+    "titulo": "Castiçal",
+    "aspeto": "objeto: castiçal; materiais: prata, cinzealda; cores principais: prateada; motivos: grinalda, volutas, flores, concheados, cartelas, urna; forma: base sobrelevada, haste em forma de balaústre, encaixe de vela em forma de urna, arandela…"
+   },
+   {
+    "inventario": "1578 Des",
+    "titulo": "Candelabro ladeado por duas colunas",
+    "aspeto": "objeto: desenho; materiais: papel, tinta; cores principais: bege; forma: desenho técnico em corte vertical, representando a estrutura de um candelabro central com…"
+   },
+   {
+    "inventario": "14/92v. Ilum",
+    "titulo": "Horas da Virgem - Apresentação no Templo",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: preto, branco, castanho; outras cores: dourado; motivos: Apresentação no Templo, Maria segurando Jesus, S. José entregando uma pomba, uma criança segurando uma pomba, sacerdote, figura austera; forma: quadro rectangular com enquadramento decorativo em tons de castanho e dourado, com…"
+   },
+   {
+    "inventario": "2566 Des",
+    "titulo": "Fogo de artifício numa praça",
+    "aspeto": "objeto: desenho; materiais: papel, sépia, cinza, gouache branco, lápis; cores principais: cinza, branco, castanho; outras cores: amarelo, vermelho, azul; motivos: fogo de artifício, pódium, templo circular, figuras trajando à romana, multidão, cavalos; forma: composição horizontal, representando uma praça com pódium central e edifícios ao fundo"
+   },
+   {
+    "inventario": "645 Pint",
+    "titulo": "Incêndio",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: preto, castanho, branco; outras cores: vermelho, amarelo, azul; motivos: edifício em chamas, figuras humanas, fumaça, chamas, pessoas tentando apagar o fogo, pessoas observando o incêndio; forma: composição horizontal, com edifício central e figuras dispostas em torno"
+   },
+   {
+    "inventario": "118 Pint",
+    "titulo": "São Bruno em Oração",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho, bege, preto; outras cores: amarelo, vermelho; motivos: São Bruno prostrado em oração, livros abertos, lâmpada acesa, caveira, crucifixo; forma: composição vertical, figura humana em primeiro plano, fundo escuro e texturizado"
+   },
+   {
+    "inventario": "13/48v. Ilum",
+    "titulo": "Eucarístia",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: castanho, vermelho, ouro; outras cores: azul, branco, verde, preto; motivos: sacerdotes, nobre recebendo a comunhão, círios acesos, cortina verde, cálice, missal; forma: fólio com enquadramento moldurado em tons de castanho e dourado, imitando madeira,…"
+   },
+   {
+    "inventario": "13/51v. Ilum",
+    "titulo": "Ofício dos Mortos",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, têmpera, ouro; cores principais: castanho, dourado, verde; outras cores: branco, vermelho, azul, amarelo; motivos: homem deitado numa cama com dossel, religiosos franciscanos, crucifixo, livro, mitra, báculo; forma: quadro com enquadramento moldurado, em tons de castanho e dourado, imitando madeira, com…"
+   },
+   {
+    "inventario": "1579 Des",
+    "titulo": "Serpentina com três suportes de velas e três lanças",
+    "aspeto": "objeto: desenho; materiais: papel bege, tinta; cores principais: bege; motivos: candelabro de três braços, lanças, coroas de louros, elementos vegetalistas; forma: desenho de um candelabro com três suportes de velas e três lanças cruzadas, sobre uma…"
+   },
+   {
+    "inventario": "14230 Grav",
+    "titulo": "Santa Luzia",
+    "aspeto": "objeto: gravura; materiais: papel, metal; cores principais: preto, branco; motivos: Santa Luzia, bandeja com olhos, palma, igreja, moldura decorada com motivos florais, inscrição; forma: formato retangular, com moldura decorativa"
+   },
+   {
+    "inventario": "13/46v. Ilum",
+    "titulo": "Celebração Eucarística",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, ouro; cores principais: castanho, dourado, vermelho; outras cores: azul, branco, preto, verde; motivos: celebração eucarística, três sacerdotes de joelhos, altar com tríptico, cálices, missal, colunas com anjos; forma: fólio com enquadramento moldurado em tons de castanho e dourado, imitando madeira,…"
+   },
+   {
+    "inventario": "6971 Cer",
+    "titulo": "Candelabro",
+    "aspeto": "objeto: candelabro; materiais: porcelana, latão; cores principais: branco, dourado; outras cores: rosa, azul, vermelho, verde, preto; motivos: cisne, flores; forma: base ornamental em latão dourado, com cinco braços curvados terminados em castiçais, ao…"
+   },
+   {
+    "inventario": "13/43v. Ilum",
+    "titulo": "Horas da Cruz - Calvário",
+    "aspeto": "objeto: iluminura; materiais: pergaminho, ouro, têmpera; cores principais: castanho, dourado, azul; outras cores: vermelho, branco, rosa, cinzento; motivos: Cristo crucificado, dois ladrões, Nossa Senhora, São João, espada, caveira; forma: fólio com enquadramento arquitectónico renascentista, com tarja decorativa e bas-de-page"
+   }
+  ],
+  "sim": [
+   "3304 Des",
+   "118 Pint"
+  ]
+ },
+ {
+  "pedido": "blue and white porcelain",
+  "pecas": [
+   {
+    "inventario": "6917 Cer",
+    "titulo": "Pote",
+    "aspeto": "objeto: pote; materiais: porcelana; cores principais: branco, azul; outras cores: castanho vinhado; motivos: águia bicéfala, coroa de cinco florões, coração trespassado por duas setas, árvore, cavalos, leões; forma: forma ovóide, com gargalo circular, curto e direito, bordo levemente invertido, base…"
+   },
+   {
+    "inventario": "6943 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana; cores principais: azul, branco; motivos: aves, flores, motivos vegetalistas, símbolos chineses, colunelos, selos suspensos por fitas; forma: prato com aba recortada"
+   },
+   {
+    "inventario": "7455 Cer",
+    "titulo": "Garrafa",
+    "aspeto": "objeto: garrafa; materiais: porcelana, vidrado; cores principais: azul, branco; motivos: cena com torre e montanha, cena com galinha e dragão, cena com insetos voadores, decoração vegetal; forma: base quadrada, corpo rectangular com faces irregulares, topo ligeiramente arqueado,…"
+   },
+   {
+    "inventario": "3162 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana; cores principais: azul, branco; motivos: flores de ameixeira, crisântemos, flor de lótus, ramagens, cabeças de ruyi, quadricula; forma: aba larga e ligeiramente recortada"
+   },
+   {
+    "inventario": "7456 Cer",
+    "titulo": "Garrafa",
+    "aspeto": "objeto: garrafa; materiais: porcelana, vidrado; cores principais: branco, azul; motivos: armas dos Vilas Boas e Farias ou dos Vaz, peónias em flor, elementos vegetais quadrilobados estilizados, pérolas, escudo quadrado repartido em tércio, águia dos Faria; forma: quadrangular, com gargalo cilíndrico e estreito, ombro em molde de cúpula, base plana e…"
+   },
+   {
+    "inventario": "7581 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana; cores principais: azul-cobalto, branco; motivos: quatro leões, bola, faixas ondulantes, flores de cinco pétalas, enrolamentos, arcaria; forma: covo profundo, aba estreita recortada e inclinada para o interior"
+   },
+   {
+    "inventario": "7458 Cer",
+    "titulo": "Gomil",
+    "aspeto": "objeto: gomil; materiais: porcelana; cores principais: branco, azul; motivos: flores de lotus, monogramas IHS, enrolamentos, friso com círculos concêntricos e ramos de flores, chamas, motivos vegetalistas; forma: forma piriforme sobre uma base ligeiramente cónica, com asa e bico encurvado em forma de…"
+   },
+   {
+    "inventario": "6743 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana, vidrado; cores principais: branco, azul; motivos: duas fénix, flores de lótus, entrecruzados, medalhões com flor e botões de lótus, diagramas, botões de lótus; forma: grande prato covo em calota rebaixada com bordo extrovertido, formando lábio, recortado,…"
+   },
+   {
+    "inventario": "7151 Cer",
+    "titulo": "Kendi",
+    "aspeto": "objeto: kendi; materiais: porcelana, vidrado; cores principais: branco, azul cobalto; motivos: ramo de flores, cabaça, rola de pintura, cabeça de ruyi, pêssego, objecto precioso; forma: corpo globular"
+   },
+   {
+    "inventario": "264 Cer",
+    "titulo": "Taça funda",
+    "aspeto": "objeto: Taça funda; materiais: porcelana, vidrado; cores principais: branco, azul cobalto; motivos: ave sobre rochedo, ramo de pêssego, ramo com flor, ramos vegetalistas e florais, peónia, losangos suspensos de fitas; forma: parede arredondada abrindo suavemente em direção ao bordo extrovertido e pé inclinado…"
+   },
+   {
+    "inventario": "570 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana, vidrado; cores principais: branco, azul cobalto; motivos: fénix, plantas, sol, nuvem, ave, insectos; forma: caldeira arredondada com aba estreita sobre pequeno pé inclinado para o interior"
+   },
+   {
+    "inventario": "3764 Cer",
+    "titulo": "Chávena",
+    "aspeto": "objeto: chávena; materiais: porcelana, ouro; cores principais: branco, azul, castanho; outras cores: dourado; motivos: paisagem marítima, personagens, barco, edifícios, árvores, friso de motivos ondeados; forma: cilíndrica, com asa curva"
+   },
+   {
+    "inventario": "1186 Vid",
+    "titulo": "Terrina com tampa",
+    "aspeto": "objeto: Terrina com tampa; materiais: porcelana; cores principais: branco, vermelho, azul; outras cores: preto, castanho; motivos: paisagens, motivos vegetalistas, figuras humanas, barcos, casa, árvores; forma: paralelipípedo com cantos facetados, tampa abaulada com pega em forma de pera"
+   },
+   {
+    "inventario": "7959 cer",
+    "titulo": "Gomil",
+    "aspeto": "objeto: gomil; materiais: porcelana, vidrado; cores principais: branco, azul; outras cores: alaranjado; motivos: esfera armilar, flores de lótus, folhas pontiagudas, motivos vegetalistas, grega, chamas estilizadas; forma: bojo piriforme, colo alto e estreito alargando suavemente em direção ao bordo evertido e…"
+   },
+   {
+    "inventario": "6712 Cer",
+    "titulo": "Prato",
+    "aspeto": "objeto: prato; materiais: porcelana, vidrado; cores principais: branco, azul; motivos: dragão alado, pérola em chamas, nuvens, ondas, espuma, botões de lótus estilizados; forma: caldeira arredondada com aba estreita, direita e ligeiramente inclinada, sobre pequeno pé…"
+   },
+   {
+    "inventario": "5812 Cer",
+    "titulo": "Taça",
+    "aspeto": "objeto: Taça; materiais: porcelana, vidrado; cores principais: branco, azul; motivos: águia, qilin, leão, cavalo, nuvens, lua nova; forma: Taça com parede arredondada, bordo extrovertido, formando lábio, e base ligeiramente…"
+   }
+  ],
+  "sim": [
+   "6917 Cer",
+   "6943 Cer",
+   "7455 Cer",
+   "3162 Cer",
+   "7456 Cer",
+   "7581 Cer",
+   "7458 Cer",
+   "6743 Cer",
+   "7151 Cer",
+   "264 Cer",
+   "570 Cer",
+   "7959 cer",
+   "6712 Cer",
+   "5812 Cer"
+  ]
+ },
+ {
+  "pedido": "paintings with ships",
+  "pecas": [
+   {
+    "inventario": "1175 Des",
+    "titulo": "Porto de Mar",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: castanho; motivos: porto, barcos, figuras junto à margem, escada, casas, povoação ao longe; forma: composição horizontal, com a margem do porto à esquerda e a vista da outra margem ou de…"
+   },
+   {
+    "inventario": "390 Pint",
+    "titulo": "Panorama da Cidade de Lisboa no Século XVIII",
+    "aspeto": "objeto: pintura; materiais: tela; cores principais: azul, castanho, branco; outras cores: vermelho, amarelo, verde, preto; motivos: vista panorâmica da cidade de Lisboa, navios no rio, edifícios e estruturas urbanas, anjos, guirlandas, figuras humanas; forma: formato retangular horizontal"
+   },
+   {
+    "inventario": "14097 Grav",
+    "titulo": "Michiel de Ruyter, Almirante, e Martens Schenk, Comandante em Campo",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: Michiel de Ruyter, Almirante, Martens Schenk, Comandante em Campo, cannons, naves de guerra, fortaleza, paisagem costeira; forma: retangular, com bordas lisas"
+   },
+   {
+    "inventario": "1189 Des",
+    "titulo": "Cena de Cais com Arco em Ruínas",
+    "aspeto": "objeto: desenho; materiais: papel, tinta castanha, lápis negro (vestígios); cores principais: castanho; outras cores: branco (do papel); motivos: cais, arco em ruínas, barcos atracados, figuras humanas (um homem com capa, duas outras figuras, uma sentada e outra de pé), edifícios ao fundo, montanhas; forma: composição horizontal, com arco em ruínas à esquerda, cais e barcos no centro e à…"
+   },
+   {
+    "inventario": "499 Pint",
+    "titulo": "Desembarque de Afonso de Albuquerque",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: castanho, bege, cinza; outras cores: preto, branco; motivos: figuras humanas, estrado elevado, baldaquino, escada, multidão, desembarque de Afonso de Albuquerque; forma: formato retangular, com moldura de madeira dourada"
+   },
+   {
+    "inventario": "3335 Des",
+    "titulo": "sem título",
+    "aspeto": "objeto: desenho; materiais: papel, tela; cores principais: castanho, preto; outras cores: vermelho, amarelo, verde; forma: planta"
+   },
+   {
+    "inventario": "3267 Des",
+    "titulo": "Vista da barra de Lisboa e entrada do Tejo",
+    "aspeto": "objeto: desenho; materiais: papel; cores principais: azul, branco, castanho; outras cores: cinza, verde-oliva, preto; motivos: embarcações de várias tipologias, farol do Bugio, forte de S. Julião da Barra, trecho da costa do lado de Lisboa, céu com nuvens; forma: composição paisagística horizontal, com elementos marítimos e costeiros dispostos em plano"
+   },
+   {
+    "inventario": "7070 Grav",
+    "titulo": "Coche: pintura da proa do primeiro coche da embaixada",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: figuras humanas nus ou parcialmente vestidos, chamíssos, figuras aladas, mapa mundi, compasso, elementos vegetais; forma: formato retangular com bordas onduladas"
+   },
+   {
+    "inventario": "7069 Grav",
+    "titulo": "Coche: pintura da popa do primeiro coche da embaixada",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: figura feminina sentada, vestida de Pallas, segurando escudo, figura masculina em pé, com túnica, segurando lança, figura masculina caída no chão, figura masculina ajoelhada, figura alada, em movimento, no canto superior direito, figura alada, em movimento, no canto superior esquerdo; forma: formato retangular com moldura ornamental, com cantos arredondados e decorados com…"
+   },
+   {
+    "inventario": "1560 Mov",
+    "titulo": "Biombo",
+    "aspeto": "objeto: biombo; materiais: pinho, papel de amoreira, seda, cobre, laca; cores principais: ouro, preto, vermelho; outras cores: azul, castanho, verde, branco, cinza; motivos: barco de grande porte, barcos menores, pessoas em trajes asiáticos, cidades com casas baixas, cerejeiras em flor, nuvens; forma: biombo baixo de seis folhas articuladas, com moldura lacada e faixa de seda debruada"
+   },
+   {
+    "inventario": "14220 Grav",
+    "titulo": "Nossa Senhora da Boa Viagem",
+    "aspeto": "objeto: gravura; materiais: papel; cores principais: preto, branco; motivos: Nossa Senhora coroada, com o menino ao colo, segurando uma embarcação; anjos; embarcações; nuvens; moldura decorativa; inscrição; forma: composta por moldura ornamental, com Nossa Senhora e o menino no centro, sobre nuvens, e…"
+   },
+   {
+    "inventario": "6890 Cer",
+    "titulo": "Placa",
+    "aspeto": "objeto: placa; materiais: porcelana; cores principais: branco, cinza; motivos: paisagem, rio, barcos, edifício fortificado, personagens; forma: retangular"
+   },
+   {
+    "inventario": "389 Pint",
+    "titulo": "Visão Perspéctica de Goa e Terras Próximas no Século XVII",
+    "aspeto": "objeto: painel pintado; materiais: tela; cores principais: castanho, verde, azul; outras cores: branco, amarelo, vermelho; motivos: cidade de Goa e terras próximas em perspectiva, rios, navios, anjos, figuras humanas, pergaminho com inscrição em latim; forma: painel retangular horizontal"
+   },
+   {
+    "inventario": "1641 Mov",
+    "titulo": "Biombo (par)",
+    "aspeto": "objeto: biombo articulado; materiais: madeira, papel, folha de ouro, seda, cobre; cores principais: ouro, preto, verde; outras cores: branco, vermelho, azul, castanho, cinza; motivos: nau com velas recolhidas, tripulação em acrobacias, pessoas desembarcando, pavão, animais exóticos em jaulas, grupo de pessoas com roupas variadas; forma: seis folhas articuladas"
+   },
+   {
+    "inventario": "1874 Pint",
+    "titulo": "Fuga para o Egipto",
+    "aspeto": "objeto: pintura; materiais: tela, óleo; cores principais: azul, rosa, branco; outras cores: castanho, verde-escuro, cinza; motivos: Sagrada Família, dois anjos, barca, cisnes, cavalete, penhasco; forma: formato retangular vertical"
+   },
+   {
+    "inventario": "803 Des",
+    "titulo": "Alegoria a Britânia como defensora dos mares",
+    "aspeto": "objeto: desenho; materiais: papel, sanguínea; cores principais: castanho; motivos: Britânia sentada à beira-mar, Britânia segurando lança, Britânia segurando escudo, cannhões e peças de artilharia, homem despido à direita, embarcações na água; forma: composição figurada com figura central sentada, rodeada de elementos de artilharia e…"
+   }
+  ],
+  "sim": [
+   "1175 Des",
+   "390 Pint",
+   "14097 Grav",
+   "1189 Des",
+   "3267 Des",
+   "1560 Mov",
+   "14220 Grav",
+   "6890 Cer",
+   "389 Pint",
+   "1641 Mov",
+   "803 Des"
+  ]
+ }
+]

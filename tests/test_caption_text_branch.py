@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # os stubs do teste vizinho
 
 from app.core.config import Settings  # noqa: E402
+from app.services.retrieval import multimodal_retrieval  # noqa: E402
 from app.services.retrieval.multimodal_retrieval import MultimodalTextRetrieval  # noqa: E402
 from test_multimodal_retrieval import (  # noqa: E402
     DECISION,
@@ -31,19 +32,29 @@ class CaptionProvider(StubProvider):
         self.text_error = text_error
         self.text_calls = 0
 
-    async def embed_text(self, text):
+    async def embed_text(self, text, **kwargs):
         self.text_calls += 1
+        self.text_kwargs = kwargs
         if self.text_error:
             raise self.text_error
         return [0.3, 0.4]
 
 
 class CaptionGateway(StubGateway):
-    def __init__(self, *args, caption_hits=None, caption_error=None, **kwargs):
+    def __init__(self, *args, caption_hits=None, caption_error=None, caption_count=1, count_error=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.caption_hits = caption_hits or []
         self.caption_error = caption_error
         self.caption_calls = []
+        self.caption_count = caption_count
+        self.count_error = count_error
+        self.count_calls = []
+
+    async def count_caption_docs(self, **kwargs):
+        self.count_calls.append(kwargs)
+        if self.count_error:
+            raise self.count_error
+        return self.caption_count
 
     async def search_caption_knn(self, **kwargs):
         self.caption_calls.append(kwargs)
@@ -145,6 +156,75 @@ class TestCaptionBranch(unittest.TestCase):
         service = self.build(gateway=gateway, CAPTION_TEXT_INDEX="caps")
         self.assertIsNone(fuse(service, [art_doc("A1")]))
 
+    def test_uncovered_museum_flag_off_never_counts(self) -> None:
+        gateway = CaptionGateway(image_hits=[img_hit("A2", "i2", 0.9)], caption_hits=[], caption_count=0)
+        service = self.build(gateway=gateway, CAPTION_TEXT_INDEX="caps")
+        self.assertIsNone(fuse(service, [art_doc("A1")]))
+        self.assertEqual(gateway.count_calls, [])
+        self.assertEqual(gateway.search_calls, [])
+
+    def test_uncovered_museum_skips_captions_and_runs_text_to_image(self) -> None:
+        gateway = CaptionGateway(image_hits=[img_hit("A2", "i2", 0.9)], caption_hits=[], caption_count=0)
+        provider = CaptionProvider()
+        service = self.build(
+            gateway=gateway, provider=provider, CAPTION_TEXT_INDEX="caps", CAPTION_TEXT_UNCOVERED_MUSEUM_T2I=True
+        )
+        outcome = fuse(service, [art_doc("A1"), art_doc("A2")])
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["A2", "A1"])
+        self.assertEqual(gateway.count_calls, [{"index": "caps", "museum_id": "mnt"}])
+        self.assertEqual(gateway.caption_calls, [])
+        self.assertEqual(provider.text_calls, 0)
+        self.assertEqual(len(gateway.search_calls), 1)
+        self.assertEqual(outcome.diagnostics["text_to_caption"]["skipped"], "museum_not_in_index")
+        self.assertEqual(outcome.diagnostics["branches"], ["artifact_search", "text_to_image"])
+        # a resposta «não tem» fica em memória: a segunda pergunta não volta a contar
+        fuse(service, [art_doc("A1"), art_doc("A2")])
+        self.assertEqual(len(gateway.count_calls), 1)
+        self.assertEqual(len(gateway.search_calls), 2)
+
+    def test_uncovered_museum_is_rechecked_after_a_while(self) -> None:
+        gateway = CaptionGateway(
+            image_hits=[img_hit("A7", "i7", 0.9)], caption_hits=[cap_hit("A2")], caption_count=0,
+        )
+        service = self.build(gateway=gateway, CAPTION_TEXT_INDEX="caps", CAPTION_TEXT_UNCOVERED_MUSEUM_T2I=True)
+        fuse(service, [art_doc("A1"), art_doc("A2")])
+        self.assertEqual(gateway.caption_calls, [])
+        # as legendas do museu foram indexadas entretanto
+        gateway.caption_count = 40
+        service._caption_uncovered_at[("caps", "mnt")] -= multimodal_retrieval._CAPTION_COVERAGE_RECHECK_SECONDS + 1
+        outcome = fuse(service, [art_doc("A1"), art_doc("A2")])
+        self.assertEqual(len(gateway.count_calls), 2)
+        self.assertEqual(len(gateway.caption_calls), 1)
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["A2", "A1"])
+        self.assertEqual(len(gateway.search_calls), 1)   # só a primeira pergunta usou o texto→imagem
+
+    def test_covered_museum_without_caption_hits_keeps_baseline(self) -> None:
+        gateway = CaptionGateway(image_hits=[img_hit("A2", "i2", 0.9)], caption_hits=[], caption_count=40)
+        service = self.build(gateway=gateway, CAPTION_TEXT_INDEX="caps", CAPTION_TEXT_UNCOVERED_MUSEUM_T2I=True)
+        self.assertIsNone(fuse(service, [art_doc("A1")]))
+        self.assertIsNone(fuse(service, [art_doc("A1")]))
+        self.assertEqual(len(gateway.count_calls), 1)   # «tem legendas» conta-se uma vez
+        self.assertEqual(len(gateway.caption_calls), 2)
+        self.assertEqual(gateway.search_calls, [])
+
+    def test_count_failure_keeps_caption_branch(self) -> None:
+        gateway = CaptionGateway(
+            image_hits=[img_hit("A7", "i7", 0.9)], caption_hits=[cap_hit("A2")], count_error=RuntimeError("down"),
+        )
+        service = self.build(gateway=gateway, CAPTION_TEXT_INDEX="caps", CAPTION_TEXT_UNCOVERED_MUSEUM_T2I=True)
+        outcome = fuse(service, [art_doc("A1"), art_doc("A2")])
+        self.assertEqual([d["artifact_id"] for d in outcome.docs], ["A2", "A1"])
+        self.assertEqual(len(gateway.caption_calls), 1)
+        self.assertEqual(gateway.search_calls, [])
+
+    def test_query_instruction_only_with_the_flag(self) -> None:
+        for flag, expected in ((False, {}), (True, {"as_query": True})):
+            gateway = CaptionGateway(caption_hits=[cap_hit("A2")])
+            provider = CaptionProvider()
+            service = self.build(gateway=gateway, provider=provider, CAPTION_TEXT_INDEX="caps", CAPTION_TEXT_QUERY_INSTRUCTION=flag)
+            fuse(service, [art_doc("A1"), art_doc("A2")])
+            self.assertEqual(provider.text_kwargs, expected)
+
     def test_other_museums_and_duplicates_are_dropped(self) -> None:
         gateway = CaptionGateway(
             caption_hits=[cap_hit("B1", museum="mnaz"), cap_hit("A3"), cap_hit("A3")],
@@ -158,6 +238,7 @@ class TestCaptionBranch(unittest.TestCase):
     def test_settings_validate_mode(self) -> None:
         self.assertEqual(Settings(_env_file=None, CAPTION_TEXT_MODE=" ADD ").CAPTION_TEXT_MODE, "add")
         self.assertEqual(Settings(_env_file=None).CAPTION_TEXT_INDEX, "")
+        self.assertFalse(Settings(_env_file=None).CAPTION_TEXT_UNCOVERED_MUSEUM_T2I)
         with self.assertRaises(ValueError):
             Settings(_env_file=None, CAPTION_TEXT_MODE="both")
 

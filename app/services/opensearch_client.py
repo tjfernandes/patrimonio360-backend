@@ -1795,6 +1795,31 @@ class OpenSearchGateway:
             )
         return hits
 
+    def _count_caption_docs_sync(self, *, index: str, museum_id: str) -> int:
+        client = self._ensure_client()
+        response = client.count(index=index, body={"query": {"term": {"museum_id": museum_id}}})
+        return int(response.get("count") or 0)
+
+    def _fetch_caption_structs_sync(self, *, index: str, artifact_ids: list[str]) -> dict[str, dict[str, Any]]:
+        unique_ids = list(dict.fromkeys(str(value or "").strip() for value in artifact_ids if str(value or "").strip()))
+        if not unique_ids:
+            return {}
+        client = self._ensure_client()
+        body = {
+            "size": len(unique_ids),
+            "_source": ["artifact_id", "generated_caption_struct"],
+            "query": {"bool": {"filter": [{"terms": {"artifact_id": unique_ids}}]}},
+        }
+        response = client.search(index=index, body=body)
+        structs: dict[str, dict[str, Any]] = {}
+        for hit in (response.get("hits") or {}).get("hits") or []:
+            source = hit.get("_source") or {}
+            artifact_id = str(source.get("artifact_id") or hit.get("_id") or "").strip()
+            struct = source.get("generated_caption_struct")
+            if artifact_id and isinstance(struct, dict) and artifact_id not in structs:
+                structs[artifact_id] = struct
+        return structs
+
     def _search_similar_images_multi_sync(
         self,
         *,
@@ -2039,6 +2064,28 @@ class OpenSearchGateway:
             embedding=embedding,
             size=size,
             knn_k=knn_k,
+        )
+
+    async def count_caption_docs(self, *, index: str, museum_id: str) -> int:
+        """Quantas legendas o índice tem para um museu (0 = museu não coberto)."""
+        return await self._to_thread_logged(
+            "opensearch.count_caption_docs",
+            self._count_caption_docs_sync,
+            log_fields={"index": index, "museum_id": museum_id},
+            result_size=int,
+            index=index,
+            museum_id=museum_id,
+        )
+
+    async def fetch_caption_structs(self, *, index: str, artifact_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """A legenda estruturada (tipo de objeto, materiais, cores, motivos…) de cada peça, por artifact_id."""
+        return await self._to_thread_logged(
+            "opensearch.fetch_caption_structs",
+            self._fetch_caption_structs_sync,
+            log_fields={"index": index, "artifact_count": len(artifact_ids)},
+            result_size=len,
+            index=index,
+            artifact_ids=artifact_ids,
         )
 
     async def search_similar_images_multi(

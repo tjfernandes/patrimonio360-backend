@@ -133,6 +133,34 @@ def build_author_only_prompt(*, message: str, words: str) -> str:
     )
 
 
+def build_visual_request_prompt(*, message: str) -> str:
+    """O visitante descreve as peças pelo aspeto? (CHAT_VISUAL_INTENT_MODEL)
+
+    Só a resposta A liga o ramo visual da pesquisa (legendas das fotografias),
+    e só é perguntado quando as regras de retrieval/visual_intent.py não viram
+    sinal visual.
+
+    Redação medida a 2026-11-19 com o Qwen3-VL-8B (tests/visual_intent_cases.py,
+    85 mensagens do MNAA × 3 execuções, scripts/medir_intencao_visual.py): dos
+    40 pedidos pelo aspeto, 38 recebem A (falham «esculturas em madeira» e «há
+    alguma coisa com elefantes?», que recebem B); dos 45 que não são visuais,
+    nenhum recebe A; as três execuções deram sempre a mesma letra; mediana de
+    93 ms por chamada. As regras, sozinhas, só viam 1 dos 40. É a primeira
+    redação e os casos não serviram para a afinar. Qualquer alteração repete a
+    medição.
+    """
+    return (
+        f"Mensagem de um visitante do museu:\n«{message}»\n\n"
+        "Como é que a mensagem diz que peças o visitante quer ver?\n"
+        "A) pelo aspeto: descreve o que se vê na peça — a cor, a forma, o brilho, o material de que é feita, "
+        "ou o que nela aparece (animais, flores, pessoas, objetos, uma cena, uma paisagem)\n"
+        "B) sem descrever o aspeto: pelo nome da peça, pelo autor, pela época, pelo sítio de onde vem ou só pelo tipo de peça "
+        "(como «pinturas», «esculturas», «Painéis de São Vicente», «Bosch», «século XVI», «arte japonesa»)\n"
+        "C) a mensagem não pede peças: pergunta um facto, pede um percurso, uma sala ou uma lista, ou é conversa\n"
+        'Responde só com JSON: {"resposta": "A", "B" ou "C"}'
+    )
+
+
 def build_listing_request_prompt(*, message: str) -> str:
     """O visitante pede uma lista do que existe no museu? (CHAT_CATALOGUE_LISTINGS)
 
