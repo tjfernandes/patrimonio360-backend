@@ -268,6 +268,25 @@ _FINAL_ANSWER_V2_EN = (
 )
 
 
+# CHAT_ANSWER_ALL_CARDS: o texto fala de todas as peças dos cartões mostrados. A
+# instrução de origem pedia «até três», e o visitante via sete cartões e um texto
+# sobre três deles. Troca-se só essa frase (e a equivalente da pergunta pelo
+# aspeto); o resto das instruções fica igual. Medição em docs/todos-os-cartoes.md.
+_UP_TO_THREE_PT = "destaca até três peças pelo título. "
+_ALL_CARDS_PT = (
+    "fala de todas as peças dos cartões, uma a uma e pela ordem em que vêm: uma linha por peça, com o título e uma só "
+    "frase curta. Não deixes nenhum cartão de fora. "
+)
+_UP_TO_THREE_EN = "highlight up to three objects by title. "
+_ALL_CARDS_EN = (
+    "go through every object in the cards, one by one and in the order given: one line per object, with its title and "
+    "a single short sentence. Do not leave any card out. "
+)
+_VISUAL_UP_TO_THREE_PT = "destaca até três pelo título; de cada uma diz"
+_VISUAL_ALL_CARDS_PT = "fala de todas, uma a uma e pela ordem em que vêm, uma linha por peça com o título e uma só frase curta; de cada uma diz"
+_VISUAL_UP_TO_THREE_EN = "highlight up to three by title; for each one say"
+_VISUAL_ALL_CARDS_EN = "go through all of them, one by one and in the order given, one line per object with its title and a single short sentence; for each one say"
+
 # O modelo escolhe os cartões (CHAT_MODEL_SELECTS_CARDS): a frase «os restantes
 # cartões ficam visíveis» deixa de ser verdade — só ficam os que ele indicar.
 _VISIBLE_CARDS_SENTENCE_PT = (
@@ -559,6 +578,7 @@ def build_final_answer_prompt_v2(
     national_treasures: bool = False,
     no_cards_instruction: bool = False,
     visual_answer_rule: bool = False,
+    all_cards: bool = False,
 ) -> str:
     """Prompt final compacto (quick win PR-01; texto, imagem e modelo 3D).
 
@@ -603,7 +623,12 @@ def build_final_answer_prompt_v2(
             parts.append(("INTERPRETED REQUEST: " if en else "PEDIDO INTERPRETADO: ") + rewrite)
         return "\n".join(parts)
 
-    parts = [template.format(museum_name=name)]
+    instructions = template.format(museum_name=name)
+    if all_cards:
+        # CHAT_ANSWER_ALL_CARDS: o texto fala de todos os cartões mostrados, não só de três
+        old, new = (_UP_TO_THREE_EN, _ALL_CARDS_EN) if en else (_UP_TO_THREE_PT, _ALL_CARDS_PT)
+        instructions = instructions.replace(old, new)
+    parts = [instructions]
     if national_treasures:
         parts.append(_NATIONAL_TREASURE_RULE_EN if en else _NATIONAL_TREASURE_RULE_PT)
     if modality in {"image", "model"}:
@@ -637,7 +662,11 @@ def build_final_answer_prompt_v2(
         parts.append(("Active filters: " if en else "Filtros ativos: ") + json.dumps(active_filters, ensure_ascii=False))
     if visual_answer_rule:
         # o pedido não vai no prompt: com ele à vista, a AMÁLIA dizia de cada peça o que o visitante pediu
-        parts.append(_VISUAL_ANSWER_RULE_EN if en else _VISUAL_ANSWER_RULE_PT)
+        rule = _VISUAL_ANSWER_RULE_EN if en else _VISUAL_ANSWER_RULE_PT
+        if all_cards:
+            old, new = (_VISUAL_UP_TO_THREE_EN, _VISUAL_ALL_CARDS_EN) if en else (_VISUAL_UP_TO_THREE_PT, _VISUAL_ALL_CARDS_PT)
+            rule = rule.replace(old, new)
+        parts.append(rule)
     else:
         parts.append(("QUESTION: " if en else "PERGUNTA: ") + (user_message or "").strip())
         cleaned_rewrite = (rewritten_query or "").strip()

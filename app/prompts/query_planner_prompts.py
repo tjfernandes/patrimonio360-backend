@@ -108,6 +108,35 @@ def build_implicit_artifact_prompt(*, entities: list[dict], open_piece: dict | N
     )
 
 
+def build_focused_author_prompt(*, message: str, title: str, author: str) -> str:
+    """Autor da peça em foco (CHAT_FOCUSED_ARTIFACT_AUTHOR): o visitante tem uma
+    peça à frente (a que o minichat mostra) e a mensagem não diz nome nenhum.
+    Pede as outras obras de quem a fez? Só a resposta A troca o pedido por
+    «obras de <autor da peça>».
+
+    Redação medida a 2026-11-19 com o Qwen3-VL-8B (tests/focused_author_cases.py,
+    50 mensagens × 3 peças × 3 execuções, scripts/medir_autor_da_peca.py): as 18
+    que pedem as obras do autor recebem A; das 16 perguntas sobre a peça, uma
+    recebe A («quem é o autor?»); dos 16 outros pedidos, um recebe A em duas das
+    três peças («Há obras de Gregório Lopes?»), e é a lista de autores que o
+    apanha no serviço (other_author_words). Com três respostas em vez de quatro,
+    sem a B, quatro dos outros pedidos recebiam A. Qualquer alteração repete a
+    medição.
+    """
+    piece = f"«{title}»" if (title or "").strip() else "uma peça"
+    return (
+        f"Mensagem de um visitante do museu:\n«{message}»\n\n"
+        f"O visitante tem à frente {piece}, de {author}. O que pede a mensagem?\n"
+        "A) as outras obras de quem fez esta peça, ou saber quem ele foi, sem dizer o nome "
+        "(«deste autor», «do mesmo autor», «dele», «o que mais fez?», «quem foi ele?»)\n"
+        "B) obras ou informação de um artista que a própria mensagem nomeia "
+        "(«obras de Zurbarán», «quem foi Josefa de Óbidos?»)\n"
+        "C) alguma coisa sobre esta peça (o que é, o que representa, quem a fez, de quando é, de que é feita, onde está)\n"
+        "D) peças parecidas com esta, peças que a mensagem descreve, uma sala, um percurso ou conversa\n"
+        'Responde só com JSON: {"resposta": "A", "B", "C" ou "D"}'
+    )
+
+
 def build_author_only_prompt(*, message: str, words: str) -> str:
     """Só peças do autor (CHAT_AUTHOR_ONLY_RESULTS): a mensagem diz o nome de um
     artista (`words`, já confirmado por build_author_name_prompt). O visitante

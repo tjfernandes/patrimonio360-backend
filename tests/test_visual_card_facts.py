@@ -10,7 +10,9 @@ import asyncio
 import json
 from types import SimpleNamespace
 
-from app.schemas.chat import ResponseFormatObject
+from app.core.config import Settings
+from app.prompts.chat_prompts import build_final_answer_prompt_v2
+from app.schemas.chat import ArtifactResult, ResponseFormatObject
 from app.services.chat_service import ChatService
 from app.services.llm_service import LLMResponse
 from app.services.retrieval.fusion import BranchProvenance, FusedResult
@@ -336,3 +338,92 @@ class TestVisualIntentFromModel(_Base):
         self.assertIsNone(outcome)
         outcome, pre = run("quadros barcos", "há quadros com barcos?", {"resposta": "A"}, flag=False)
         self.assertEqual((outcome, pre.prompts), (None, []))
+
+
+class TestAnswerAllCards(_Base):
+    """CHAT_ANSWER_ALL_CARDS: o texto fala de todos os cartões mostrados."""
+
+    def _prompt(self, **kwargs) -> str:
+        base = dict(museum_name="MNAA", intent="search", mode="rag", rolling_summary="", filters_state={},
+                    user_message="estátuas", rewritten_query="estátuas", retrieval_context="[doc_1] Título: X | Inventário: 1")
+        base.update(kwargs)
+        return build_final_answer_prompt_v2(**base)
+
+    def test_the_instruction_asks_for_every_card_only_with_the_flag(self) -> None:
+        self.assertFalse(Settings(_env_file=None).CHAT_ANSWER_ALL_CARDS)
+        for language, three, every in (("pt", "destaca até três peças pelo título", "fala de todas as peças dos cartões"),
+                                       ("en", "highlight up to three objects by title", "go through every object in the cards")):
+            with self.subTest(language=language):
+                self.assertIn(three, self._prompt(language=language))
+                self.assertNotIn(every, self._prompt(language=language))
+                for select_cards in (False, True):
+                    prompt = self._prompt(language=language, all_cards=True, select_cards=select_cards)
+                    self.assertIn(every, prompt)
+                    self.assertNotIn(three, prompt)
+
+    def test_the_look_question_asks_for_every_card_too(self) -> None:
+        for language, three, every in (("pt", "destaca até três pelo título", "fala de todas, uma a uma"),
+                                       ("en", "highlight up to three by title", "go through all of them, one by one")):
+            with self.subTest(language=language):
+                self.assertIn(three, self._prompt(language=language, visual_answer_rule=True))
+                prompt = self._prompt(language=language, visual_answer_rule=True, all_cards=True)
+                self.assertIn(every, prompt)
+                self.assertNotIn(three, prompt)
+
+    def test_cards_the_text_left_out_are_named_in_a_last_line(self) -> None:
+        service = self._service(self._settings(CHAT_ANSWER_ALL_CARDS=True))
+        cards = [ArtifactResult(artifact_id=d["artifact_id"], inventory_number=d["inventory_number"], title=d["title"])
+                 for d in TEXT_DOCS[:4]]                                    # Diana, Minerva, Gratidão, Fé
+        text = "Encontrei estátuas, com efeito. Destaco **Diana** e a peça 2 Esc."
+        self.assertEqual(service._mention_every_card(text, cards, language="pt"),
+                         text + "\n\nNos cartões estão também: **Gratidão** (3 Esc), **Fé** (4 Esc).")
+        self.assertEqual(service._mention_every_card(text, cards, language="en"),
+                         text + "\n\nThe cards also show: **Gratidão** (3 Esc), **Fé** (4 Esc).")
+        # um título curto conta quando é dito como palavra («Fé»), não dentro de outra («efeito»)
+        self.assertEqual(service._mention_every_card("1. **Diana** 2. **Minerva** 3. **Gratidão** 4. **Fé** – modelo em barro.", cards, language="pt"),
+                         "1. **Diana** 2. **Minerva** 3. **Gratidão** 4. **Fé** – modelo em barro.")
+        # tudo dito, um só cartão, texto vazio ou flag desligada: fica como está
+        full = "Diana, Minerva, Gratidão e a 4 Esc."
+        self.assertEqual(service._mention_every_card(full, cards, language="pt"), full)
+        self.assertEqual(service._mention_every_card(text, cards[2:3], language="pt"), text)
+        self.assertEqual(service._mention_every_card("", cards, language="pt"), "")
+        off = self._service(self._settings())
+        self.assertEqual(off._mention_every_card(text, cards, language="pt"), text)
+
+    def test_cards_with_the_same_title_count_by_how_often_it_is_said(self) -> None:
+        service = self._service(self._settings(CHAT_ANSWER_ALL_CARDS=True))
+        cards = [ArtifactResult(artifact_id=f"j{n}", inventory_number=f"{n} Pint", title="São Jerónimo") for n in (1, 2, 3)]
+        cards.append(ArtifactResult(artifact_id="x", inventory_number="584 Esc", title=None))
+        once = service._mention_every_card("O São Jerónimo é de Dürer.", cards, language="pt")
+        self.assertTrue(once.endswith("Nos cartões estão também: **São Jerónimo** (2 Pint), **São Jerónimo** (3 Pint), a peça 584 Esc."))
+        named = "São Jerónimo (1 Pint), São Jerónimo (2 Pint), São Jerónimo (3 Pint) e a peça 584 Esc."
+        self.assertEqual(service._mention_every_card(named, cards, language="pt"), named)
+
+    def test_the_search_answer_ends_with_the_cards_it_left_out(self) -> None:
+        llm = _FinalLLM("Encontrei duas estátuas: **Diana** e **Minerva**.")
+        pre = _TwoLLM({"cartoes": ["doc_1", "doc_2", "doc_3"]})
+        settings = self._settings(
+            CHAT_MODEL_SELECTS_CARDS=True, CHAT_PRESELECT_CARDS=True, CHAT_COMPACT_ANSWER_CONTEXT=True,
+            CHAT_ROUTER_MODE="deterministic", CHAT_STREAM_FINAL_ANSWER=False, CHAT_RETRIEVAL_RESULTS_PAGE_SIZE=4,
+            CHAT_ANSWER_ALL_CARDS=True,
+        )
+        service = self._service(settings, llm=llm)
+        service.preprocess_llm_service = pre
+        service.opensearch_gateway = _CaptionGateway()
+
+        async def _retrieve_context(**_kwargs):
+            return "ctx", 6, [dict(d) for d in TEXT_DOCS], {"kind": "text", "results_total": 6, "filters": {}, "sort": {}}
+
+        service._retrieve_context = _retrieve_context
+        request = self._request("encontra estatuas", museum_slug="mnaa", museum_id="mnaa", museum_name="Museu Nacional de Arte Antiga")
+        response = asyncio.run(service.handle_message(request))
+        self.assertEqual([a.artifact_id for a in response.artifact_results], ["d1", "d2", "d3"])
+        self.assertIn("fala de todas as peças dos cartões", llm.prompts[0])
+        self.assertEqual(response.reply, "Encontrei duas estátuas: **Diana** e **Minerva**.\n\nNos cartões estão também: **Gratidão** (3 Esc).")
+
+
+if __name__ == "__main__":
+    import unittest
+
+    unittest.main()
+
