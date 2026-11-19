@@ -87,10 +87,13 @@ async def _no_reply(**_kwargs):
     return None
 
 
-class TestAuthorOnlyResults(_Base):
+class _WithStoredSearch(_Base):
+    """Um serviço cuja resposta fica guardada com o pedido de pesquisa, como no chat."""
+
     def _service_with(self, preprocess: _Preprocess, first_page: list[dict], *, catalogue=CATALOGO, flag: bool = True,
-                      request: dict | None = REQUEST, fail_search: bool = False):
-        service = self._service(self._settings(CHAT_AUTHOR_CARD=True, CHAT_AUTHOR_ONLY_RESULTS=flag, CHAT_RETRIEVAL_RESULTS_PAGE_SIZE=8))
+                      request: dict | None = REQUEST, fail_search: bool = False, follow_up: bool = False):
+        service = self._service(self._settings(CHAT_AUTHOR_CARD=True, CHAT_AUTHOR_ONLY_RESULTS=flag, CHAT_RETRIEVAL_RESULTS_PAGE_SIZE=8,
+                                               CHAT_AUTHOR_CARD_FOLLOW_UP=follow_up))
         service._preprocess_llm_service = preprocess
         service.opensearch_gateway = _SearchGateway(catalogue, fail_search=fail_search)
         service._generate_results_page_reply = _no_reply
@@ -130,6 +133,9 @@ class TestAuthorOnlyResults(_Base):
     def _stored_request(self, service, response) -> dict:
         return service.session_store.get("c1").paged_results_by_request_id[response.results_request_id]["retrieval_request"]
 
+
+
+class TestAuthorOnlyResults(_WithStoredSearch):
     def test_off_by_default_the_cards_stay(self) -> None:
         self.assertFalse(Settings(_env_file=None).CHAT_AUTHOR_ONLY_RESULTS)
         preprocess = _Preprocess("A")
@@ -283,3 +289,66 @@ class TestAuthorOnlyResults(_Base):
         self.assertIn("«Há esculturas de Machado de Castro?»", prompt)
         self.assertEqual(prompt.count("«Machado de Castro»"), 5)
         self.assertIn('{"resposta": "A", "B", "C" ou "D"}', prompt)
+
+
+FOLLOW_UP = "Que mais obras existem deste autor?"
+RESOLVED = {**REQUEST, "resolved_query": "obras do Gregório Lopes", "resolved_query_source": "request_reading"}
+
+
+class TestAuthorCardOnFollowUp(_WithStoredSearch):
+    """CHAT_AUTHOR_CARD_FOLLOW_UP: o seguimento não diz o nome; o pedido resolvido diz."""
+
+    def test_off_by_default_a_follow_up_has_no_card(self) -> None:
+        self.assertFalse(Settings(_env_file=None).CHAT_AUTHOR_CARD_FOLLOW_UP)
+        preprocess = _Preprocess("A")
+        response = self._ask(self._service_with(preprocess, CATALOGO[:8], request=RESOLVED), FOLLOW_UP)
+        self.assertIsNone(response.author)
+        self.assertEqual(preprocess.prompts, [])
+
+    def test_the_author_of_the_resolved_request_gets_the_card_and_only_his_pieces(self) -> None:
+        preprocess = _Preprocess("A")
+        service = self._service_with(preprocess, CATALOGO[:8], request=RESOLVED, follow_up=True)
+        response = self._ask(service, FOLLOW_UP)
+        self.assertEqual(response.author.name, "Gregório Lopes")
+        self.assertEqual([card.artifact_id for card in response.artifact_results], ["l1", "l2", "l3", "l4", "l5", "l6", "l7", "l8"])
+        self.assertEqual(response.results_total, 19)
+        # as duas perguntas ao modelo levam o pedido resolvido, não «deste autor»
+        self.assertEqual(len(preprocess.prompts), 2)
+        for prompt in preprocess.prompts:
+            self.assertIn("«obras do Gregório Lopes»", prompt)
+            self.assertIn("Gregório Lopes", prompt)
+            self.assertNotIn("deste autor", prompt)
+
+    def test_a_message_that_names_an_author_never_uses_the_resolved_request(self) -> None:
+        preprocess = _Preprocess("A")
+        request = {**REQUEST, "resolved_query": "obras de Eça de Queirós"}
+        service = self._service_with(preprocess, CATALOGO[:8], request=request, follow_up=True)
+        response = self._ask(service)   # «Mostra-me obras de Gregório Lopes.»
+        self.assertEqual(response.author.name, "Gregório Lopes")
+        self.assertIn("«Mostra-me obras de Gregório Lopes.»", preprocess.prompts[0])
+
+    def test_no_card_when_the_resolved_request_names_no_author_either(self) -> None:
+        cases = (
+            {**REQUEST, "resolved_query": "Quem pintou as Tentações?"},   # sem nome de autor das peças
+            {**REQUEST, "resolved_query": FOLLOW_UP},                      # igual à mensagem
+            {**REQUEST, "resolved_query": ""},
+            None,                                                         # resposta sem pesquisa guardada
+        )
+        for request in cases:
+            with self.subTest(resolved=(request or {}).get("resolved_query")):
+                preprocess = _Preprocess("A")
+                response = self._ask(self._service_with(preprocess, CATALOGO[:8], request=request, follow_up=True), FOLLOW_UP)
+                self.assertIsNone(response.author)
+                self.assertEqual(preprocess.prompts, [])
+
+    def test_the_model_can_still_say_it_is_not_an_artist(self) -> None:
+        class _NotAnArtist(_Preprocess):
+            async def generate(self, *, message, **_kwargs):
+                self.prompts.append(message)
+                return SimpleNamespace(parsed_json={"resposta": "B"})
+
+        preprocess = _NotAnArtist()
+        response = self._ask(self._service_with(preprocess, CATALOGO[:8], request=RESOLVED, follow_up=True), FOLLOW_UP)
+        self.assertIsNone(response.author)
+        self.assertEqual(len(preprocess.prompts), 1)
+

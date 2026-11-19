@@ -175,6 +175,11 @@ class Settings(BaseSettings):
     # artista (uma pergunta curta, medida em tests/author_card_cases.py). O
     # texto e os cartões não mudam.
     CHAT_AUTHOR_CARD: bool = False
+    # A ficha do autor também num seguimento que não diz o nome («Que mais obras
+    # existem deste autor?», depois de se falar de uma peça dele). O nome
+    # procura-se então no pedido que a leitura do seguimento resolveu («obras do
+    # Machado de Castro»), e só quando a mensagem não tem nome nenhum.
+    CHAT_AUTHOR_CARD_FOLLOW_UP: bool = False
     # Retrato do autor na ficha (image_url e créditos), lido de AUTHOR_PORTRAITS_PATH.
     # Os retratos vêm da Wikidata/Wikimedia Commons (docs/retratos-dos-autores.md).
     CHAT_AUTHOR_PORTRAITS: bool = False

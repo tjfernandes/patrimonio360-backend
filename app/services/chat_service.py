@@ -61,6 +61,7 @@ from app.services.author_cards import (
     AuthorGroup,
     author_candidates,
     build_author_directory,
+    fold,
     life_year,
     merged_author_fields,
     words_in_message,
@@ -3157,7 +3158,10 @@ class ChatService:
             return response
         try:
             return await asyncio.wait_for(
-                self._author_only_results(payload, response, words=str(details.get("words") or "")), timeout=8.0
+                self._author_only_results(
+                    payload, response, words=str(details.get("words") or ""), message=details.get("message")
+                ),
+                timeout=8.0,
             )
         except Exception as exc:  # noqa: BLE001
             log_event(logger, logging.WARNING, "chat.author_only.error", error=exc)
@@ -3176,6 +3180,15 @@ class ChatService:
             rows = await self.opensearch_gateway.aggregate_creators(museum_slug=museum_slug, museum_id=museum_id)
             entry = cache[key] = (time.monotonic(), build_author_directory(rows))
         return entry[1]
+
+    def _resolved_request_of(self, response: ChatMessageResponse) -> str:
+        """O pedido que a pesquisa desta resposta fez, com as referências já
+        resolvidas («deste autor» → o nome); vazio quando não houve pesquisa."""
+        request_id = str(response.results_request_id or "").strip()
+        state = self.session_store.get(response.conversation_id) if request_id else None
+        snapshots = getattr(state, "paged_results_by_request_id", None) if state is not None else None
+        request = ((snapshots or {}).get(request_id) or {}).get("retrieval_request") if isinstance(snapshots, dict) else None
+        return str(request.get("resolved_query") or "").strip() if isinstance(request, dict) else ""
 
     async def _author_card_for_response(
         self, payload: ChatMessageRequest, response: ChatMessageResponse, *, details: dict[str, Any] | None = None
@@ -3204,6 +3217,15 @@ class ChatService:
         shown_ids = {author_id for card in response.artifact_results for author_id in (card.creator_ids or [])}
         shown = [group for group in directory.groups if shown_ids.intersection(group.ids)]
         candidates = author_candidates(message, directory, among=shown, limit=1)
+        if not candidates and bool(getattr(self.settings, "CHAT_AUTHOR_CARD_FOLLOW_UP", False)):
+            # «Que mais obras existem deste autor?»: o nome não está na mensagem,
+            # está no pedido que a leitura do seguimento resolveu («obras do
+            # Machado de Castro»). Só quando a mensagem não diz nome nenhum.
+            resolved = self._resolved_request_of(response)
+            if resolved and fold(resolved) != fold(message):
+                candidates = author_candidates(resolved, directory, among=shown, limit=1)
+                if candidates:
+                    message = resolved
         if not candidates:
             return None
         group = candidates[0]
@@ -3232,6 +3254,7 @@ class ChatService:
             return None
         if details is not None:
             details["words"] = words  # as palavras do visitante, para CHAT_AUTHOR_ONLY_RESULTS
+            details["message"] = message  # a mensagem, ou o pedido resolvido de um seguimento
         try:
             docs = await self.opensearch_gateway.fetch_authors_by_ids(author_ids=list(group.ids))
         except Exception as exc:  # noqa: BLE001
@@ -3344,7 +3367,7 @@ class ChatService:
         return rest[skip: skip + page_size], (len(rest) > skip + page_size if fetched_all else None)
 
     async def _author_only_results(
-        self, payload: ChatMessageRequest, response: ChatMessageResponse, *, words: str
+        self, payload: ChatMessageRequest, response: ChatMessageResponse, *, words: str, message: str | None = None
     ) -> ChatMessageResponse:
         """Com a ficha do autor na resposta: se o visitante quer as obras desse
         autor, os cartões passam a ser só de peças dele.
@@ -3362,7 +3385,8 @@ class ChatService:
         state = self.session_store.get(response.conversation_id) if request_id else None
         snapshots = getattr(state, "paged_results_by_request_id", None) if state is not None else None
         request = ((snapshots or {}).get(request_id) or {}).get("retrieval_request") if isinstance(snapshots, dict) else None
-        message = (payload.message or "").strip()
+        # num seguimento, o pedido resolvido em que a ficha do autor encontrou o nome
+        message = (message or payload.message or "").strip()
         # «multimodal_text» é a pesquisa de texto junta com a das legendas das imagens: o pedido guardado
         # tem os mesmos campos, mas as páginas seguintes saem de uma lista fixa.
         kind = str(request.get("kind") or "") if isinstance(request, dict) else ""
