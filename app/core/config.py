@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     # o visitante fala (ordinal, n.º de inventário ou nome de um cartão visível; senão o
     # hotspot aberto ou o primeiro resultado) quando não traz assunto próprio.
     CHAT_IMPLICIT_ARTIFACT_CONTEXT: bool = False
+    # Com a anterior: quando a mensagem diz o nome de uma peça do ecrã, quem diz qual é passa a
+    # ser o modelo de pré-processamento, com a lista das peças mostradas (os cartões e as outras
+    # peças dos conjuntos deles). A posição («o segundo») e o n.º de inventário continuam a ser
+    # procuras exatas, e as regras de hoje ficam como rede quando o modelo não aponta nenhuma.
+    # Medido em tests/implicit_artifact_cases.py (docs/peca-implicita-pelo-modelo.md).
+    CHAT_IMPLICIT_ARTIFACT_MODEL: bool = False
     # Com o anterior: a frase é redigida pelo LLM a partir dos factos da
     # visita (sala e peças fixas; cartões trancados); template se falhar.
     CHAT_TOUR_CONTEXT_LLM_WORDING: bool = False
