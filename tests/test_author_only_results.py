@@ -181,6 +181,26 @@ class TestAuthorOnlyResults(_Base):
         self.assertEqual([card.artifact_id for card in first.artifact_results], [card.artifact_id for card in response.artifact_results])
         self.assertTrue(first.results_has_more)
 
+    def test_a_search_fused_with_the_captions_is_restricted_too(self) -> None:
+        # a pesquisa junta com as legendas guarda uma lista fixa (aqui, as 30 fichas, de vários autores)
+        service = self._service_with(_Preprocess("A"), CATALOGO[:8], request={**REQUEST, "kind": "multimodal_text", "results_total": 44})
+        response = self._ask(service)
+        self.assertEqual([card.artifact_id for card in response.artifact_results], [f"l{n}" for n in range(1, 9)])
+        self.assertEqual((response.results_total, response.results_has_more), (19, True))
+        stored = self._stored_request(service, response)
+        self.assertEqual((stored["kind"], stored["filters"]["creator_ids"]), ("text", ["a:lopes"]))
+        second = self._page(service, response, 2)
+        self.assertEqual([card.artifact_id for card in second.artifact_results], [f"l{n}" for n in range(9, 17)])
+        third = self._page(service, response, 3)
+        self.assertEqual(([card.artifact_id for card in third.artifact_results], third.results_has_more), (["l17", "l18", "l19"], False))
+
+    def test_a_fused_search_the_visitor_did_not_restrict_keeps_its_list(self) -> None:
+        service = self._service_with(_Preprocess("B"), CATALOGO[:8], request={**REQUEST, "kind": "multimodal_text", "results_total": 44})
+        response = self._ask(service)
+        self.assertEqual(len(response.artifact_results), 8)
+        self.assertEqual(self._stored_request(service, response)["kind"], "multimodal_text")
+        self.assertEqual(service.opensearch_gateway.search_calls, [])
+
     def test_cards_chosen_out_of_order_do_not_come_back(self) -> None:
         # a primeira página trazia peças dele que a pesquisa só daria mais à frente (l12 e l15)
         service = self._service_with(_Preprocess("A"), [LOPES[11], OUTROS[0], LOPES[14], LOPES[0]])
