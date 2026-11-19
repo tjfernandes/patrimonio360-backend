@@ -10,6 +10,12 @@ Qualquer alteração ao prompt repete a medição.
 COM_AUTOR: a mensagem diz o nome de um autor do museu; a ficha tem de ser a dele (as
 palavras da terceira coluna têm de estar no nome). SEM_AUTOR: não pode haver ficha.
 Às mensagens abaixo juntam-se as 115 da checklist do MNAA.
+
+Só peças do autor (CHAT_AUTHOR_ONLY_RESULTS): com a ficha na resposta, pergunta-se ao
+modelo se o visitante quer só as obras desse autor (build_author_only_prompt). As
+mensagens de COM_AUTOR têm de receber «A»; as de NAO_SO_DO_AUTOR dizem o nome de um autor
+do museu mas pedem também, ou só, peças de outros, e não podem receber «A». Resultado de
+2026-11-19 em docs/so-pecas-do-autor.md.
 """
 
 # (museu, mensagem, palavras do nome do autor esperado)
@@ -163,4 +169,39 @@ SEM_AUTOR = [
     ('cmag', 'O que é a Casa Malhoa?'),
     ('mj', 'Quem está sepultado no mosteiro?'),
     ('mj', 'Onde está o túmulo de Vasco da Gama?'),
+]
+
+# (museu, mensagem): diz o nome de um autor do museu, mas o visitante não quer só as peças dele
+NAO_SO_DO_AUTOR = [
+    ('mnaa', 'Mostra-me obras de Gregório Lopes e de Garcia Fernandes'),
+    ('mnaa', 'Compara o Bosch com o Dürer'),
+    ('mnaa', 'Que pintores são da mesma época de Gregório Lopes?'),
+    ('mnaa', 'Há obras parecidas com as de Zurbarán?'),
+    ('mnaa', 'Além do Nuno Gonçalves, que outros pintores do século XV há?'),
+    ('mnaa', 'Pinturas flamengas como as do Bosch'),
+    ('mnaa', 'Outros escultores além de Machado de Castro'),
+    ('mnaa', 'Que pinturas há sem ser as da Josefa de Óbidos?'),
+    ('mnaa', 'Mostra-me pintores contemporâneos do Vieira Lusitano'),
+    ('mnaa', 'Retratos pintados por outros artistas que não o Sequeira'),
+    ('mnaa', 'obras de Cranach e de Holbein'),
+    ('mnaa', 'Tiepolo e outros pintores italianos'),
+    ('mnaa', 'What other painters are like Bosch?'),
+    ('mnaa', 'Quem mais pintou santos como o Zurbarán?'),
+    ('mnaa', 'pintura portuguesa do tempo de Domingos Sequeira'),
+    ('mnsr', 'Obras de Henrique Pousão e de Marques de Oliveira'),
+    ('mnsr', 'Escultores da geração de Soares dos Reis'),
+    ('mnsr', 'Pintores parecidos com Silva Porto'),
+    ('mnsr', 'Além de Soares dos Reis, que escultores há?'),
+    ('mnsr', 'Paisagens de outros pintores, sem ser do Pousão'),
+    ('mnsr', 'Aurélia de Sousa e outras pintoras'),
+    ('mnaz', 'Azulejos de Maria Keil e de Querubim Lapa'),
+    ('mnaz', 'Outros artistas como a Maria Keil'),
+    ('mnaz', 'Azulejos modernos sem ser da Maria Keil'),
+    ('mnaz', 'Painéis do tempo de Gabriel del Barco, de outros pintores'),
+    ('mnt', 'Vestidos da Ana Salazar e do José António Tenente'),
+    ('mnt', 'Estilistas parecidos com a Fátima Lopes'),
+    ('mnt', 'Outros criadores além da Ana Salazar'),
+    ('cmag', 'Pinturas de Silva Porto e de José Malhoa'),
+    ('cmag', 'Pintores naturalistas como o Silva Porto'),
+    ('cmag', 'Quadros de outros pintores que não o Columbano'),
 ]

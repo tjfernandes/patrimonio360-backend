@@ -63,6 +63,31 @@ def build_author_name_prompt(*, message: str, words: str) -> str:
     )
 
 
+def build_author_only_prompt(*, message: str, words: str) -> str:
+    """Só peças do autor (CHAT_AUTHOR_ONLY_RESULTS): a mensagem diz o nome de um
+    artista (`words`, já confirmado por build_author_name_prompt). O visitante
+    quer só as obras dele? Só a resposta A restringe os cartões ao autor.
+
+    Redação medida a 2026-11-19 (tests/author_card_cases.py, seis museus): as 74
+    mensagens que pedem um autor recebem A; das 31 que dizem o nome de um autor
+    mas querem também outros («obras de Cranach e de Holbein», «pintores
+    parecidos com Silva Porto», «sem ser as da Josefa de Óbidos»), 2 recebem A.
+    Outras redações deram pior: «Que obras quer o visitante?» e «O visitante
+    quer ver só obras de X?» deixavam passar 13 e 16 das 31; sem o texto entre
+    parênteses na resposta A, 3 «Quem foi X?» em 74 recebiam B. Qualquer
+    alteração repete a medição (docs/ficha-do-autor.md).
+    """
+    return (
+        f"Mensagem de um visitante do museu:\n«{message}»\n\n"
+        f"«{words}» é o nome de um artista. Para responder a esta mensagem, que peças do museu se devem mostrar?\n"
+        f"A) só peças feitas por «{words}» (o visitante quer as obras dele ou saber quem foi)\n"
+        f"B) peças de «{words}» e de outro artista que a mensagem também nomeia\n"
+        f"C) peças de artistas parecidos com «{words}», do mesmo tempo ou do mesmo género\n"
+        f"D) peças de outros artistas, e não de «{words}»\n"
+        'Responde só com JSON: {"resposta": "A", "B", "C" ou "D"}'
+    )
+
+
 def build_listing_request_prompt(*, message: str) -> str:
     """O visitante pede uma lista do que existe no museu? (CHAT_CATALOGUE_LISTINGS)
 

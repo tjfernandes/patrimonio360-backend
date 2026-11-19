@@ -66,6 +66,7 @@ from app.services.author_cards import (
 )
 from app.prompts.query_planner_prompts import (
     build_author_name_prompt,
+    build_author_only_prompt,
     FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
     RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
     build_follow_up_resolution_prompt,
@@ -1933,6 +1934,12 @@ class ChatService:
         collapse = self._collapse_enabled()
         fetch_from = 0 if collapse else from_offset
         fetch_size = self._collapse_fetch_size(from_offset + page_size) if collapse else page_size
+        # CHAT_AUTHOR_ONLY_RESULTS: a primeira página foi escolhida com a resposta
+        # (não é a primeira fatia da pesquisa), por isso pede-se desde o início.
+        author_shown = [str(value) for value in (request.get("author_only_shown_ids") or []) if str(value)]
+        if author_shown:
+            fetch_from = 0
+            fetch_size = self._collapse_fetch_size(len(author_shown) + max(page - 1, 1) * page_size)
         window = self._retrieval_window_from_request(request)
         page_result = await self.opensearch_gateway.search_relevant_context_page(
             museum_slug=request_museum_slug,
@@ -1947,55 +1954,23 @@ class ChatService:
             retrieval_window_size=max(window, fetch_size) if window is not None else None,
         )
         docs = list(page_result.results)
-        if collapse:
+        author_has_more: bool | None = None
+        if author_shown:
+            docs, author_has_more = self._author_only_page_docs(
+                docs=docs, shown_ids=author_shown, page=page, page_size=page_size, total=page_result.total
+            )
+        elif collapse:
             docs = self._collapse_identical_set_members(docs)[from_offset: from_offset + page_size]
         # CHAT_PRESELECT_CARDS_CANDIDATES: fichas que a primeira página já mostrou,
         # escolhidas para lá do seu fim
         already_shown = {str(value) for value in (request.get("preselected_beyond_page_ids") or [])}
         if already_shown:
             docs = [doc for doc in docs if str(doc.get("artifact_id") or "").strip() not in already_shown]
-        image_matches: list[ImageMatchResult] = []
-        image_hits: list[dict[str, Any]] = []
-        artifact_ids = [
-            str(doc.get("artifact_id") or "").strip()
-            for doc in docs
-            if str(doc.get("artifact_id") or "").strip()
-        ]
-        if artifact_ids:
-            try:
-                image_hits = await self.opensearch_gateway.fetch_images_by_artifact_ids(
-                    museum_slug=request_museum_slug,
-                    museum_id=request_museum_id,
-                    artifact_ids=artifact_ids,
-                    per_artifact=1,
-                    max_total=max(len(artifact_ids), 1),
-                )
-            except Exception as exc:
-                image_hits = []
-            image_matches = self._build_image_matches(
-                image_hits=image_hits,
-                artifact_docs=docs,
-            )
-        navigation_targets = self._resolve_navigation_targets(
+        artifact_results, image_matches, navigation_targets = await self._cards_for_docs(
             museum_slug=request_museum_slug,
             museum_id=request_museum_id,
             docs=docs,
-        )
-        # Build the full artifact records (all images) so the detail modal matches
-        # the image/model search behaviour. The 1-image `image_hits` above only feed
-        # the result-card thumbnails, not the modal gallery.
-        artifact_results = await self._build_artifact_results(
-            museum_slug=request_museum_slug,
-            museum_id=request_museum_id,
-            artifact_docs=docs,
-        )
-        image_matches = self._enrich_image_matches(
-            context="text_page",
             conversation_id=payload.conversation_id,
-            museum_slug=request_museum_slug,
-            image_matches=image_matches,
-            artifact_results=artifact_results,
-            navigation_targets=navigation_targets,
         )
         reported_total = self._reported_results_total(request, page_result.total)
         reply = await self._generate_results_page_reply(
@@ -2024,7 +1999,9 @@ class ChatService:
             results_page=page,
             results_page_size=page_size,
             results_total=reported_total,
-            results_has_more=(from_offset + page_size) < reported_total,
+            results_has_more=(
+                author_has_more if author_has_more is not None else (from_offset + page_size) < reported_total
+            ),
             results_request_id=results_request_id,
             search_scope=search_scope,
         )
@@ -3036,12 +3013,26 @@ class ChatService:
         response = await self._handle_message_routed(payload, status_cb=status_cb)
         if not bool(getattr(self.settings, "CHAT_AUTHOR_CARD", False)):
             return response
+        details: dict[str, Any] = {}
         try:
-            author = await asyncio.wait_for(self._author_card_for_response(payload, response), timeout=6.0)
+            author = await asyncio.wait_for(
+                self._author_card_for_response(payload, response, details=details), timeout=6.0
+            )
         except Exception as exc:  # noqa: BLE001
             log_event(logger, logging.WARNING, "chat.author_card.error", error=exc)
             return response
-        return response.model_copy(update={"author": author}) if author is not None else response
+        if author is None:
+            return response
+        response = response.model_copy(update={"author": author})
+        if not bool(getattr(self.settings, "CHAT_AUTHOR_ONLY_RESULTS", False)):
+            return response
+        try:
+            return await asyncio.wait_for(
+                self._author_only_results(payload, response, words=str(details.get("words") or "")), timeout=8.0
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.author_only.error", error=exc)
+            return response
 
     # ----- Ficha do autor (CHAT_AUTHOR_CARD) ----- #
 
@@ -3058,7 +3049,7 @@ class ChatService:
         return entry[1]
 
     async def _author_card_for_response(
-        self, payload: ChatMessageRequest, response: ChatMessageResponse
+        self, payload: ChatMessageRequest, response: ChatMessageResponse, *, details: dict[str, Any] | None = None
     ) -> ChatAuthorCard | None:
         """A ficha do autor de quem a mensagem fala, ou None.
 
@@ -3110,6 +3101,8 @@ class ChatService:
         )
         if answer != "A":
             return None
+        if details is not None:
+            details["words"] = words  # as palavras do visitante, para CHAT_AUTHOR_ONLY_RESULTS
         try:
             docs = await self.opensearch_gateway.fetch_authors_by_ids(author_ids=list(group.ids))
         except Exception as exc:  # noqa: BLE001
@@ -3139,6 +3132,218 @@ class ChatService:
             artifact_count=group.count,
             in_tour_count=in_tour_count,
         )
+
+    # ----- Só peças do autor (CHAT_AUTHOR_ONLY_RESULTS) ----- #
+
+    @staticmethod
+    def _card_artifact_ids(item: Any) -> set[str]:
+        """Os ids de um cartão ou de uma ficha: o seu e, com fichas iguais juntas, os de todas."""
+        read = item.get if isinstance(item, dict) else (lambda key: getattr(item, key, None))
+        ids = {str(read("artifact_id") or "").strip()}
+        ids.update(str(value or "").strip() for value in (read("group_artifact_ids") or []))
+        ids.discard("")
+        return ids
+
+    async def _cards_for_docs(
+        self, *, museum_slug: str, museum_id: str | None, docs: list[dict[str, Any]], conversation_id: str
+    ) -> tuple[list[ArtifactResult], list[ImageMatchResult], list[TourNavigationTarget]]:
+        """Os cartões, as miniaturas e os alvos de navegação destas fichas, como
+        numa página de resultados de texto."""
+        image_matches: list[ImageMatchResult] = []
+        image_hits: list[dict[str, Any]] = []
+        artifact_ids = [
+            str(doc.get("artifact_id") or "").strip()
+            for doc in docs
+            if str(doc.get("artifact_id") or "").strip()
+        ]
+        if artifact_ids:
+            try:
+                image_hits = await self.opensearch_gateway.fetch_images_by_artifact_ids(
+                    museum_slug=museum_slug,
+                    museum_id=museum_id,
+                    artifact_ids=artifact_ids,
+                    per_artifact=1,
+                    max_total=max(len(artifact_ids), 1),
+                )
+            except Exception:  # noqa: BLE001
+                image_hits = []
+            image_matches = self._build_image_matches(
+                image_hits=image_hits,
+                artifact_docs=docs,
+            )
+        navigation_targets = self._resolve_navigation_targets(
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            docs=docs,
+        )
+        # Build the full artifact records (all images) so the detail modal matches
+        # the image/model search behaviour. The 1-image `image_hits` above only feed
+        # the result-card thumbnails, not the modal gallery.
+        artifact_results = await self._build_artifact_results(
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            artifact_docs=docs,
+        )
+        image_matches = self._enrich_image_matches(
+            context="text_page",
+            conversation_id=conversation_id,
+            museum_slug=museum_slug,
+            image_matches=image_matches,
+            artifact_results=artifact_results,
+            navigation_targets=navigation_targets,
+        )
+        return artifact_results, image_matches, navigation_targets
+
+    def _author_only_page_docs(
+        self, *, docs: list[dict[str, Any]], shown_ids: list[str], page: int, page_size: int, total: int
+    ) -> tuple[list[dict[str, Any]], bool | None]:
+        """As fichas da página pedida de uma pesquisa restrita ao autor
+        (`docs` vem desde o início). A primeira página foi mostrada com a
+        resposta (`shown_ids`); a página N ≥ 2 é a fatia N-1 do que sobra.
+        Devolve também se há mais, quando se sabe (a pesquisa trouxe tudo)."""
+        fetched_all = len(docs) >= max(int(total), 0)
+        docs = self._collapse_identical_set_members(docs)
+        shown = set(shown_ids)
+        if page <= 1:
+            position = {artifact_id: index for index, artifact_id in enumerate(shown_ids)}
+            first = [doc for doc in docs if self._card_artifact_ids(doc) & shown]
+            first.sort(key=lambda doc: min(position[i] for i in self._card_artifact_ids(doc) & shown))
+            rest_count = len(docs) - len(first)
+            return first, (rest_count > 0 if fetched_all else None)
+        rest = [doc for doc in docs if not self._card_artifact_ids(doc) & shown]
+        skip = (page - 2) * page_size
+        return rest[skip: skip + page_size], (len(rest) > skip + page_size if fetched_all else None)
+
+    async def _author_only_results(
+        self, payload: ChatMessageRequest, response: ChatMessageResponse, *, words: str
+    ) -> ChatMessageResponse:
+        """Com a ficha do autor na resposta: se o visitante quer as obras desse
+        autor, os cartões passam a ser só de peças dele.
+
+        Quem decide é o modelo de pré-processamento (build_author_only_prompt):
+        «obras de Cranach e de Holbein» ou «pintores parecidos com Silva Porto»
+        dizem o nome de um autor e não são só dele. Com a resposta A, a pesquisa
+        que a resposta fez repete-se com o filtro dos ids do autor: saem os
+        cartões de outros autores, os lugares deles são para mais peças dele, e o
+        pedido guardado para «ver mais resultados» fica com o mesmo filtro. O
+        texto da resposta não muda. Qualquer falha deixa a resposta como estava."""
+        author = response.author
+        author_ids = [str(value).strip() for value in (author.entity_ids if author is not None else []) if str(value).strip()]
+        request_id = str(response.results_request_id or "").strip()
+        state = self.session_store.get(response.conversation_id) if request_id else None
+        snapshots = getattr(state, "paged_results_by_request_id", None) if state is not None else None
+        request = ((snapshots or {}).get(request_id) or {}).get("retrieval_request") if isinstance(snapshots, dict) else None
+        message = (payload.message or "").strip()
+        if not author_ids or not words or not message or not isinstance(request, dict) or str(request.get("kind") or "") != "text":
+            return response
+        wanted = set(author_ids)
+        kept = [card for card in response.artifact_results if wanted.intersection(card.creator_ids or [])]
+        if not kept:
+            return response
+        try:
+            llm_response = await self.preprocess_llm_service.generate(
+                message=build_author_only_prompt(message=message, words=words),
+                response_format=ResponseFormatObject(type="json_object"),
+                system_prompt=None,
+                model_override=None,
+                max_tokens=60,
+            )
+            data = llm_response.parsed_json
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.author_only.llm_error", error=exc)
+            return response
+        answer = str(data.get("resposta") or "").strip().upper()[:1] if isinstance(data, dict) else ""
+        log_event(
+            logger, logging.INFO, "chat.author_only.decision",
+            conversation_id=response.conversation_id, query_id=response.query_id,
+            author=author.name, words=words, answer=answer,
+        )
+        if answer != "A":
+            return response
+
+        page_size = max(int(response.results_page_size or 0), 0) or self._text_results_default_page_size()
+        shown_ids: list[str] = []
+        for card in kept:
+            for artifact_id in [card.artifact_id, *card.group_artifact_ids]:
+                if artifact_id and artifact_id not in shown_ids:
+                    shown_ids.append(artifact_id)
+        museum_slug = self._request_museum_slug(payload, request)
+        museum_id = self._request_museum_id(payload, request)
+        filters = {**dict(request.get("filters") or {}), "creator_ids": author_ids}
+        fetch_size = self._collapse_fetch_size(len(shown_ids) + page_size)
+        window = self._retrieval_window_from_request(request)
+        page_result = await self.opensearch_gateway.search_relevant_context_page(
+            museum_slug=museum_slug,
+            museum_id=museum_id,
+            query_text=str(request.get("query_text") or ""),
+            lexical_query=str(request.get("lexical_query") or "") or None,
+            query_embedding=list(request.get("query_embedding") or []),
+            from_offset=0,
+            page_size=fetch_size,
+            filters=filters,
+            sort=dict(request.get("sort") or {}),
+            retrieval_window_size=max(window, fetch_size) if window is not None else None,
+        )
+        fetched = list(page_result.results)
+        fetched_all = len(fetched) >= max(int(page_result.total), 0)
+        shown = set(shown_ids)
+        rest = [doc for doc in self._collapse_identical_set_members(fetched) if not self._card_artifact_ids(doc) & shown]
+        # repõem-se os cartões que saíram; uma página que o modelo deixou mais curta fica como ele a escolheu
+        fill_docs = rest[: max(min(len(response.artifact_results), page_size) - len(kept), 0)]
+        fill_cards: list[ArtifactResult] = []
+        fill_images: list[ImageMatchResult] = []
+        fill_targets: list[TourNavigationTarget] = []
+        if fill_docs:
+            fill_cards, fill_images, fill_targets = await self._cards_for_docs(
+                museum_slug=museum_slug, museum_id=museum_id, docs=fill_docs, conversation_id=response.conversation_id
+            )
+        kept_inventories = {
+            str(value or "").strip().casefold()
+            for card in kept
+            for value in [card.inventory_number, *card.group_inventory_numbers]
+        } - {""}
+        cards = [*kept, *fill_cards]
+        images = [
+            match for match in response.image_matches
+            if str(match.artifact_id or "").strip() in shown or str(match.inventory or "").strip().casefold() in kept_inventories
+        ] + fill_images
+        targets = [
+            target for target in response.navigation_targets
+            if str(target.inventory_id or "").strip().casefold() in kept_inventories
+        ] + fill_targets
+        total = max(self._bounded_retrieval_total(page_result.total, window), len(cards))
+        has_more = len(rest) > len(fill_docs) if fetched_all else len(cards) < total
+
+        # Só agora se mexe no que está guardado: daqui para a frente não há esperas.
+        for card in fill_cards:
+            for artifact_id in [card.artifact_id, *card.group_artifact_ids]:
+                if artifact_id and artifact_id not in shown_ids:
+                    shown_ids.append(artifact_id)
+        request["filters"] = filters
+        request["results_total"] = total
+        request["author_only_shown_ids"] = shown_ids
+        request.pop("preselected_beyond_page_ids", None)
+        self._cache_last_retrieval_results(
+            state=state,
+            artifact_results=cards,
+            image_matches=images,
+            navigation_targets=targets,
+            default_page_size=page_size,
+            retrieval_request=request,
+        )
+        self.session_store.save(state)
+        log_event(
+            logger, logging.INFO, "chat.author_only.applied",
+            conversation_id=response.conversation_id, query_id=response.query_id, author=author.name,
+            kept=len(kept), removed=len(response.artifact_results) - len(kept), filled=len(fill_cards), total=total,
+        )
+        return response.model_copy(update={
+            "artifact_results": cards,
+            "image_matches": images,
+            "navigation_targets": targets,
+            "results_total": total,
+            "results_has_more": has_more,
+        })
 
     def _author_portrait(self, group: AuthorGroup) -> dict[str, str | None] | None:
         """O retrato do autor (CHAT_AUTHOR_PORTRAITS), do ficheiro dos retratos; None
