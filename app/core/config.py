@@ -201,6 +201,12 @@ class Settings(BaseSettings):
     # cartões que ficam. Sem isto o texto falava de peças que já não estavam à
     # vista, ou de menos peças do que os cartões. Custa mais uma geração da AMÁLIA.
     CHAT_AUTHOR_ONLY_NEW_ANSWER: bool = False
+    # Com CHAT_AUTHOR_ONLY_RESULTS: a abertura da resposta diz os números do
+    # catálogo («O museu tem 109 peças de …, 9 delas nesta visita. Os cartões
+    # mostram as primeiras 8 (as restantes estão em «Ver mais resultados»):») em
+    # vez dos que a AMÁLIA escrever («Encontrei 2 peças» ao lado de 8 cartões).
+    # A lista das peças fica como ela a escreveu.
+    CHAT_AUTHOR_ANSWER_COUNTS: bool = False
     # O texto da resposta fala de todas as peças dos cartões mostrados, uma a uma,
     # em vez de destacar até três (docs/todos-os-cartoes.md).
     CHAT_ANSWER_ALL_CARDS: bool = False
