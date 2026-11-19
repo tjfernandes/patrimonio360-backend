@@ -285,6 +285,33 @@ _SELECTED_CARDS_SENTENCE_EN = (
     "Only the cards you list at the end of the answer stay visible in the interface; you may say how many "
     "objects really match the request. "
 )
+# Pergunta pelo aspeto (CHAT_VISUAL_ANSWER_RULE): quando os cartões levam a linha
+# «Aspeto na fotografia», a AMÁLIA dizia de cada peça o que o visitante tinha
+# pedido, mesmo sem o cartão o dizer («um colar subtil» numa mulher só com
+# brincos; «embora o cartão não especifique, sugere um colar de pérolas»). Com a
+# flag, o pedido não vai no prompt: esta instrução ocupa o lugar de «PERGUNTA» e
+# do «PEDIDO INTERPRETADO», e a AMÁLIA só descreve o que os cartões mostram.
+# Medido a 2026-11-19 (tests/visual_answer_cases.py, 14 pedidos do MNAA com os
+# cartões reais × 5 execuções, scripts/medir_resposta_visual.py): respostas que
+# atribuem a uma peça uma coisa do pedido que o cartão dela não diz — 21 de 70
+# com o pedido à vista, 4 de 70 sem ele. As 4 são o mesmo cartão: um cofre de
+# teca e marfim a que a AMÁLIA junta «madrepérola», que está nos cartões
+# vizinhos. Duas redações que mantinham o pedido e acrescentavam uma regra (a
+# meio das instruções e depois dos cartões) não mudaram nada: 18 de 70. A
+# instrução não nomeia a linha «Aspeto na fotografia»: quando a nomeava, a
+# AMÁLIA copiava o rótulo para a resposta. Qualquer alteração repete a medição.
+_VISUAL_ANSWER_RULE_PT = (
+    "PERGUNTA: o visitante descreveu o aspeto das peças que procura, e a pesquisa escolheu as peças dos cartões abaixo. "
+    "Não vês o que ele escreveu. Diz que encontraste estas peças e destaca até três pelo título; de cada uma diz o que "
+    "o cartão dela mostra: o que é, de que é feita, as cores e o que nela se vê. Cada peça tem o seu cartão: o "
+    "material, a cor ou o motivo de um cartão não valem para as outras peças."
+)
+_VISUAL_ANSWER_RULE_EN = (
+    "QUESTION: the visitor described how the objects they are looking for look, and the search chose the objects in "
+    "the cards below. You cannot see what they wrote. Say you found these objects and highlight up to three by title; "
+    "for each one say what its own card shows: what it is, what it is made of, its colours and what can be seen in "
+    "it. Each object has its own card: a material, colour or motif in one card does not apply to the other objects."
+)
 # Pesquisa sem cartões (CHAT_NO_CARDS_ANSWER_PROMPT): substitui as instruções de
 # pesquisa, que pedem para destacar peças que não existem. Terceira redação,
 # medida a 2026-11-16 na AMÁLIA (10 perguntas × 5 por língua, temperatura 0,4):
@@ -531,6 +558,7 @@ def build_final_answer_prompt_v2(
     select_cards: bool = False,
     national_treasures: bool = False,
     no_cards_instruction: bool = False,
+    visual_answer_rule: bool = False,
 ) -> str:
     """Prompt final compacto (quick win PR-01; texto, imagem e modelo 3D).
 
@@ -607,10 +635,14 @@ def build_final_answer_prompt_v2(
     active_filters = {k: v for k, v in (filters_state or {}).items() if v not in (None, "", [], {})}
     if active_filters:
         parts.append(("Active filters: " if en else "Filtros ativos: ") + json.dumps(active_filters, ensure_ascii=False))
-    parts.append(("QUESTION: " if en else "PERGUNTA: ") + (user_message or "").strip())
-    cleaned_rewrite = (rewritten_query or "").strip()
-    if cleaned_rewrite and cleaned_rewrite.casefold() != (user_message or "").strip().casefold():
-        parts.append(("INTERPRETED REQUEST: " if en else "PEDIDO INTERPRETADO: ") + cleaned_rewrite)
+    if visual_answer_rule:
+        # o pedido não vai no prompt: com ele à vista, a AMÁLIA dizia de cada peça o que o visitante pediu
+        parts.append(_VISUAL_ANSWER_RULE_EN if en else _VISUAL_ANSWER_RULE_PT)
+    else:
+        parts.append(("QUESTION: " if en else "PERGUNTA: ") + (user_message or "").strip())
+        cleaned_rewrite = (rewritten_query or "").strip()
+        if cleaned_rewrite and cleaned_rewrite.casefold() != (user_message or "").strip().casefold():
+            parts.append(("INTERPRETED REQUEST: " if en else "PEDIDO INTERPRETADO: ") + cleaned_rewrite)
     parts.append(("ANSWER TYPE: " if en else "TIPO DE RESPOSTA: ") + kind)
     context = (retrieval_context or "").strip()
     parts.append("CONFIRMED CARDS:" if en else "CARTÕES CONFIRMADOS:")

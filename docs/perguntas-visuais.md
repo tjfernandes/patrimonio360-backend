@@ -1,6 +1,6 @@
 # Perguntas pelo aspeto: «estátuas brancas», «pinturas com barcos» (2026-11-19)
 
-Cinco flags novas, todas desligadas por omissão. Em produção ficaram ligadas no mesmo dia. O frontend não muda.
+Seis flags novas, todas desligadas por omissão. Em produção ficaram ligadas no mesmo dia. O frontend não muda.
 
 | Flag | O que faz |
 |---|---|
@@ -9,6 +9,7 @@ Cinco flags novas, todas desligadas por omissão. Em produção ficaram ligadas 
 | `CHAT_VISUAL_CARD_FACTS` | Os cartões levam uma linha «Aspeto na fotografia» com o que a legenda diz da peça |
 | `CHAT_VISUAL_CARD_CANDIDATES` | Quantas peças que só as legendas encontraram são julgadas pelo aspeto e juntas aos cartões (produção: 20) |
 | `CHAT_VISUAL_INTENT_MODEL` | O modelo de pré-processamento diz se o pedido é visual quando as regras não veem sinal |
+| `CHAT_VISUAL_ANSWER_RULE` | Nas respostas com o aspeto nos cartões, a AMÁLIA não vê o texto do pedido |
 
 `CAPTION_TEXT_INDEX` passou a aceitar vários índices separados por vírgulas. O MNAA foi legendado neste dia e tem índice
 próprio: `p360_legendas_mnaa_caption8b` (3632 peças, legenda_v6, Qwen3-VL-8B, 25 minutos, sem erros).
@@ -105,7 +106,38 @@ pelo aspeto. Os tempos de antes foram medidos com o modelo de visão ocupado a l
 
 Nos outros museus fiz só uma verificação de fumo, sete perguntas (MNT, MNAz, MNSR, CMAG): todas responderam, sem erros.
 
+### A AMÁLIA a inventar o que foi pedido
+
+Com o aspeto nos cartões, a AMÁLIA passou a dizer de cada peça aquilo que o visitante pedira, mesmo sem o cartão o
+dizer. Em «retratos de senhoras com colares de pérolas», a Mulher com um jarro (1731 Pint), que só tem brincos de
+pérola, saía com «um colar subtil»; noutras vezes, «embora o cartão não especifique, sugere um colar de pérolas».
+
+`tests/visual_answer_cases.py` tem 14 pedidos do MNAA com os cartões reais. `scripts/medir_resposta_visual.py` fixa
+esses cartões, pede a resposta à AMÁLIA 5 vezes por pedido e conta as respostas em que uma frase sobre uma peça diz uma
+coisa do pedido que o cartão dessa peça não diz.
+
+| Prompt | Respostas com invenção |
+|---|---|
+| Como estava | 21 de 70 |
+| Mais uma regra a meio das instruções («de cada peça diz só o que o cartão dela diz») | 3 de 14 numa execução; a Mulher com um jarro continuava com colar |
+| A regra depois dos cartões | 18 de 70 |
+| **Sem o pedido no prompt** (`CHAT_VISUAL_ANSWER_RULE`) | 4 de 70 |
+
+Com a flag, o prompt deixa de levar «PERGUNTA» e «PEDIDO INTERPRETADO» com o texto do visitante. Em vez disso diz que o
+visitante descreveu o aspeto das peças, que a pesquisa escolheu as dos cartões, e pede para dizer o que cada cartão
+mostra. A escolha dos cartões continua a ver o pedido. Só se aplica quando os cartões levam a linha do aspeto.
+
+As 4 que sobram são o mesmo cartão: um cofre de teca e marfim (1550 Mov) a que a AMÁLIA junta «madrepérola», que está
+nos cartões vizinhos. Acontece com e sem a flag e não vem do pedido.
+
+Nos pedidos por «colares», por «mármore branco» e por «caveiras» passou de 16 respostas com invenção em 25 para 0.
+Nos oito pedidos em que já não inventava continuou em 0.
+
 ## Limites
+
+- **A AMÁLIA ainda mistura cartões vizinhos** (o cofre acima). Não há verificação do que ela diz de cada peça.
+- **A resposta deixa de repetir o pedido.** Diz «encontrei estas peças» e descreve-as, em vez de «encontrei três
+  retratos com colares de pérolas».
 
 - **«estátuas brancas» não é exaustiva.** A pesquisa nas legendas ordena mais por «estátua» do que pela cor, e só as 20
   primeiras são julgadas. A Danaide estava em 23.º; o Efebo e o Apolo não vinham entre as devolvidas.
@@ -121,7 +153,7 @@ Nos outros museus fiz só uma verificação de fumo, sete perguntas (MNT, MNAz, 
 
 ## Testes
 
-`tests/test_visual_card_facts.py` (15 testes) e seis novos em `tests/test_caption_text_branch.py`. Suíte: 744 a passar.
+`tests/test_visual_card_facts.py` (18 testes) e seis novos em `tests/test_caption_text_branch.py`. Suíte: 747 a passar.
 
 ## Para ligar
 
@@ -132,6 +164,7 @@ CAPTION_TEXT_QUERY_INSTRUCTION=true
 CHAT_VISUAL_CARD_FACTS=true
 CHAT_VISUAL_CARD_CANDIDATES=20
 CHAT_VISUAL_INTENT_MODEL=true
+CHAT_VISUAL_ANSWER_RULE=true
 ```
 
 Precisa de `CHAT_PRESELECT_CARDS` e de `MULTIMODAL_RETRIEVAL_MODE=intent`, que já estavam ligadas. Para legendar outro

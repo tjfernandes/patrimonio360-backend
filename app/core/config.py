@@ -414,6 +414,12 @@ class Settings(BaseSettings):
     # descreve as peças pelo aspeto (build_visual_request_prompt); se sim, o
     # ramo visual corre. As regras que já acertam continuam a mandar.
     CHAT_VISUAL_INTENT_MODEL: bool = False
+    # CHAT_VISUAL_ANSWER_RULE: quando os cartões da resposta levam o aspeto, a
+    # AMÁLIA não recebe o texto do pedido: só lhe é dito que o visitante descreveu
+    # o aspeto das peças e que deve dizer o que cada cartão mostra. Com o pedido à
+    # vista, atribuía a cada peça o que o visitante pediu («um colar subtil» numa
+    # mulher só com brincos): 21 de 70 respostas, contra 4 de 70 sem ele.
+    CHAT_VISUAL_ANSWER_RULE: bool = False
 
     @field_validator("CAPTION_TEXT_MODE")
     @classmethod

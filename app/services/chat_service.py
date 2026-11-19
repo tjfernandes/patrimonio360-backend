@@ -12223,6 +12223,9 @@ class ChatService:
                 select_cards=select_cards,
                 national_treasures=bool(getattr(self.settings, "CHAT_NATIONAL_TREASURES", False)),
                 no_cards_instruction=bool(getattr(self.settings, "CHAT_NO_CARDS_ANSWER_PROMPT", False)),
+                # só quando os cartões desta resposta levam o aspeto (CHAT_VISUAL_CARD_FACTS)
+                visual_answer_rule=bool(getattr(self.settings, "CHAT_VISUAL_ANSWER_RULE", False))
+                and "    Aspeto na fotografia: " in (retrieval_context or ""),
             )
         if select_cards:
             return "\n".join(
