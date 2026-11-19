@@ -37,6 +37,9 @@ Só com a resposta A os cartões passam a ser só do autor:
 3. `results_total` passa a ser o número de peças do autor que a pesquisa encontra, e `results_has_more` diz se há mais.
 4. O pedido guardado para «ver mais resultados» fica com o filtro: as páginas seguintes são as peças dele que ainda não
    foram mostradas, sem repetições.
+5. Quando a pesquisa de texto foi junta com a das legendas das imagens (pedido `multimodal_text`, com uma lista fixa de
+   algumas dezenas de peças de vários autores), vale o mesmo: as páginas seguintes passam a vir da pesquisa de texto com
+   o filtro do autor.
 
 O texto da AMÁLIA não muda. Miniaturas e alvos de «Ver na tour» acompanham os cartões.
 
@@ -97,6 +100,13 @@ os totais e as páginas; a ordem das peças dentro do autor não é a que a prod
   esculturas de Machado de Castro?» passa de 8 para 7, «peças de Pierre Cardin» de 8 para 4, «obras de Rembrandt» de 2
   para 1.
 - A que é restringida sem dever mostra só peças de Domingos Sequeira a quem pediu a pintura do tempo dele.
+
+### Em produção, depois de ligar
+
+Na primeira verificação em produção (2026-11-19), duas de sete perguntas por um autor ficaram por restringir: «Mostra-me
+as obras de Soares dos Reis.» e «Mostra-me criações da Ana Salazar.». Nas duas a pesquisa tinha sido junta com a das
+legendas, e esse pedido fica guardado como `multimodal_text`, que o código deixava passar. O ensaio de cima não o
+apanhou porque simulava sempre um pedido de texto simples. Corrigido no ponto 5 de «O que mudou».
 
 ## Limites conhecidos
 

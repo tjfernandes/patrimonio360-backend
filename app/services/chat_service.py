@@ -3234,7 +3234,10 @@ class ChatService:
         snapshots = getattr(state, "paged_results_by_request_id", None) if state is not None else None
         request = ((snapshots or {}).get(request_id) or {}).get("retrieval_request") if isinstance(snapshots, dict) else None
         message = (payload.message or "").strip()
-        if not author_ids or not words or not message or not isinstance(request, dict) or str(request.get("kind") or "") != "text":
+        # «multimodal_text» é a pesquisa de texto junta com a das legendas das imagens: o pedido guardado
+        # tem os mesmos campos, mas as páginas seguintes saem de uma lista fixa.
+        kind = str(request.get("kind") or "") if isinstance(request, dict) else ""
+        if not author_ids or not words or not message or kind not in {"text", "multimodal_text"}:
             return response
         wanted = set(author_ids)
         kept = [card for card in response.artifact_results if wanted.intersection(card.creator_ids or [])]
@@ -3319,6 +3322,9 @@ class ChatService:
             for artifact_id in [card.artifact_id, *card.group_artifact_ids]:
                 if artifact_id and artifact_id not in shown_ids:
                     shown_ids.append(artifact_id)
+        # daqui em diante as páginas vêm da pesquisa de texto com o filtro do autor, também quando a
+        # primeira veio da lista junta com as legendas (que tem peças de outros autores)
+        request["kind"] = "text"
         request["filters"] = filters
         request["results_total"] = total
         request["author_only_shown_ids"] = shown_ids
@@ -3335,7 +3341,7 @@ class ChatService:
         log_event(
             logger, logging.INFO, "chat.author_only.applied",
             conversation_id=response.conversation_id, query_id=response.query_id, author=author.name,
-            kept=len(kept), removed=len(response.artifact_results) - len(kept), filled=len(fill_cards), total=total,
+            kept=len(kept), removed=len(response.artifact_results) - len(kept), filled=len(fill_cards), total=total, kind=kind,
         )
         return response.model_copy(update={
             "artifact_results": cards,
