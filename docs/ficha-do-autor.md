@@ -154,6 +154,27 @@ a mensagem nomeia. Mediana de 63 ms por chamada.
 Quando os cartões passam a ser só do autor, a resposta escreve-se outra vez sobre eles: ver
 `docs/todos-os-cartoes.md` (`CHAT_AUTHOR_ONLY_NEW_ANSWER`).
 
+## Os números na abertura da resposta (2026-11-19)
+
+«Sequeira, Domingos António de» respondia «Encontrei 2 peças de Domingos António de Sequeira nesta visita virtual»
+ao lado de 8 cartões de um autor com 109 peças. O número era o das peças que a AMÁLIA tinha escolhido descrever. Nas
+respostas guardadas das medições deste dia, a frase de abertura dizia um número diferente do dos cartões em 28 de 40
+respostas com a instrução «até três» e em 7 de 40 com «todas as peças».
+
+Com `CHAT_AUTHOR_ANSWER_COUNTS`, quando os cartões são só de um autor (`CHAT_AUTHOR_ONLY_RESULTS`), a frase antes da
+lista sai e entra uma feita com os dados da ficha do autor e da pesquisa:
+
+> O museu tem 109 peças de Domingos António de Sequeira, 9 delas nesta visita. Os cartões mostram as primeiras 8 (as
+> restantes estão em «Ver mais resultados»):
+
+A lista das peças fica como a AMÁLIA a escreveu. Numa resposta sem lista, a abertura junta-se à frente e a primeira
+frase sai se contar peças. Quando o pedido estreita a pesquisa («pinturas de …»), a abertura diz as duas contagens.
+Com uma só peça não se mexe. É texto feito pelo backend, sem modelo; os testes estão em
+`tests/test_author_only_results.py` (`TestAuthorAnswerCounts`).
+
+Fica por tratar a abertura das pesquisas que não são por autor: aí o total da pesquisa não é fiável (muitas vezes é o
+tamanho da janela, 1000) e a frase continua a ser a da AMÁLIA.
+
 ## Limites conhecidos
 
 - A ficha só aparece quando a pesquisa mostra pelo menos uma peça do autor.
@@ -176,4 +197,5 @@ CHAT_AUTHOR_ONLY_RESULTS=true   # opcional: só peças do autor nos cartões
 CHAT_AUTHOR_CARD_FOLLOW_UP=true   # opcional: a ficha também em «e deste autor?»
 CHAT_FOCUSED_ARTIFACT_AUTHOR=true   # opcional: «deste autor» é o autor da peça em foco
 CHAT_AUTHOR_ONLY_NEW_ANSWER=true   # opcional: a resposta reescreve-se quando os cartões mudam
+CHAT_AUTHOR_ANSWER_COUNTS=true   # opcional: a abertura diz os números do catálogo
 ```

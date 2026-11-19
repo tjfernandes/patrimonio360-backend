@@ -22,6 +22,7 @@ from app.schemas.chat import (
     ResponseFormatObject,
     TourNavigationTarget,
 )
+from app.schemas.chat import ChatAuthorCard
 from tests.test_author_card import _AuthorGateway
 from tests.test_tour_location import _Base
 
@@ -92,10 +93,11 @@ class _WithStoredSearch(_Base):
 
     def _service_with(self, preprocess: _Preprocess, first_page: list[dict], *, catalogue=CATALOGO, flag: bool = True,
                       request: dict | None = REQUEST, fail_search: bool = False, follow_up: bool = False,
-                      new_answer: bool = False, all_cards: bool = False, llm=None):
+                      new_answer: bool = False, all_cards: bool = False, llm=None, counts: bool = False):
         service = self._service(self._settings(CHAT_AUTHOR_CARD=True, CHAT_AUTHOR_ONLY_RESULTS=flag, CHAT_RETRIEVAL_RESULTS_PAGE_SIZE=8,
                                                CHAT_AUTHOR_CARD_FOLLOW_UP=follow_up, CHAT_AUTHOR_ONLY_NEW_ANSWER=new_answer,
-                                               CHAT_ANSWER_ALL_CARDS=all_cards, CHAT_COMPACT_ANSWER_CONTEXT=True), llm=llm)
+                                               CHAT_ANSWER_ALL_CARDS=all_cards, CHAT_COMPACT_ANSWER_CONTEXT=True,
+                                               CHAT_AUTHOR_ANSWER_COUNTS=counts), llm=llm)
         service._preprocess_llm_service = preprocess
         service.opensearch_gateway = _SearchGateway(catalogue, fail_search=fail_search)
         service._generate_results_page_reply = _no_reply
@@ -414,4 +416,81 @@ class TestAuthorOnlyNewAnswer(_WithStoredSearch):
         self.assertTrue(response.reply.endswith(
             "Nos cartões estão também: **Peça l4** (inv l4), **Peça l5** (inv l5), **Peça l6** (inv l6), "
             "**Peça l7** (inv l7), **Peça l8** (inv l8)."))
+
+
+SEQUEIRA_CARD = ChatAuthorCard(name="Sequeira, Domingos António de", artifact_count=109, in_tour_count=9)
+
+
+class TestAuthorAnswerCounts(_WithStoredSearch):
+    """CHAT_AUTHOR_ANSWER_COUNTS: a abertura diz os números do catálogo, não os da AMÁLIA."""
+
+    def _opening(self, text: str, *, author=SEQUEIRA_CARD, total: int = 109, shown: int = 8, language: str = "pt", flag: bool = True) -> str:
+        service = self._service(self._settings(CHAT_AUTHOR_ANSWER_COUNTS=flag))
+        return service._author_answer_with_counts(text, author=author, total=total, shown=shown, language=language)
+
+    def test_off_by_default(self) -> None:
+        self.assertFalse(Settings(_env_file=None).CHAT_AUTHOR_ANSWER_COUNTS)
+        text = "Encontrei 2 peças de Domingos António de Sequeira nesta visita virtual:\n\n1. **Autoretrato** – cabeça de um jovem."
+        self.assertEqual(self._opening(text, flag=False), text)
+
+    def test_the_sentence_before_the_list_gives_way_to_the_catalogue_numbers(self) -> None:
+        wrote = ("Encontrei 2 peças de Domingos António de Sequeira nesta visita virtual:\n\n"
+                 "1. **Autoretrato** (Inv. 2258 Des): cabeça de um jovem.\n2. **Retrato** (Inv. 1085 Pint): pintura inacabada.\n\n"
+                 "Nos cartões estão também: **Lenda do Baptismo** (2406 Des).")
+        self.assertEqual(
+            self._opening(wrote),
+            "O museu tem 109 peças de Domingos António de Sequeira, 9 delas nesta visita. "
+            "Os cartões mostram as primeiras 8 (as restantes estão em «Ver mais resultados»):\n\n"
+            "1. **Autoretrato** (Inv. 2258 Des): cabeça de um jovem.\n2. **Retrato** (Inv. 1085 Pint): pintura inacabada.\n\n"
+            "Nos cartões estão também: **Lenda do Baptismo** (2406 Des).",
+        )
+
+    def test_any_kind_of_list_counts(self) -> None:
+        for item in ("* **Fé** – modelo em barro.", "- Fé: modelo em barro.", "**Fé** – modelo em barro."):
+            with self.subTest(item=item):
+                result = self._opening(f"Encontrei três obras:\n\n{item}", total=7, shown=7,
+                                       author=ChatAuthorCard(name="Machado de Castro, Joaquim", artifact_count=7, in_tour_count=4))
+                self.assertEqual(result, f"O museu tem 7 peças de Joaquim Machado de Castro, 4 delas nesta visita. São estas:\n\n{item}")
+
+    def test_an_answer_without_a_list_keeps_its_text(self) -> None:
+        opening = ("O museu tem 109 peças de Domingos António de Sequeira, 9 delas nesta visita. "
+                   "Os cartões mostram as primeiras 8 (as restantes estão em «Ver mais resultados»):")
+        # a primeira frase conta peças: sai
+        self.assertEqual(self._opening("Encontrei duas obras do pintor. Destaca-se o autorretrato de juventude."),
+                         f"{opening}\n\nDestaca-se o autorretrato de juventude.")
+        # não conta: fica
+        self.assertEqual(self._opening("Sequeira foi pintor da corte. Destaca-se o autorretrato."),
+                         f"{opening}\n\nSequeira foi pintor da corte. Destaca-se o autorretrato.")
+
+    def test_a_request_that_narrows_the_search_says_both_numbers(self) -> None:
+        result = self._opening("1. **Retrato** – pintura.", total=15, shown=8)
+        self.assertTrue(result.startswith(
+            "Encontrei 15 peças de Domingos António de Sequeira para este pedido (o museu tem 109 no total). "
+            "Os cartões mostram as primeiras 8 (as restantes estão em «Ver mais resultados»):"))
+
+    def test_all_in_the_tour_and_english(self) -> None:
+        bosch = ChatAuthorCard(name="Mestre da Lourinhã", artifact_count=3, in_tour_count=3)
+        self.assertTrue(self._opening("1. **A** – x.", author=bosch, total=3, shown=3).startswith(
+            "O museu tem 3 peças de Mestre da Lourinhã, todas nesta visita. São estas:"))
+        self.assertTrue(self._opening("1. **A** – x.", language="en").startswith(
+            "The museum has 109 objects by Domingos António de Sequeira, 9 of them in this tour. "
+            "The cards show the first 8 (use the button below the cards to see the rest):"))
+
+    def test_one_piece_or_no_text_is_left_alone(self) -> None:
+        one = ChatAuthorCard(name="Jheronymus Bosch", artifact_count=1, in_tour_count=1)
+        self.assertEqual(self._opening("A única obra de Bosch são as Tentações.", author=one, total=1, shown=1),
+                         "A única obra de Bosch são as Tentações.")
+        self.assertEqual(self._opening(""), "")
+
+    def test_the_author_answer_opens_with_the_numbers(self) -> None:
+        response = self._ask(self._service_with(_Preprocess("A"), CATALOGO[:8], counts=True))
+        # 19 peças na pesquisa só dele; 4 dos cartões têm alvo de navegação
+        self.assertEqual(response.reply, "O museu tem 19 peças de Gregório Lopes, 4 delas nesta visita. "
+                                         "Os cartões mostram as primeiras 8 (as restantes estão em «Ver mais resultados»):\n\ntexto da resposta")
+        self.assertEqual(len(response.artifact_results), 8)
+        self.assertTrue(response.results_has_more)
+
+    def test_when_the_visitor_wants_other_authors_too_the_text_stays(self) -> None:
+        response = self._ask(self._service_with(_Preprocess("B"), CATALOGO[:8], counts=True))
+        self.assertEqual(response.reply, "texto da resposta")
 

@@ -3491,6 +3491,68 @@ class ChatService:
         tail = f"The cards also show: {names}." if english else f"Nos cartões estão também: {names}."
         return f"{text.rstrip()}\n\n{tail}"
 
+    # onde começa a lista das peças numa resposta: «1. …», «- …», «* …» ou uma linha a abrir com «**Título**»
+    _ANSWER_LIST_START = re.compile(r"(?m)^[ \t]*(?:\d+[.)][ \t]+|[-•][ \t]+|\*[ \t]+|\*\*)")
+    # uma abertura que conta peças: «Encontrei 2 peças…», «Há três obras…», «I found 4 works…»
+    _ANSWER_COUNT_CLAIM = re.compile(
+        r"(?i)\b(?:\d+|uma?|duas|dois|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|one|two|three|four|five|six|seven|eight|nine|ten)\b"
+        r"[^.!?\n]{0,40}?\b(?:pe[cç]as?|obras?|works?|objects?|pieces?)\b"
+    )
+
+    def _author_answer_with_counts(
+        self, text: str, *, author: ChatAuthorCard | None, total: int, shown: int, language: str | None
+    ) -> str:
+        """CHAT_AUTHOR_ANSWER_COUNTS: numa resposta só com peças de um autor, a
+        abertura diz os números do catálogo e não os que a AMÁLIA escrever.
+
+        A AMÁLIA abria com «Encontrei 2 peças de Domingos António de Sequeira»
+        ao lado de 8 cartões de um autor com 109 peças: o número era o das peças
+        que ela tinha escolhido descrever. A frase antes da lista sai e entra
+        uma feita com os dados («O museu tem 109 peças de …, 9 delas nesta
+        visita. Os cartões mostram as primeiras 8 (as restantes estão em «Ver
+        mais resultados»):»); numa resposta sem lista,
+        a abertura junta-se à frente e sai a primeira frase se contar peças. Com
+        uma só peça não se mexe: a resposta é sobre ela."""
+        if not bool(getattr(self.settings, "CHAT_AUTHOR_ANSWER_COUNTS", False)):
+            return text
+        if author is None or total < 2 or shown < 1 or not (text or "").strip():
+            return text
+        english = normalize_language(language) == "en"
+        name = self._author_name_for_request(author.name)
+        count = max(int(author.artifact_count or 0), total)
+        in_tour = max(int(author.in_tour_count or 0), 0)
+        if english:
+            opening = (
+                f"The museum has {count} objects by {name}" if total >= count
+                else f"I found {total} objects by {name} for this request (the museum has {count} in all)"
+            )
+            if in_tour and total >= count:
+                opening += f", {in_tour} of them in this tour" if in_tour < count else ", all in this tour"
+            opening += (
+                f". The cards show the first {shown} (use the button below the cards to see the rest):" if shown < total
+                else ". They are:"
+            )
+        else:
+            opening = (
+                f"O museu tem {count} peças de {name}" if total >= count
+                else f"Encontrei {total} peças de {name} para este pedido (o museu tem {count} no total)"
+            )
+            if in_tour and total >= count:
+                opening += f", {in_tour} delas nesta visita" if in_tour < count else ", todas nesta visita"
+            opening += (
+                f". Os cartões mostram as primeiras {shown} (as restantes estão em «Ver mais resultados»):" if shown < total
+                else ". São estas:"
+            )
+        body = text.strip()
+        start = self._ANSWER_LIST_START.search(body)
+        if start is not None and start.start() <= 400:
+            return f"{opening}\n\n{body[start.start():].lstrip()}"
+        # resposta corrida: sai a primeira frase se for ela a contar as peças
+        first, separator, rest = body.partition(". ")
+        if separator and rest.strip() and self._ANSWER_COUNT_CLAIM.search(first):
+            body = rest.strip()
+        return f"{opening}\n\n{body}"
+
     async def _author_only_new_answer(
         self,
         payload: ChatMessageRequest,
@@ -3691,6 +3753,9 @@ class ChatService:
             reply = await self._author_only_new_answer(
                 payload, response, message=message, cards=cards, targets=targets, total=total, page_size=page_size, state=state,
             )
+        reply = self._author_answer_with_counts(
+            reply, author=author, total=total, shown=len(cards), language=payload.language or (state.language if state else None)
+        )
         return response.model_copy(update={
             "reply": reply,
             "artifact_results": cards,
