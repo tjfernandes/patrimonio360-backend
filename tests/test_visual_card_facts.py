@@ -91,8 +91,10 @@ class _TwoLLM:
 
 
 class TestVisualCardFacts(_Base):
-    def _search_service(self, llm, pre, *, facts=True, extra=2, visual=True, gateway=None, candidates=0) -> ChatService:
+    def _search_service(self, llm, pre, *, facts=True, extra=2, visual=True, gateway=None, candidates=0,
+                        answer_rule=False) -> ChatService:
         settings = self._settings(
+            CHAT_VISUAL_ANSWER_RULE=answer_rule,
             CHAT_MODEL_SELECTS_CARDS=True, CHAT_PRESELECT_CARDS=True, CHAT_PRESELECT_EMPTY_IS_NONE=True,
             CHAT_PRESELECT_CARDS_CANDIDATES=candidates, CHAT_COMPACT_ANSWER_CONTEXT=True,
             CHAT_ROUTER_MODE="deterministic", CHAT_STREAM_FINAL_ANSWER=False, CHAT_RETRIEVAL_RESULTS_PAGE_SIZE=4,
@@ -150,6 +152,43 @@ class TestVisualCardFacts(_Base):
             (4, 3, 2, 1),
         )
         self.assertEqual(selection["beyond_page"], 1)
+
+    def test_answer_rule_hides_the_request_from_the_final_model(self) -> None:
+        llm, pre = _FinalLLM("Encontrei estas peças."), _TwoLLM({"cartoes": ["doc_2"]}, {"doc_1": "sim"})
+        self._ask(self._search_service(llm, pre, answer_rule=True))
+        prompt = llm.prompts[0]
+        self.assertNotIn("estatuas brancas", prompt)
+        self.assertNotIn("PEDIDO INTERPRETADO", prompt)
+        self.assertIn("PERGUNTA: o visitante descreveu o aspeto das peças que procura", prompt)
+        self.assertIn("Não vês o que ele escreveu", prompt)
+        self.assertLess(prompt.index("Não vês o que ele escreveu"), prompt.index("CARTÕES CONFIRMADOS:"))
+        self.assertIn("cores principais: branco", prompt)
+        # a escolha dos cartões continua a ver o pedido
+        self.assertIn("encontra estatuas brancas", pre.card_prompts[-1])
+        self.assertIn("«encontra estatuas brancas»", pre.pick_prompts[-1])
+
+    def test_answer_rule_only_when_the_cards_carry_the_look(self) -> None:
+        cases = (
+            dict(answer_rule=False),                                   # flag desligada
+            dict(answer_rule=True, visual=False),                      # pesquisa que não é visual
+            dict(answer_rule=True, facts=False),                       # sem o aspeto nos cartões
+            dict(answer_rule=True, gateway=_CaptionGateway(structs={})),  # legendas em falta
+        )
+        for kwargs in cases:
+            with self.subTest(**{k: v for k, v in kwargs.items() if k != "gateway"}):
+                llm, pre = _FinalLLM("Encontrei."), _TwoLLM({"cartoes": ["doc_2"]}, {"doc_1": "sim"})
+                self._ask(self._search_service(llm, pre, **kwargs))
+                self.assertIn("PERGUNTA: encontra estatuas brancas", llm.prompts[0])
+                self.assertNotIn("Não vês o que ele escreveu", llm.prompts[0])
+
+    def test_answer_rule_in_english(self) -> None:
+        llm, pre = _FinalLLM("I found these objects."), _TwoLLM({"cartoes": ["doc_2"]}, {"doc_1": "sim"})
+        service = self._search_service(llm, pre, answer_rule=True)
+        request = self._request("find white statues", museum_slug="mnaa", museum_id="mnaa",
+                                museum_name="Museu Nacional de Arte Antiga", language="en")
+        asyncio.run(service.handle_message(request))
+        self.assertIn("You cannot see what they wrote", llm.prompts[0])
+        self.assertNotIn("white statues", llm.prompts[0])
 
     def test_pieces_picked_by_look_show_even_when_no_search_card_matches(self) -> None:
         llm = _FinalLLM("Encontrei duas estátuas brancas.")
