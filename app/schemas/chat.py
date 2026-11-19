@@ -499,7 +499,8 @@ class ChatSubjectArtifact(BaseModel):
     artifact_id: str
     inventory_number: str | None = None
     title: str | None = None
-    # ordinal | inventory | title | context (hotspot aberto / primeiro resultado)
+    # ordinal | inventory | title | context (hotspot aberto / primeiro resultado) |
+    # model (o modelo disse qual é a peça nomeada; CHAT_IMPLICIT_ARTIFACT_MODEL)
     resolved_by: str
     context_source: str | None = None
 

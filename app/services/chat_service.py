@@ -67,6 +67,9 @@ from app.services.author_cards import (
 from app.prompts.query_planner_prompts import (
     build_author_name_prompt,
     build_author_only_prompt,
+    build_implicit_artifact_prompt,
+    IMPLICIT_ARTIFACT_LETTERS,
+    IMPLICIT_ARTIFACT_OPEN_LETTER,
     FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
     RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
     build_follow_up_resolution_prompt,
@@ -3477,9 +3480,15 @@ class ChatService:
         status: str | None = None
         subject: dict[str, Any] | None = None
         if not selected and bool(getattr(self.settings, "CHAT_IMPLICIT_ARTIFACT_CONTEXT", False)):
-            subject = self._resolve_implicit_artifact(
-                payload.message, metadata, museum_slug=payload.museum_slug, museum_id=payload.museum_id
-            )
+            if bool(getattr(self.settings, "CHAT_IMPLICIT_ARTIFACT_MODEL", False)):
+                subject = await self._resolve_implicit_artifact_with_model(
+                    payload.message, metadata, museum_slug=payload.museum_slug, museum_id=payload.museum_id,
+                    conversation_id=payload.conversation_id,
+                )
+            else:
+                subject = self._resolve_implicit_artifact(
+                    payload.message, metadata, museum_slug=payload.museum_slug, museum_id=payload.museum_id
+                )
             log_event(
                 logger, logging.INFO, "chat.implicit_artifact.decision",
                 resolved_by=(subject or {}).get("resolved_by"),
@@ -3497,7 +3506,7 @@ class ChatService:
                     "source": f"implicit_{subject['resolved_by']}",
                 }
                 update: dict[str, Any] = {"metadata": kept}
-                if subject["resolved_by"] in {"ordinal", "inventory", "title"}:
+                if subject["resolved_by"] in {"ordinal", "inventory", "title", "model"}:
                     # «E o segundo?» chega ao LLM à letra e ele não sabe que «o
                     # segundo» é esta peça: diz-se qual é, na própria pergunta.
                     label = " ".join(
@@ -3871,6 +3880,23 @@ class ChatService:
             })
         return refs
 
+    def _implicit_request_is_independent(
+        self, message: str, tokens: list[str], *, museum_slug: str, museum_id: str | None
+    ) -> bool:
+        """Pedidos que não são sobre peça nenhuma do ecrã: «onde estou?», uma sala da
+        visita, uma saudação. Têm resposta própria noutro sítio."""
+        try:
+            return bool(
+                self._is_tour_location_query(message)
+                or self._match_tour_room_query(message, museum_slug=museum_slug, museum_id=museum_id) is not None
+                or (self._is_obvious_greeting_or_smalltalk(message)
+                    and not any(t in _SELECTED_INTERROGATIVES for t in tokens))
+            )
+        except Exception:  # pragma: no cover - deteção auxiliar; nunca bloqueia
+            return True
+
+    _IMPLICIT_STEPS = frozenset({"ordinal", "inventory", "title", "context"})
+
     def _resolve_implicit_artifact(
         self,
         message: str,
@@ -3878,6 +3904,7 @@ class ChatService:
         *,
         museum_slug: str,
         museum_id: str | None,
+        steps: frozenset[str] = _IMPLICIT_STEPS,
     ) -> dict[str, Any] | None:
         """A peça de que a mensagem fala, sem o visitante a ter escolhido.
 
@@ -3900,15 +3927,7 @@ class ChatService:
         tokens = folded.split()
         if not tokens:
             return None
-        try:
-            if (
-                self._is_tour_location_query(message)
-                or self._match_tour_room_query(message, museum_slug=museum_slug, museum_id=museum_id) is not None
-                or (self._is_obvious_greeting_or_smalltalk(message)
-                    and not any(t in _SELECTED_INTERROGATIVES for t in tokens))
-            ):
-                return None
-        except Exception:  # pragma: no cover - deteção auxiliar; nunca bloqueia
+        if self._implicit_request_is_independent(message, tokens, museum_slug=museum_slug, museum_id=museum_id):
             return None
 
         def pick(ref: dict[str, str | None], how: str) -> dict[str, Any]:
@@ -3916,7 +3935,7 @@ class ChatService:
 
         if visible:
             # 1a. ordinal
-            for index, token in enumerate(tokens):
+            for index, token in enumerate(tokens if "ordinal" in steps else []):
                 position = _ORDINAL_WORDS.get(token)
                 if position is None and token.isdigit() and 0 < int(token) <= 20 and index + 1 < len(tokens) and tokens[index + 1] in {"o", "a"} and index > 0 and tokens[index - 1] in _REFERENCE_DETERMINERS:
                     position = int(token) - 1  # «o 2.º» -> «o 2 o»
@@ -3925,7 +3944,7 @@ class ChatService:
                 if -len(visible) <= position < len(visible):
                     return pick(visible[position], "ordinal")
             # 1b. n.º de inventário de um cartão visível
-            for ref in visible:
+            for ref in (visible if "inventory" in steps else []):
                 inventory = self._fold_query_text(ref.get("inventory_number") or "")
                 if not inventory:
                     continue
@@ -3938,7 +3957,7 @@ class ChatService:
                     if alone or before in _REFERENCE_DETERMINERS or before in {"inventario", "numero", "n", "peca", "objeto", "e"}:
                         return pick(ref, "inventory")
             # 1c. nome do cartão a seguir a um determinante («o retrato de família»)
-            if not any(t in _REFERENCE_SEARCH_VERBS for t in tokens):
+            if "title" in steps and not any(t in _REFERENCE_SEARCH_VERBS for t in tokens):
                 # o nome principal tem de vir a seguir a um determinante; entre os
                 # cartões que batem, ganha o que partilha mais palavras do título
                 # («o vestido de criança» -> Vestido/Criança, não o primeiro vestido)
@@ -3962,7 +3981,7 @@ class ChatService:
         # conteúdo que não seja do título dessa peça faz dela uma pergunta com
         # assunto próprio («quem foi o marquês de Angeja?»). Exceção: sim/não
         # sobre a peça («é de seda?», «foi usado por homens?»).
-        if not context:
+        if not context or "context" not in steps:
             return None
         decision = self._selected_artifact_decision(message, museum_slug=museum_slug, museum_id=museum_id)
         if decision == "similar":
@@ -3987,6 +4006,192 @@ class ChatService:
             and t not in _SELECTED_GENERIC_NOUNS
         ]
         return None if content else pick(context, "context")
+
+    # ----- Peça implícita pelo modelo (CHAT_IMPLICIT_ARTIFACT_MODEL) ----- #
+
+    _IMPLICIT_MODEL_MAX_ENTITIES = 22
+    _IMPLICIT_MODEL_MAX_SETS = 3
+    _IMPLICIT_MODEL_SET_MEMBERS = 12
+
+    async def _implicit_entities(
+        self,
+        visible: list[dict[str, str | None]],
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        conversation_id: str | None,
+    ) -> list[dict[str, Any]]:
+        """As peças que o ecrã mostra, pela ordem: os cartões visíveis e, a seguir ao
+        primeiro cartão de cada conjunto, as outras peças desse conjunto (o frontend
+        mostra-as por baixo do cartão mas só envia o cartão). Os conjuntos saem dos
+        cartões que a conversa guardou; as peças de cada conjunto leem-se uma vez por
+        conversa. Sem conversa guardada, ficam só os cartões."""
+        state = self.session_store.get(conversation_id) if conversation_id else None
+        stored: dict[str, dict[str, Any]] = {}
+        cache: dict[str, list[dict[str, str | None]]] = {}
+        if state is not None:
+            snapshots = getattr(state, "paged_results_by_request_id", None)
+            cards = [card for snapshot in (snapshots.values() if isinstance(snapshots, dict) else []) for card in (snapshot.get("artifact_results") or [])]
+            for card in [*cards, *(getattr(state, "last_paged_artifact_results", None) or [])]:
+                if isinstance(card, dict) and card.get("artifact_id"):
+                    stored[str(card["artifact_id"])] = card
+            cache = getattr(state, "implicit_set_members", None)
+            if not isinstance(cache, dict):
+                cache = {}
+                state.implicit_set_members = cache  # type: ignore[attr-defined]
+        entities: list[dict[str, Any]] = []
+        listed = {str(ref.get("artifact_id") or "") for ref in visible}
+        seen_sets: set[str] = set()
+        for ref in visible:
+            card = stored.get(str(ref.get("artifact_id") or "")) or {}
+            set_ids = [str(value).strip() for value in (card.get("set_ids") or []) if str(value or "").strip()]
+            set_names = [str(value or "").strip() for value in (card.get("sets") or [])]
+            set_name = (set_names[0] or None) if set_ids and set_names else None
+            entities.append({**ref, "set_name": set_name})
+            if not set_ids or set_ids[0] in seen_sets or len(seen_sets) >= self._IMPLICIT_MODEL_MAX_SETS:
+                continue
+            set_id = set_ids[0]
+            seen_sets.add(set_id)
+            members = cache.get(set_id)
+            if members is None:
+                docs, _total = await self.opensearch_gateway.fetch_artifacts_by_entity(
+                    tipo="conjunto", entity_id=set_id, museum_slug=museum_slug, museum_id=museum_id,
+                    top_k=self._IMPLICIT_MODEL_SET_MEMBERS,
+                )
+                members = [
+                    {
+                        "artifact_id": str(doc.get("artifact_id") or "").strip(),
+                        "inventory_number": self._doc_inventory(doc) or None,
+                        "title": str(doc.get("title") or "").strip() or None,
+                        "source": None,
+                    }
+                    for doc in docs
+                    if str(doc.get("artifact_id") or "").strip()
+                ]
+                cache[set_id] = members
+            for member in members:
+                if member["artifact_id"] in listed:
+                    continue
+                listed.add(member["artifact_id"])
+                entities.append({**member, "set_name": set_name, "set_member": True})
+        if state is not None:
+            self.session_store.save(state)
+        return entities
+
+    def _implicit_entity_from_answer(
+        self, answer: Any, entities: list[dict[str, Any]], open_piece: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        """A peça que o modelo apontou: pela letra ou, se respondeu com ele, pelo n.º de inventário."""
+        text = str(answer or "").strip().strip(")").strip()
+        if not text:
+            return None
+        if open_piece is not None and text.upper() == IMPLICIT_ARTIFACT_OPEN_LETTER:
+            return open_piece
+        if len(text) == 1 and text.upper() in IMPLICIT_ARTIFACT_LETTERS[: len(entities)]:
+            return entities[IMPLICIT_ARTIFACT_LETTERS.index(text.upper())]
+        folded = self._fold_query_text(text)
+        if folded:
+            same = [
+                entity for entity in [*entities, *([open_piece] if open_piece is not None else [])]
+                if self._fold_query_text(entity.get("inventory_number") or "") == folded
+            ]
+            if len(same) == 1:
+                return same[0]
+        return None
+
+    async def _resolve_implicit_artifact_with_model(
+        self,
+        message: str,
+        metadata: dict[str, Any] | None,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        conversation_id: str | None,
+    ) -> dict[str, Any] | None:
+        """A peça de que a mensagem fala, com o modelo a dizer qual é quando a mensagem a nomeia.
+
+        1. A posição no ecrã («o segundo», só entre os cartões) e o n.º de inventário
+           (também das peças dos conjuntos) são procuras exatas: ficam nas regras.
+        2. Senão, o modelo de pré-processamento vê a lista das peças mostradas, com as
+           dos conjuntos, e diz de qual fala a mensagem, ou de nenhuma
+           (build_implicit_artifact_prompt). Uma mensagem com verbo de pesquisa
+           («procura…», «mostra…») não lhe chega: é uma pesquisa.
+        3. Se o modelo não aponta nenhuma, ou falha, valem as regras de hoje: nome a
+           seguir a um determinante e pergunta sem assunto próprio (peça em foco).
+
+        A parte «é uma pergunta sobre a peça em foco ou uma pesquisa?» fica nas regras
+        porque, medida, o modelo decide-a pior (docs/peca-implicita-pelo-modelo.md)."""
+        metadata = metadata if isinstance(metadata, dict) else {}
+        visible = self._artifact_refs(metadata.get("visible_artifacts"))
+        contexts = self._artifact_refs(metadata.get("context_artifact"), limit=1)
+        context = contexts[0] if contexts else None
+        if not visible and not context:
+            return None
+        tokens = self._fold_query_text(message).split()
+        if not tokens or self._implicit_request_is_independent(message, tokens, museum_slug=museum_slug, museum_id=museum_id):
+            return None
+
+        def by_rules(refs: list[dict[str, Any]], steps: frozenset[str], with_context: bool = False) -> dict[str, Any] | None:
+            return self._resolve_implicit_artifact(
+                message,
+                {"visible_artifacts": refs, "context_artifact": metadata.get("context_artifact") if with_context else None},
+                museum_slug=museum_slug, museum_id=museum_id, steps=steps,
+            )
+
+        try:
+            entities = await self._implicit_entities(
+                visible, museum_slug=museum_slug, museum_id=museum_id, conversation_id=conversation_id
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.implicit_artifact.sets_error", error=exc)
+            entities = [{**ref, "set_name": None} for ref in visible]
+        refs = [{key: entity.get(key) for key in ("artifact_id", "inventory_number", "title", "source")} for entity in entities]
+        exact = by_rules(visible, frozenset({"ordinal"})) or by_rules(refs, frozenset({"inventory"}))
+        if exact:
+            return exact
+
+        listed_ids = {entity["artifact_id"] for entity in entities}
+        open_piece = context if context is not None and context["artifact_id"] not in listed_ids else None
+        if (
+            (entities or open_piece is not None)
+            and len(entities) <= self._IMPLICIT_MODEL_MAX_ENTITIES
+            and not any(token in _REFERENCE_SEARCH_VERBS for token in tokens)
+        ):
+            answer: Any = None
+            how_many: Any = None
+            try:
+                llm_response = await asyncio.wait_for(
+                    self.preprocess_llm_service.generate(
+                        message=build_implicit_artifact_prompt(entities=entities, open_piece=open_piece, message=(message or "").strip()),
+                        response_format=ResponseFormatObject(type="json_object"),
+                        system_prompt=None,
+                        model_override=None,
+                        max_tokens=40,
+                    ),
+                    timeout=4.0,
+                )
+                data = llm_response.parsed_json
+                if isinstance(data, dict):
+                    answer, how_many = data.get("peca"), data.get("quantas")
+            except Exception as exc:  # noqa: BLE001
+                log_event(logger, logging.WARNING, "chat.implicit_artifact.model_error", error=exc)
+            chosen = self._implicit_entity_from_answer(answer, entities, open_piece)
+            log_event(
+                logger, logging.INFO, "chat.implicit_artifact.model",
+                conversation_id=conversation_id, answer=answer, how_many=how_many, listed=len(entities),
+                set_members=sum(1 for entity in entities if entity.get("set_member")),
+                artifact_id=(chosen or {}).get("artifact_id"),
+            )
+            if chosen is not None:
+                return {
+                    "artifact_id": chosen["artifact_id"],
+                    "inventory_number": chosen.get("inventory_number"),
+                    "title": chosen.get("title"),
+                    "source": chosen.get("source"),
+                    "resolved_by": "model",
+                    "context_source": chosen.get("source") if chosen is open_piece else None,
+                }
+        return by_rules(refs, self._IMPLICIT_STEPS, with_context=True)
 
     def _selected_artifact_decision(self, message: str, *, museum_slug: str, museum_id: str | None) -> str:
         """"about" (pergunta sobre a peça), "similar" (parte dela: «outras

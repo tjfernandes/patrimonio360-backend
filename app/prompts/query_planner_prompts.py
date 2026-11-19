@@ -63,6 +63,51 @@ def build_author_name_prompt(*, message: str, words: str) -> str:
     )
 
 
+IMPLICIT_ARTIFACT_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWYZ"  # sem o X, que é a peça aberta na visita
+IMPLICIT_ARTIFACT_OPEN_LETTER = "X"
+
+
+def build_implicit_artifact_prompt(*, entities: list[dict], open_piece: dict | None, message: str) -> str:
+    """Peça implícita pelo modelo (CHAT_IMPLICIT_ARTIFACT_MODEL): de que peça do ecrã fala
+    a mensagem? `entities` são as peças mostradas, pela ordem do ecrã (`title`,
+    `inventory_number`, `set_name`); `open_piece` é a peça aberta na visita quando não é
+    uma delas. O modelo responde com a letra, ou «nenhuma».
+
+    Redação medida a 2026-11-19 (tests/implicit_artifact_cases.py): com a posição e o n.º
+    de inventário resolvidos antes por procura exata e as regras como rede, 67 de 68 casos
+    de afinação e 57 de 59 de validação (regras sozinhas: 61 e 52). O que a medição ensinou:
+    - a lista vai por letras: com números, o modelo respondia com o n.º de inventário;
+    - o campo «quantas» vem primeiro: sem ele, uma pesquisa no plural com as palavras de um
+      cartão («Retratos de família») era lida como esse cartão;
+    - a peça aberta na visita vai à parte, com a letra X: no fim da lista, era «o último»;
+    - muitas condições na resposta «nenhuma» fazem o modelo recusar referências claras;
+    - uma só pergunta para tudo (peça nomeada, peça em foco, pesquisa) dá 50 a 61 de 68: o
+      modelo confunde pesquisas com perguntas sobre a peça em foco. Essa parte fica nas regras.
+    Qualquer alteração repete a medição (docs/peca-implicita-pelo-modelo.md).
+    """
+
+    def line(letter: str, entity: dict) -> str:
+        text = f"{letter}) " + (f"«{entity['title']}»" if entity.get("title") else "peça sem título")
+        if entity.get("inventory_number"):
+            text += f" (n.º {entity['inventory_number']})"
+        if entity.get("set_name"):
+            text += f" — do conjunto «{entity['set_name']}»"
+        return text
+
+    listed = "\n".join(line(letter, entity) for letter, entity in zip(IMPLICIT_ARTIFACT_LETTERS, entities))
+    if open_piece is not None:
+        listed += ("\n" if listed else "") + "Fora desta lista, o visitante tem aberta na visita a peça:\n"
+        listed += line(IMPLICIT_ARTIFACT_OPEN_LETTER, open_piece)
+    return (
+        "Um visitante de um museu fala com um assistente. O ecrã mostra estas peças, por esta ordem:\n"
+        f"{listed}\n\nMensagem do visitante:\n«{message}»\n\n"
+        "Primeiro: a mensagem fala de uma peça só, ou de várias peças (um tipo de peças)?\n"
+        "Depois: se fala de uma só e diz qual é, pelo nome, pelo número de inventário ou pela posição no ecrã, a letra dessa peça. "
+        "Senão, «nenhuma»: fala de várias, é uma pergunta sem nome de peça, ou é outro assunto.\n"
+        'Responde só com JSON: {"quantas": "uma" ou "várias", "peca": "letra" ou "nenhuma"}'
+    )
+
+
 def build_author_only_prompt(*, message: str, words: str) -> str:
     """Só peças do autor (CHAT_AUTHOR_ONLY_RESULTS): a mensagem diz o nome de um
     artista (`words`, já confirmado por build_author_name_prompt). O visitante
