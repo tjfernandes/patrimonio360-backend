@@ -52,6 +52,10 @@ class FindFragmentsTests(unittest.TestCase):
         base = dict(BASE, accepted_by="hotspot")
         self.assertEqual(F.find_fragments([WHOLE, base]), [])
 
+    def test_manually_confirmed_piece_stays(self) -> None:
+        base = dict(BASE, confirmed_by="manual")
+        self.assertEqual(F.find_fragments([WHOLE, base]), [])
+
     def test_container_must_be_clearly_larger(self) -> None:
         twin = _obj("8", "5 Esc", 0.7, (-99.0, -83.0, -17.0, 17.0))
         self.assertEqual(F.find_fragments([WHOLE, twin]), [])

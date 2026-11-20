@@ -117,6 +117,8 @@ def find_fragments(
         box_a = _box(a)
         if box_a is None or _area(box_a) <= 0 or str(a.get("accepted_by") or "") == "hotspot":
             continue
+        if str(a.get("confirmed_by") or "") == "manual":
+            continue  # alguém viu este recorte e confirmou a peça
         best: dict[str, Any] | None = None
         for b in objects:
             if b is a or normalize_inventory(b.get("inventory_number")) == normalize_inventory(a.get("inventory_number")):

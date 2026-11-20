@@ -21,6 +21,13 @@ As que saem não se apagam: vão para panorama-audit-queue-<museu>.json, com a
 mesma forma (panoramas → objects), à espera de uma verificação melhor que as
 recupere. O backend só lê panorama-objects-*.json. Correr outra vez junta à
 fila o que sair de novo. O resumo fica em `margin_filter` nos dois ficheiros.
+
+    python tools/apontar/filtrar_margem.py mnaa --apply --restore panorama_…:7
+
+--restore repõe uma localização da fila que alguém viu e confirmou à mão (o
+recorte ao lado da fotografia da ficha): volta ao ficheiro com
+`confirmed_by: "manual"` e a data, e nem este filtro nem o dos bocados a
+voltam a tirar. Fica com `accepted_by` como estava, que é o que o backend lê.
 """
 
 from __future__ import annotations
@@ -45,7 +52,7 @@ def margin(obj: dict[str, Any]) -> float:
 
 
 def keeps(obj: dict[str, Any], *, min_margin: float = 0.08, min_score: float = 0.85) -> bool:
-    if str(obj.get("accepted_by") or "") != "vlm":
+    if str(obj.get("accepted_by") or "") != "vlm" or str(obj.get("confirmed_by") or "") == "manual":
         return True
     try:
         score = float(obj.get("score") or 0.0)
@@ -93,18 +100,60 @@ def merge_queue(queue: dict[str, Any], museum: str, queued: dict[str, list[dict[
     return queue
 
 
+def restore(payload: dict[str, Any], queue: dict[str, Any], object_ids: set[str], *, when: str | None = None) -> list[dict[str, Any]]:
+    """Passa da fila para `payload`, no sítio, as localizações `object_ids`,
+    marcadas como confirmadas à mão. Devolve as que repôs."""
+    when = when or datetime.now().isoformat(timespec="seconds")
+    restored: list[dict[str, Any]] = []
+    for panorama_key, entry in (queue.get("panoramas") or {}).items():
+        objects = entry.get("objects") or []
+        back = [o for o in objects if isinstance(o, dict) and str(o.get("object_id") or "") in object_ids]
+        if not back:
+            continue
+        entry["objects"] = [o for o in objects if o not in back]
+        target = (payload.setdefault("panoramas", {})).setdefault(panorama_key, {"objects": []})
+        present = {str(o.get("object_id") or "") for o in target.get("objects") or [] if isinstance(o, dict)}
+        for obj in back:
+            obj = dict(obj, confirmed_by="manual", confirmed_at=when)
+            if obj["object_id"] not in present:
+                target.setdefault("objects", []).append(obj)
+            restored.append(obj)
+    if restored:
+        log = payload.setdefault("manual_confirmations", [])
+        log.append({"when": when, "object_ids": [o["object_id"] for o in restored]})
+        if isinstance(queue.get("margin_filter"), dict):
+            queue["margin_filter"]["na_fila"] = sum(len(e.get("objects") or []) for e in queue["panoramas"].values())
+    return restored
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("museum")
     parser.add_argument("--dir", default=str(ROOT / "poi_tours"))
     parser.add_argument("--min-margin", type=float, default=0.08)
     parser.add_argument("--min-score", type=float, default=0.85)
+    parser.add_argument("--restore", action="append", default=[], help="object_id da fila a repor como confirmado à mão")
     parser.add_argument("--apply", action="store_true", help="reescreve os ficheiros (sem isto só mostra)")
     args = parser.parse_args()
 
     path = Path(args.dir) / f"panorama-objects-{args.museum}.json"
     queue_path = Path(args.dir) / f"{QUEUE_PREFIX}{args.museum}.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
+    if args.restore:
+        queue = json.loads(queue_path.read_text(encoding="utf-8")) if queue_path.exists() else {}
+        restored = restore(payload, queue, set(args.restore))
+        missing = set(args.restore) - {o["object_id"] for o in restored}
+        for obj in restored:
+            print(f"reposto: {obj['object_id']} · {obj.get('inventory_number')} «{obj.get('title')}»")
+        if missing:
+            print(f"não estão na fila: {sorted(missing)}")
+            return 1
+        if args.apply:
+            # o ficheiro primeiro: se a segunda escrita falhar, a localização fica nos dois e não em nenhum
+            path.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+            queue_path.write_text(json.dumps(queue, ensure_ascii=False, indent=1), encoding="utf-8")
+            print("ficheiros reescritos")
+        return 0
     queued, report = split_payload(payload, min_margin=args.min_margin, min_score=args.min_score)
     print(f"{path.name}: ficam {report['mantido']}, vão para a fila {report['a_auditar']}")
     if args.apply and queued:
