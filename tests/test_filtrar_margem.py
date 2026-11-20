@@ -45,6 +45,32 @@ class KeepsTests(unittest.TestCase):
         self.assertTrue(F.keeps(_obj("p:8", 0.85, 0.84)))
 
 
+class RestoreTests(unittest.TestCase):
+    def test_manual_confirmation_survives_the_filter(self) -> None:
+        self.assertTrue(F.keeps(dict(CLOSE, confirmed_by="manual")))
+
+    def test_restore_moves_it_back_marked_as_manual(self) -> None:
+        payload = {"museum_slug": "mnaa", "panoramas": {"a": {"objects": [copy.deepcopy(CLEAR)]}}}
+        queue = {"museum_slug": "mnaa", "panoramas": {"a": {"objects": [copy.deepcopy(CLOSE)]}, "c": {"objects": [copy.deepcopy(MID)]}},
+                 "margin_filter": {"na_fila": 2}}
+        restored = F.restore(payload, queue, {"p:2", "p:3"}, when="2026-11-20T17:00:00")
+        self.assertEqual([o["object_id"] for o in restored], ["p:2", "p:3"])
+        self.assertEqual([o["object_id"] for o in payload["panoramas"]["a"]["objects"]], ["p:0", "p:2"])
+        back = payload["panoramas"]["c"]["objects"][0]
+        self.assertEqual((back["accepted_by"], back["confirmed_by"], back["confirmed_at"]), ("vlm", "manual", "2026-11-20T17:00:00"))
+        self.assertEqual(queue["panoramas"]["a"]["objects"], [])
+        self.assertEqual(queue["margin_filter"]["na_fila"], 0)
+        self.assertEqual(payload["manual_confirmations"], [{"when": "2026-11-20T17:00:00", "object_ids": ["p:2", "p:3"]}])
+        # o filtro, corrido outra vez, não as volta a tirar
+        queued, report = F.split_payload(payload)
+        self.assertEqual((queued, report["mantido"]), ({}, 3))
+
+    def test_unknown_id_restores_nothing(self) -> None:
+        payload, queue = {"panoramas": {}}, {"panoramas": {"a": {"objects": [copy.deepcopy(CLOSE)]}}}
+        self.assertEqual(F.restore(payload, queue, {"p:99"}), [])
+        self.assertEqual((payload, len(queue["panoramas"]["a"]["objects"])), ({"panoramas": {}}, 1))
+
+
 class SplitTests(unittest.TestCase):
     def _payload(self) -> dict:
         return {"museum_slug": "mnaa", "panoramas": {

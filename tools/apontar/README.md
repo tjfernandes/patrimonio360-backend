@@ -29,6 +29,8 @@ No MNAA: vistos os candidatos em folhas com os dois contornos, dos 129 saíram 1
 
 `tools/apontar/filtrar_margem.py <museu> [--apply]` deixa no ficheiro as localizações aceites pelo VLM com vantagem ≥ 0,08 ou cosseno ≥ 0,85 (e as de hotspot) e passa as outras, inteiras, para `poi_tours/panorama-audit-queue-<museu>.json`, que o backend não lê: ficam à espera de uma verificação melhor que as recupere. No MNAA ficam 1402 de 3184 (530 peças de 833) e vão 1782 para a fila. Na amostra, das 55 que ficam 2 estão erradas; das 95 que saem, 45 erradas, 42 certas e 8 sem se saber. Os limiares saíram da mesma amostra, por isso o erro real do que fica será um pouco maior. Os outros cinco museus não têm amostra etiquetada e ficaram como estavam.
 
+Uma localização da fila que alguém viu e confirmou volta com `filtrar_margem.py <museu> --apply --restore <object_id>`: fica com `confirmed_by: "manual"` e nenhum dos dois filtros a volta a tirar. A 2026-11-20 voltaram assim a «Fé» (60 Esc) e a «Liberalidade» (59 Esc), as duas na mesma vitrina de terracotas (vantagens de 0,02 e 0,05); a outra localização da «Fé» na fila é uma estátua de pedra de um apóstolo e ficou lá.
+
 As paragens dos percursos (`poi_tours/tour-stops-mnaa.ndjson` e o índice `cultural_heritage_tour_stops_v1`) são derivadas deste ficheiro e **não** foram refeitas: das 712 paragens `best_placement` por objeto, 312 apontam para localizações que já não estão no ficheiro, até se correr `tools/percursos/construir_paragens.py` e reindexar.
 
 ## Ferramentas
