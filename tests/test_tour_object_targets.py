@@ -166,6 +166,84 @@ class TestResolveTargets(_WithObjects):
         self.assertEqual((entries[0]["source"], entries[0]["overlay_id"]), ("object", "object:pan_musica:0"))
 
 
+class _RelatedGateway:
+    """Um artefacto num conjunto com três peças relacionadas: uma com hotspot,
+    uma localizada offline num panorama e uma que a visita não mostra."""
+
+    RELATED = [
+        {"artifact_id": "a-19663", "inventory_number": "19663", "title": "Com hotspot", "in_tour": True},
+        {"artifact_id": "a-777", "inventory_number": "777", "title": "Casaca bordada", "in_tour": False},
+        {"artifact_id": "a-4242", "inventory_number": "4242", "title": "Fora da visita", "in_tour": False},
+    ]
+
+    async def fetch_artifacts_by_ids(self, **_kwargs):
+        return [{"artifact_id": "a-1", "inventory_number": "1", "set_ids": ["s1"]}]
+
+    async def fetch_entities_by_ids(self, *, tipo, entity_ids):
+        return [{"entity_id": "conjunto:s1", "name": "Conjunto"}] if tipo == "conjunto" else []
+
+    async def fetch_artifacts_by_entity(self, *, tipo, entity_id, top_k, from_offset=0, **_kwargs):
+        if tipo != "conjunto":
+            return [], 0
+        return [dict(d) for d in self.RELATED[from_offset: from_offset + top_k]], len(self.RELATED)
+
+
+class TestDetailContextTargets(_WithObjects):
+    """A ficha do artefacto (detail-context) e /artifacts/related dão o mesmo
+    alvo à mesma peça relacionada (2026-11-20: a ficha só dava hotspots)."""
+
+    def _service_with_related(self, **overrides):
+        settings = self._settings(**{"CHAT_TOUR_LOCATION_ANSWERS": True, "TOUR_OBJECT_TARGETS_ENABLED": True, **overrides})
+        service = self._service(settings)
+        service._panorama_object_store = self.store
+        service.opensearch_gateway = _RelatedGateway()
+
+        async def _no_images(**_kwargs):
+            return {}
+
+        service._build_related_images_lookup = _no_images
+        return service
+
+    @staticmethod
+    def _targets(items) -> dict:
+        return {i.inventory_number: (i.navigation_target.model_dump() if i.navigation_target else None) for i in items}
+
+    def _both(self, service):
+        import asyncio
+
+        detail = asyncio.run(service.get_artifact_detail_context(museum_slug="mnt", museum_id="mnt", artifact_id="a-1"))
+        page = asyncio.run(service.get_related_artifacts_page(
+            museum_slug="mnt", museum_id="mnt", artifact_id="a-1", tipo="conjunto", entity_id="conjunto:s1", offset=0, limit=10))
+        return detail.sets[0].artifacts, page.artifacts
+
+    def test_detail_context_and_related_page_give_the_same_targets(self) -> None:
+        detail, page = self._both(self._service_with_related())
+        self.assertEqual(self._targets(detail), self._targets(page))
+        targets = self._targets(detail)
+        self.assertEqual(targets["19663"]["source"], "hotspot")
+        self.assertEqual((targets["777"]["source"], targets["777"]["panorama_key"], targets["777"]["yaw"], targets["777"]["pitch"]),
+                         ("object", "pan_musica", 33.3, -4.4))
+        self.assertIsNone(targets["4242"])
+
+    def test_they_agree_with_object_targets_off_too(self) -> None:
+        detail, page = self._both(self._service_with_related(TOUR_OBJECT_TARGETS_ENABLED=False))
+        self.assertEqual(self._targets(detail), self._targets(page))
+        self.assertIsNone(self._targets(detail)["777"])
+
+    def test_in_tour_follows_the_target(self) -> None:
+        for items in self._both(self._service_with_related(CHAT_IN_TOUR_FROM_NAVIGATION=True)):
+            self.assertEqual({i.inventory_number: i.in_tour for i in items}, {"19663": True, "777": True, "4242": False})
+        # sem a flag fica o campo do índice
+        for items in self._both(self._service_with_related()):
+            self.assertEqual({i.inventory_number: i.in_tour for i in items}, {"19663": True, "777": False, "4242": False})
+
+    def test_in_tour_never_goes_from_yes_to_no(self) -> None:
+        service = self._service_with_related(CHAT_IN_TOUR_FROM_NAVIGATION=True)
+        item = service._build_related_item({"artifact_id": "a-4242", "inventory_number": "4242", "in_tour": True}, navigation_lookup={})
+        self.assertTrue(item.in_tour)
+        self.assertIsNone(item.navigation_target)
+
+
 # ----- A vista mais próxima da peça (TOUR_TARGETS_CLOSEST_VIEW, 2026-11-20) ----- #
 
 # Uma visita em fila: a — b — c — d — e — f, mais as salas dos hotspots do
