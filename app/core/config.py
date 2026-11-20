@@ -244,6 +244,22 @@ class Settings(BaseSettings):
     # dos cartões a deixou mais curta: «obras de Machado de Castro» mostrava 6
     # das 7 peças e a 7.ª ficava sozinha em «Ver mais resultados» (2026-11-20).
     CHAT_AUTHOR_ONLY_FILL_PAGE: bool = False
+    # A resposta só fala de estar ou não na visita virtual quando o visitante o
+    # pergunta («nesta visita», «na visita virtual»). Sem isso: os cartões do
+    # prompt final não levam a linha «Na visita virtual», o que a AMÁLIA
+    # disser sobre a visita sai dos itens da lista (um item que fique sem frase
+    # leva a primeira da ficha) e a abertura das respostas por autor não diz
+    # «N delas nesta visita». A AMÁLIA escrevia «Fé – Não está presente na
+    # visita virtual» com o cartão a dizer que sim (docs/lista-da-resposta.md,
+    # 2026-11-20).
+    CHAT_TOUR_PRESENCE_ONLY_IF_ASKED: bool = False
+    # Com a lista decidida no prompt (CHAT_ANSWER_LIST_PLAN), o streaming só
+    # envia texto que vai estar na resposta final: a abertura e, uma a uma, as
+    # linhas da lista já como vão ficar. O fecho que a AMÁLIA escreve depois da
+    # lista nunca aparece, e uma resposta em prosa só aparece no fim, já como
+    # lista. Sem isto o texto visto a ser escrito era trocado quando chegavam
+    # os cartões (2026-11-20).
+    CHAT_STREAM_COMMITTED_LIST: bool = False
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);
