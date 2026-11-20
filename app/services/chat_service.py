@@ -11387,8 +11387,10 @@ class ChatService:
         except Exception:
             return navigation_lookup
 
+        # Pela chave normalizada: o mapa dos POIs escreve «28 tap» e a ficha
+        # «28 Tap», e a peça ficava sem o alvo do seu próprio hotspot.
         for tgt in navigation_targets_raw:
-            inv_id = str(tgt.get("inventory_id") or "").strip()
+            inv_id = normalize_object_inventory(tgt.get("inventory_id"))
             if inv_id and inv_id not in navigation_lookup:
                 navigation_lookup[inv_id] = tgt
         return navigation_lookup
@@ -11402,8 +11404,13 @@ class ChatService:
     ) -> RelatedArtifactItem:
         artifact_id = str(art.get("artifact_id") or "")
         inv = str(art.get("inventory_number") or "").strip() or None
-        nav = navigation_lookup.get(inv or "") if inv else None
+        nav = navigation_lookup.get(normalize_object_inventory(inv)) if inv else None
         nav_target = self._navigation_target_from_dict(nav) if nav else None
+        # CHAT_IN_TOUR_FROM_NAVIGATION: uma peça com alvo está na visita, diga o
+        # índice o que disser (o campo está desatualizado). Nunca passa de sim a não.
+        in_tour = bool(art.get("in_tour")) or (
+            nav_target is not None and bool(getattr(self.settings, "CHAT_IN_TOUR_FROM_NAVIGATION", False))
+        )
         related_images = (
             (images_by_artifact or {}).get(artifact_id)
             or self._build_related_artifact_images(art)
@@ -11419,7 +11426,7 @@ class ChatService:
             date_or_period=self._catalogue_date_text(art) or None,
             detail_type=str(art.get("detail_type") or "").strip() or None,
             detail_url=str(art.get("detail_url") or "").strip() or None,
-            in_tour=bool(art.get("in_tour")),
+            in_tour=in_tour,
             image_count=art.get("image_count") if isinstance(art.get("image_count"), int) else None,
             images=related_images,
             navigation_target=nav_target,
@@ -11612,23 +11619,17 @@ class ChatService:
             museum_id=museum_id,
             related_docs=all_related_docs,
         )
+        # O mesmo critério dos cartões do chat e de /artifacts/related (hotspots e
+        # peças localizadas offline num panorama): com «só hotspots» a primeira
+        # página das relacionadas vinha sem «Ver na tour» e as seguintes com ele.
         navigation_lookup: dict[str, dict[str, Any]] = {}
         if all_inventories:
-            try:
-                # só hotspots, como sempre aqui; de vários, o mais perto da peça
-                navigation_targets_raw = await asyncio.to_thread(
-                    self._resolve_target_dicts,
-                    museum_slug=museum_slug,
-                    museum_id=museum_id,
-                    inventories=all_inventories,
-                    objects=False,
-                )
-            except Exception:
-                navigation_targets_raw = []
-            for tgt in navigation_targets_raw:
-                inv_id = str(tgt.get("inventory_id") or "").strip()
-                if inv_id and inv_id not in navigation_lookup:
-                    navigation_lookup[inv_id] = tgt
+            navigation_lookup = await asyncio.to_thread(
+                self._build_navigation_lookup_for_related,
+                museum_slug=museum_slug,
+                museum_id=museum_id,
+                related_docs=all_related_docs,
+            )
 
         # 5) Construir resposta.
         authors_response: list[AuthorEntity] = []
