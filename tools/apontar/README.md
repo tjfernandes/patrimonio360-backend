@@ -17,6 +17,14 @@ Em vez de o visitante apontar e arriscar um «não encontrei», o backend sabe d
 
 Medido em 5 panoramas (3 do MNAA, 2 do MNT, 20 a 130 s cada, ao lado da produção): 644 recortes, 24 peças identificadas, 23 certas à vista (recorte ao lado da imagem da ficha); a duvidosa é um pormenor de um quadro a 0,761. A Fuga para o Egipto ficou a yaw 2,4°, onde o visitante lhe tinha tocado. Das 23 peças com hotspot nesses panoramas encontrou 7: as que faltam são sobretudo objetos pequenos em vitrinas (botões, bolsas, cartola, bacia e gomil) e peças que nunca foram a melhor correspondência de nenhum recorte.
 
+### Bocados de outra peça (2026-11-20)
+
+O SAM recorta às vezes só parte de uma peça e o kNN dá a esse bocado outra peça parecida, que o VLM par a par confirma: a base da «Santíssima Trindade» (1206 Esc) ficou como «Caridade» (63 Esc), cosseno 0,655, «2 sim», e «Ver na tour» levava lá. `tools/apontar/filtrar_fragmentos.py <museu> [--apply]` tira o recorte que fica dentro (≥ 0,75 da caixa e da área do contorno) de outra peça identificada no mesmo panorama, pelo menos 1,5 vezes maior e com cosseno maior; `--remove <n.º>` tira uma peça de todos os panoramas e `--keep <object_id>` poupa um recorte. O que saiu fica em `fragment_filter` no ficheiro.
+
+No MNAA: vistos os candidatos em folhas com os dois contornos, dos 129 saíram 127 (bocados de quadros, bases de cruzes e custódias, metades de esculturas e cadeiras) e 2 ficaram poupados (uma custódia à frente de um sacrário e um cofre dentro do contorno de um grupo de custódias); saíram também as outras 2 localizações da «Caridade», porque nenhuma das 3 era a peça. De 3313 objetos ficam 3184. Nalguns bocados a peça estava certa e só o recorte era parcial: essas peças perdem essa localização. Os outros cinco museus têm 3 candidatos ao todo e ficaram como estavam.
+
+As paragens dos percursos (`poi_tours/tour-stops-mnaa.ndjson` e o índice `cultural_heritage_tour_stops_v1`) são derivadas deste ficheiro e **não** foram refeitas: 75 paragens (26 delas `best_placement`) ainda apontam para recortes que saíram, até se correr `tools/percursos/construir_paragens.py` e reindexar.
+
 ## Ferramentas
 
 - `tools/apontar/descarregar_faces.py [museu…] [--completo]` aquece a cache das faces. Sem ela o primeiro toque num panorama demora 1 a 3 s a mais (tiles do VPS).
