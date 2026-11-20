@@ -193,6 +193,15 @@ class TestDraft(_Base):
         self.assertIn("Mantém exatamente as mesmas linhas", rewrite)
         self.assertIn("Rewrite the text below in English", build_rewrite_prompt(museum_name="MNAA", draft="x", language="en"))
 
+    def test_the_instructions_carry_no_example_object(self) -> None:
+        # com «a segurar um livro» de exemplo, 31 de 260 linhas inventavam um livro que a ficha não tinha
+        for prompt in (build_draft_sentence_prompt(user_message="retratos", card="FICHA-DE-TESTE"),
+                       build_draft_opening_prompt(user_message="retratos", cards="FICHA-DE-TESTE"),
+                       build_rewrite_prompt(museum_name="Museu Nacional de Arte Antiga", draft="RASCUNHO-DE-TESTE")):
+            self.assertNotIn("livro", prompt)
+        self.assertIn("não uses o gerúndio", build_draft_sentence_prompt(user_message="retratos", card="x"))
+        self.assertIn("sem gerúndio", build_rewrite_prompt(museum_name="MNAA", draft="x"))
+
 
 class _FlowThinker(_Pre):
     """Como _Pre, e também escreve as frases e a abertura do rascunho."""
