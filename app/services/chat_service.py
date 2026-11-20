@@ -54,6 +54,7 @@ from app.prompts.chat_prompts import (
     card_selection_instruction,
     build_card_preselection_prompt,
     build_visual_pick_prompt,
+    has_answer_list_plan,
 )
 from app.services.author_portraits import AuthorPortraitStore
 from app.services.author_cards import (
@@ -3464,7 +3465,9 @@ class ChatService:
         skip = (page - 2) * page_size
         return rest[skip: skip + page_size], (len(rest) > skip + page_size if fetched_all else None)
 
-    def _mention_every_card(self, text: str, cards: list[ArtifactResult], *, language: str | None) -> str:
+    def _mention_every_card(
+        self, text: str, cards: list[ArtifactResult], *, language: str | None, list_planned: bool = False
+    ) -> str:
         """CHAT_ANSWER_ALL_CARDS: a garantia de que o texto fala de todos os cartões
         mostrados. A instrução pede-o à AMÁLIA, que em cerca de um décimo dos
         cartões não a cumpre; os que ficarem por dizer (nem o título nem o n.º de
@@ -3473,6 +3476,8 @@ class ChatService:
         não se acrescenta nada: a resposta é sobre ele."""
         if not bool(getattr(self.settings, "CHAT_ANSWER_ALL_CARDS", False)) or len(cards) < 2 or not (text or "").strip():
             return text
+        if list_planned and bool(getattr(self.settings, "CHAT_ANSWER_LIST_PLAN", False)):
+            return self._answer_list_as_planned(text, cards, english=normalize_language(language) == "en")
         folded = fold(text)
         by_title: dict[str, list[ArtifactResult]] = {}
         for card in cards:
@@ -3488,17 +3493,186 @@ class ChatService:
         if not missing:
             return text
         english = normalize_language(language) == "en"
+        untitled_by_inventory = bool(getattr(self.settings, "CHAT_UNTITLED_CARD_BY_INVENTORY", False))
 
         def label(card: ArtifactResult) -> str:
             title, inventory = str(card.title or "").strip(), str(card.inventory_number or "").strip()
             if title and inventory:
                 return f"**{title}** ({inventory})"
-            return f"**{title}**" if title else (f"object {inventory}" if english else f"a peça {inventory}")
+            if title or (untitled_by_inventory and inventory):
+                return f"**{title or inventory}**"
+            return f"object {inventory}" if english else f"a peça {inventory}"
 
         order = {card.artifact_id: index for index, card in enumerate(cards)}
-        names = ", ".join(label(card) for card in sorted(missing, key=lambda card: order[card.artifact_id]))
+        missing.sort(key=lambda card: order[card.artifact_id])
+        if bool(getattr(self.settings, "CHAT_MISSING_CARDS_IN_LIST", False)):
+            listed = self._missing_cards_as_list_items(text, missing, english=english)
+            if listed is not None:
+                return listed
+        names = ", ".join(label(card) for card in missing)
         tail = f"The cards also show: {names}." if english else f"Nos cartões estão também: {names}."
         return f"{text.rstrip()}\n\n{tail}"
+
+    def _answer_list_names(self, cards: list[ArtifactResult]) -> list[str]:
+        """O nome de cada cartão na lista da resposta, como no prompt
+        (chat_prompts.answer_list_plan): o título, o n.º de inventário quando a
+        ficha não tem título, e o n.º entre parênteses nos títulos repetidos."""
+        by_inventory = bool(getattr(self.settings, "CHAT_UNTITLED_CARD_BY_INVENTORY", False))
+        pairs = []
+        for card in cards:
+            title, inventory = str(card.title or "").strip(), str(card.inventory_number or "").strip()
+            pairs.append((title or (inventory if (by_inventory and inventory) else "sem título"), inventory))
+        seen: dict[str, int] = {}
+        for title, _ in pairs:
+            seen[title.casefold()] = seen.get(title.casefold(), 0) + 1
+        return [
+            f"{title} ({inventory})" if seen[title.casefold()] > 1 and inventory and inventory.casefold() != title.casefold() else title
+            for title, inventory in pairs
+        ]
+
+    def _answer_list_as_planned(self, text: str, cards: list[ArtifactResult], *, english: bool) -> str:
+        """CHAT_ANSWER_LIST_PLAN: a resposta fica como o prompt a pediu, mesmo
+        que a AMÁLIA não o tenha cumprido: a abertura dela e uma linha por
+        cartão, pela ordem dos cartões, «N. nome – frase». Cada linha é a que
+        ela escreveu para esse nome; se não a escreveu (saltou a peça, juntou
+        duas, falou dela num parágrafo à parte), a frase é a primeira da
+        descrição da ficha (em inglês só o nome: a ficha está em português).
+        O que vier depois da lista sai: era aí que apareciam peças «à toa» e
+        frases como «todas estão na visita virtual»."""
+        names = self._answer_list_names(cards)
+        lines = text.strip().split("\n")
+        item_at = [index for index, line in enumerate(lines) if self._LIST_ITEM.match(line)]
+        if item_at:
+            opening = " ".join(line.strip() for line in lines[: item_at[0]] if line.strip())
+        else:
+            # resposta em prosa: fica a primeira frase como abertura
+            flat = re.sub(r"\s+", " ", text).strip()
+            opening = re.split(r"(?<=[.!?:])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕ])", flat, maxsplit=1)[0]
+        if item_at:
+            bodies = [self._LIST_ITEM.match(lines[index])["body"].strip() for index in item_at]
+        else:
+            # sem marcadores: as linhas a seguir à primeira, se ela escreveu uma por peça
+            bodies = [line.strip() for line in lines[1:] if line.strip()]
+            if bodies:
+                opening = lines[0].strip()
+        # o nome pode vir com artigo («A Caixa, do século XVII…») e com negrito
+        folded_bodies = [re.sub(r"^(?:o|a|os|as|the) ", "", fold(body.lstrip("*_ –—-"))) for body in bodies]
+        repeated = {fold(c.title or "") for c in cards if sum(fold(o.title or "") == fold(c.title or "") for o in cards) > 1}
+        inventories = {position: fold(card.inventory_number or "") for position, card in enumerate(cards)}
+        used: set[int] = set()
+        line_of: dict[int, int] = {}
+
+        def claim(position: int, key: str, *, title_only: bool = False) -> None:
+            if position in line_of or len(key) < 2:
+                return
+            for index, body in enumerate(folded_bodies):
+                if index in used or not re.match(rf"{re.escape(key)}(?![a-z0-9])", body):
+                    continue
+                if title_only and key in repeated and any(
+                    other != position and inventory and inventory in body for other, inventory in inventories.items()
+                ):
+                    continue  # a linha é de outra peça com o mesmo título
+                used.add(index)
+                line_of[position] = index
+                return
+
+        # primeiro o nome inteiro («São Jerónimo (2 Pint)»), depois só o título
+        for position, name in enumerate(names):
+            claim(position, fold(name))
+        for position, card in enumerate(cards):
+            claim(position, fold(card.title or ""), title_only=True)
+        out: list[str] = []
+        for position, (card, name) in enumerate(zip(cards, names)):
+            number = position + 1
+            if position in line_of:
+                out.append(f"{number}. {bodies[line_of[position]]}")
+                continue
+            inventory = str(card.inventory_number or "").strip()
+            sentence = "" if english else self._first_sentence(card.description)
+            if sentence:
+                out.append(f"{number}. {name} – {sentence}")
+            else:
+                out.append(f"{number}. {name}" + (f" ({inventory})" if inventory and inventory.casefold() not in name.casefold() else ""))
+        return "\n".join(([opening] if opening else []) + out)
+
+    # um item de lista: «1. …», «2) …», «- …», «• …», «* …»
+    _LIST_ITEM = re.compile(r"^(?P<indent>[ \t]*)(?P<marker>\d+[.)]|[-•*])(?P<gap>[ \t]+)(?P<body>\S.*)$")
+    # o que separa o título da frase num item: « – », « — », « - » ou «: »
+    _LIST_ITEM_SEPARATOR = re.compile(r"\s[–—-]\s|:\*{0,2}\s")
+    _MISSING_ITEM_SENTENCE_CHARS = 160
+
+    def _missing_cards_as_list_items(self, text: str, missing: list[ArtifactResult], *, english: bool) -> str | None:
+        """CHAT_MISSING_CARDS_IN_LIST: os cartões por dizer como itens da lista que
+        a resposta já traz, a seguir ao último, com o marcador, o negrito e o
+        separador desse item. A frase é a primeira da descrição da ficha (em
+        inglês não: a ficha está em português, fica o título e o n.º). None se
+        o texto não tem lista."""
+        lines = text.split("\n")
+        items = [index for index, line in enumerate(lines) if self._LIST_ITEM.match(line)]
+        if not items:
+            return None
+        last = items[-1]
+        match = self._LIST_ITEM.match(lines[last])
+        indent, marker, gap, body = match["indent"], match["marker"], match["gap"], match["body"]
+        bold = body.startswith("**")
+        separator = self._LIST_ITEM_SEPARATOR.search(body)
+        separator_text = ": " if (separator and separator.group().lstrip().startswith(":")) else (separator.group() if separator else " – ")
+        # lista com uma linha em branco entre os itens: os novos também a levam
+        loose = len(items) >= 2 and items[-1] - items[-2] >= 2 and not lines[last - 1].strip()
+        # linhas de continuação do último item (indentadas) ficam com ele
+        while last + 1 < len(lines) and lines[last + 1].strip() and lines[last + 1][:1] in (" ", "\t") and not self._LIST_ITEM.match(lines[last + 1]):
+            last += 1
+        number = int(marker[:-1]) if marker[:-1].isdigit() else None
+        new_lines: list[str] = []
+        for card in missing:
+            title, inventory = str(card.title or "").strip(), str(card.inventory_number or "").strip()
+            name = title or inventory
+            if not name:
+                continue
+            if number is not None:
+                number += 1
+                bullet = f"{number}{marker[-1]}"
+            else:
+                bullet = marker
+            shown = f"**{name}**" if bold else name
+            sentence = "" if english else self._first_sentence(card.description)
+            if sentence:
+                line = f"{indent}{bullet}{gap}{shown}{separator_text}{sentence}"
+            else:
+                line = f"{indent}{bullet}{gap}{shown}" + (f" ({inventory})" if title and inventory else "")
+            if loose:
+                new_lines.append("")
+            new_lines.append(line)
+        if not new_lines:
+            return None
+        return "\n".join(lines[: last + 1] + new_lines + lines[last + 1:])
+
+    # abreviaturas depois das quais um ponto não acaba a frase («D. Maria», «séc. XVI», «Inv. 12»)
+    _SENTENCE_ABBREVIATIONS = frozenset({
+        "d", "s", "sr", "sra", "dr", "dra", "fr", "st", "sto", "sta", "séc", "sec", "c", "ca", "cf", "n", "p", "pp", "inv", "fig", "ob",
+    })
+
+    def _first_sentence(self, description: str | None) -> str:
+        """A primeira frase da descrição da ficha, numa linha e com ponto final."""
+        flat = re.sub(r"\s+", " ", str(description or "")).strip()
+        if not flat:
+            return ""
+        first = flat
+        for match in re.finditer(r"[.!?]\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕ\"«])", flat):
+            before = flat[: match.start()].rsplit(" ", 1)[-1].strip("(«\"").casefold()
+            if flat[match.start()] == "." and before in self._SENTENCE_ABBREVIATIONS:
+                continue
+            first = flat[: match.start() + 1]
+            break
+        limit = self._MISSING_ITEM_SENTENCE_CHARS
+        if len(first) > limit:
+            cut = first[: limit + 1]
+            comma = max(cut.rfind(", "), cut.rfind("; "))
+            if comma >= limit // 3:
+                # acaba numa vírgula: lê-se como frase e não como texto cortado
+                return cut[:comma].rstrip(" ,;:") + "."
+            first = (cut[: cut.rfind(" ")] if " " in cut else cut[:limit]).rstrip(" ,;:") + "…"
+        return first if first[-1] in ".!?…" else first + "."
 
     # onde começa a lista das peças numa resposta: «1. …», «- …», «* …» ou uma linha a abrir com «**Título**»
     _ANSWER_LIST_START = re.compile(r"(?m)^[ \t]*(?:\d+[.)][ \t]+|[-•][ \t]+|\*[ \t]+|\*\*)")
@@ -3666,6 +3840,7 @@ class ChatService:
                 user_message=message, rewritten_query=message, retrieval_context=context, language=language,
                 national_treasures=bool(getattr(self.settings, "CHAT_NATIONAL_TREASURES", False)),
                 all_cards=bool(getattr(self.settings, "CHAT_ANSWER_ALL_CARDS", False)),
+                list_plan=bool(getattr(self.settings, "CHAT_ANSWER_LIST_PLAN", False)),
             )
             llm_response = await self.llm_service.generate(
                 message=prompt,
@@ -3683,7 +3858,7 @@ class ChatService:
             return response.reply
         if not text:
             return response.reply
-        text = self._mention_every_card(text, cards, language=language)
+        text = self._mention_every_card(text, cards, language=language, list_planned=has_answer_list_plan(prompt))
         # a conversa guardada fica com o texto que o visitante vê
         history = getattr(state, "history", None) if state is not None else None
         if history and str(getattr(history[-1], "role", "")) != "user":
@@ -5987,7 +6162,10 @@ class ChatService:
             )
 
         if requested_format.type == "text" and not self._is_treasure_list_request(retrieval_request):
-            final_reply_text = self._mention_every_card(final_reply_text, paged_artifact_results, language=language)
+            final_reply_text = self._mention_every_card(
+                final_reply_text, paged_artifact_results, language=language,
+                list_planned=has_answer_list_plan(final_message),
+            )
         if author_opening:
             # o mesmo texto que o streaming escreveu: a abertura com os números e a lista da AMÁLIA
             final_reply_text = self._author_answer_with_counts(
@@ -10579,8 +10757,12 @@ class ChatService:
 
         cards: list[str] = []
         for index, doc in enumerate(docs, start=1):
-            title = text(doc.get("title")) or "sem título"
             inventory = text(doc.get("inventory_number")) or text(doc.get("inventory"))
+            title = text(doc.get("title"))
+            if not title:
+                # CHAT_UNTITLED_CARD_BY_INVENTORY: sem título, a peça chama-se pelo n.º de inventário
+                by_inventory = bool(getattr(self.settings, "CHAT_UNTITLED_CARD_BY_INVENTORY", False))
+                title = inventory if (by_inventory and inventory) else "sem título"
             category = text(doc.get("category"))
             super_category = text(doc.get("super_category"))
             if super_category and super_category.casefold() != category.casefold():
@@ -12814,6 +12996,7 @@ class ChatService:
                 visual_answer_rule=bool(getattr(self.settings, "CHAT_VISUAL_ANSWER_RULE", False))
                 and "    Aspeto na fotografia: " in (retrieval_context or ""),
                 all_cards=bool(getattr(self.settings, "CHAT_ANSWER_ALL_CARDS", False)),
+                list_plan=bool(getattr(self.settings, "CHAT_ANSWER_LIST_PLAN", False)),
             )
         if select_cards:
             return "\n".join(
