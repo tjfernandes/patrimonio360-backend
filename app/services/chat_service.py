@@ -3157,6 +3157,9 @@ class ChatService:
         response = await self._handle_message_routed(payload, status_cb=status_cb)
         if not bool(getattr(self.settings, "CHAT_AUTHOR_CARD", False)):
             return response
+        if self._author_was_decided_before_answer(response.query_id):
+            # CHAT_AUTHOR_BEFORE_ANSWER: a ficha e os cartões do autor já vêm na resposta
+            return response
         details: dict[str, Any] = {}
         try:
             author = await asyncio.wait_for(
@@ -3505,24 +3508,15 @@ class ChatService:
         r"[^.!?\n]{0,40}?\b(?:pe[cç]as?|obras?|works?|objects?|pieces?)\b"
     )
 
-    def _author_answer_with_counts(
-        self, text: str, *, author: ChatAuthorCard | None, total: int, shown: int, language: str | None
-    ) -> str:
-        """CHAT_AUTHOR_ANSWER_COUNTS: numa resposta só com peças de um autor, a
-        abertura diz os números do catálogo e não os que a AMÁLIA escrever.
-
-        A AMÁLIA abria com «Encontrei 2 peças de Domingos António de Sequeira»
-        ao lado de 8 cartões de um autor com 109 peças: o número era o das peças
-        que ela tinha escolhido descrever. A frase antes da lista sai e entra
-        uma feita com os dados («O museu tem 109 peças de …, 9 delas nesta
-        visita. Os cartões mostram as primeiras 8 (as restantes estão em «Ver
-        mais resultados»):»); numa resposta sem lista,
-        a abertura junta-se à frente e sai a primeira frase se contar peças. Com
-        uma só peça não se mexe: a resposta é sobre ela."""
+    def _author_counts_opening(
+        self, *, author: ChatAuthorCard | None, total: int, shown: int, language: str | None
+    ) -> str | None:
+        """A frase de abertura com os números do catálogo (CHAT_AUTHOR_ANSWER_COUNTS),
+        ou None quando não se aplica: flag desligada, sem autor ou uma só peça."""
         if not bool(getattr(self.settings, "CHAT_AUTHOR_ANSWER_COUNTS", False)):
-            return text
-        if author is None or total < 2 or shown < 1 or not (text or "").strip():
-            return text
+            return None
+        if author is None or total < 2 or shown < 1:
+            return None
         english = normalize_language(language) == "en"
         name = self._author_name_for_request(author.name)
         count = max(int(author.artifact_count or 0), total)
@@ -3549,15 +3543,93 @@ class ChatService:
                 f". Os cartões mostram as primeiras {shown} (as restantes estão em «Ver mais resultados»):" if shown < total
                 else ". São estas:"
             )
-        body = text.strip()
+        return opening
+
+    # até onde se espera pela lista das peças numa resposta («1. …» costuma vir nos primeiros 100 caracteres)
+    _ANSWER_LIST_WITHIN = 400
+
+    def _author_answer_body(self, body: str, *, final: bool) -> str | None:
+        """O que fica do texto da AMÁLIA depois da abertura com os números: a
+        lista das peças, a partir de onde começa; numa resposta corrida, o
+        texto sem a primeira frase se for ela a contar as peças.
+
+        `final=False` é o texto ainda a chegar (streaming): None enquanto não
+        se sabe onde começa a lista, e o que se devolve não perde o fim."""
         start = self._ANSWER_LIST_START.search(body)
-        if start is not None and start.start() <= 400:
-            return f"{opening}\n\n{body[start.start():].lstrip()}"
-        # resposta corrida: sai a primeira frase se for ela a contar as peças
+        if start is not None and start.start() <= self._ANSWER_LIST_WITHIN:
+            return body[start.start():].lstrip()
+        if not final and len(body) <= self._ANSWER_LIST_WITHIN + 20:
+            return None  # a lista ainda pode vir
         first, separator, rest = body.partition(". ")
+        if not final and not rest.strip():
+            return None  # a primeira frase ainda não acabou: não se sabe se é ela a contar as peças
         if separator and rest.strip() and self._ANSWER_COUNT_CLAIM.search(first):
-            body = rest.strip()
-        return f"{opening}\n\n{body}"
+            return rest.strip() if final else rest.lstrip()
+        return body
+
+    def _author_answer_with_counts(
+        self, text: str, *, author: ChatAuthorCard | None, total: int, shown: int, language: str | None
+    ) -> str:
+        """CHAT_AUTHOR_ANSWER_COUNTS: numa resposta só com peças de um autor, a
+        abertura diz os números do catálogo e não os que a AMÁLIA escrever.
+
+        A AMÁLIA abria com «Encontrei 2 peças de Domingos António de Sequeira»
+        ao lado de 8 cartões de um autor com 109 peças: o número era o das peças
+        que ela tinha escolhido descrever. A frase antes da lista sai e entra
+        uma feita com os dados («O museu tem 109 peças de …, 9 delas nesta
+        visita. Os cartões mostram as primeiras 8 (as restantes estão em «Ver
+        mais resultados»):»); numa resposta sem lista,
+        a abertura junta-se à frente e sai a primeira frase se contar peças. Com
+        uma só peça não se mexe: a resposta é sobre ela."""
+        opening = self._author_counts_opening(author=author, total=total, shown=shown, language=language)
+        if opening is None or not (text or "").strip():
+            return text
+        return f"{opening}\n\n{self._author_answer_body(text.strip(), final=True)}"
+
+    def _author_opening_stream(
+        self, factory: Callable[[], Callable[[str], Awaitable[None]]], opening: str
+    ) -> tuple[Callable[[], Callable[[str], Awaitable[None]]], Callable[[], Awaitable[None]]]:
+        """CHAT_AUTHOR_BEFORE_ANSWER: o streaming escreve o que o texto final vai
+        ter (_author_answer_with_counts). A abertura com os números sai ao
+        primeiro token; o que a AMÁLIA escrever antes da lista fica retido e
+        não chega ao visitante; da lista em diante passa tudo. Devolve a
+        fábrica dos emissores e um `flush` para o fim da geração (uma resposta
+        curta e sem lista só se decide aí)."""
+        last: dict[str, Any] = {}
+
+        def wrapped() -> Callable[[str], Awaitable[None]]:
+            emit = factory()
+            stream = {"held": "", "started": False, "open": False}
+            last["emit"], last["stream"] = emit, stream
+
+            async def filtered(delta: str) -> None:
+                if not stream["started"]:
+                    stream["started"] = True
+                    await emit(f"{opening}\n\n")
+                if stream["open"]:
+                    if delta:
+                        await emit(delta)
+                    return
+                stream["held"] += delta or ""
+                out = self._author_answer_body(stream["held"].lstrip(), final=False)
+                if out is None:
+                    return
+                stream["open"], stream["held"] = True, ""
+                if out:
+                    await emit(out)
+
+            return filtered
+
+        async def flush() -> None:
+            stream = last.get("stream")
+            if not stream or stream["open"] or not stream["started"]:
+                return
+            out = self._author_answer_body(stream["held"].strip(), final=True)
+            stream["open"], stream["held"] = True, ""
+            if out:
+                await last["emit"](out)
+
+        return wrapped, flush
 
     async def _author_only_new_answer(
         self,
@@ -3624,7 +3696,14 @@ class ChatService:
         return text
 
     async def _author_only_results(
-        self, payload: ChatMessageRequest, response: ChatMessageResponse, *, words: str, message: str | None = None
+        self,
+        payload: ChatMessageRequest,
+        response: ChatMessageResponse,
+        *,
+        words: str,
+        message: str | None = None,
+        write_reply: bool = True,
+        outcome: dict[str, Any] | None = None,
     ) -> ChatMessageResponse:
         """Com a ficha do autor na resposta: se o visitante quer as obras desse
         autor, os cartões passam a ser só de peças dele.
@@ -3635,7 +3714,12 @@ class ChatService:
         que a resposta fez repete-se com o filtro dos ids do autor: saem os
         cartões de outros autores, os lugares deles são para mais peças dele, e o
         pedido guardado para «ver mais resultados» fica com o mesmo filtro. O
-        texto da resposta não muda. Qualquer falha deixa a resposta como estava."""
+        texto da resposta não muda. Qualquer falha deixa a resposta como estava.
+
+        `write_reply=False` é a chamada de antes da resposta
+        (CHAT_AUTHOR_BEFORE_ANSWER): só os cartões mudam, o texto escreve-se
+        depois, sobre eles. `outcome["applied"]` diz se os cartões ficaram só
+        do autor."""
         author = response.author
         author_ids = [str(value).strip() for value in (author.entity_ids if author is not None else []) if str(value).strip()]
         request_id = str(response.results_request_id or "").strip()
@@ -3753,15 +3837,18 @@ class ChatService:
             conversation_id=response.conversation_id, query_id=response.query_id, author=author.name,
             kept=len(kept), removed=len(response.artifact_results) - len(kept), filled=len(fill_cards), total=total, kind=kind,
         )
+        if outcome is not None:
+            outcome["applied"] = True
         reply = response.reply
-        if len(kept) != len(response.artifact_results) or fill_cards:
-            # os cartões já não são os que a resposta descreveu: escreve-se outra, sobre estes
-            reply = await self._author_only_new_answer(
-                payload, response, message=message, cards=cards, targets=targets, total=total, page_size=page_size, state=state,
+        if write_reply:
+            if len(kept) != len(response.artifact_results) or fill_cards:
+                # os cartões já não são os que a resposta descreveu: escreve-se outra, sobre estes
+                reply = await self._author_only_new_answer(
+                    payload, response, message=message, cards=cards, targets=targets, total=total, page_size=page_size, state=state,
+                )
+            reply = self._author_answer_with_counts(
+                reply, author=author, total=total, shown=len(cards), language=payload.language or (state.language if state else None)
             )
-        reply = self._author_answer_with_counts(
-            reply, author=author, total=total, shown=len(cards), language=payload.language or (state.language if state else None)
-        )
         return response.model_copy(update={
             "reply": reply,
             "artifact_results": cards,
@@ -3770,6 +3857,67 @@ class ChatService:
             "results_total": total,
             "results_has_more": has_more,
         })
+
+    # ----- Autor decidido antes da resposta (CHAT_AUTHOR_BEFORE_ANSWER) ----- #
+
+    def _author_was_decided_before_answer(self, query_id: str | None) -> bool:
+        """Se a pesquisa desta resposta já tratou da ficha e dos cartões do
+        autor (e esquece-o: pergunta-se uma vez por resposta)."""
+        decided = getattr(self, "_author_decided_query_ids", None)
+        if not decided or not query_id or query_id not in decided:
+            return False
+        decided.discard(query_id)
+        return True
+
+    async def _author_before_answer(
+        self, payload: ChatMessageRequest, provisional: ChatMessageResponse
+    ) -> dict[str, Any]:
+        """A ficha do autor e «só peças do autor», com os cartões que a pesquisa
+        vai mostrar e antes de a resposta ser escrita.
+
+        São os dois passos que handle_message dava depois da resposta
+        (_author_card_for_response, _author_only_results), sobre uma resposta
+        provisória sem texto. Devolve {"author", "applied", "response"}:
+        a ficha (ou None), se os cartões ficaram só do autor, e a resposta
+        provisória com os cartões que ficam. Uma falha é «sem ficha» ou
+        «cartões como estavam»: o passo de depois já não corre, para o texto
+        nunca ser escrito duas vezes."""
+        decided = getattr(self, "_author_decided_query_ids", None)
+        if decided is None:
+            decided = self._author_decided_query_ids = set()
+        if len(decided) > 1000:  # respostas que falharam depois deste passo
+            decided.clear()
+        if provisional.query_id:
+            decided.add(provisional.query_id)
+        details: dict[str, Any] = {}
+        try:
+            author = await asyncio.wait_for(
+                self._author_card_for_response(payload, provisional, details=details), timeout=6.0
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_event(logger, logging.WARNING, "chat.author_card.error", error=exc)
+            author = None
+        if author is None:
+            return {"author": None, "applied": False, "response": provisional}
+        response = provisional.model_copy(update={"author": author})
+        outcome: dict[str, Any] = {}
+        if bool(getattr(self.settings, "CHAT_AUTHOR_ONLY_RESULTS", False)):
+            try:
+                response = await asyncio.wait_for(
+                    self._author_only_results(
+                        payload, response, words=str(details.get("words") or ""), message=details.get("message"),
+                        write_reply=False, outcome=outcome,
+                    ),
+                    timeout=8.0,
+                )
+            except Exception as exc:  # noqa: BLE001
+                log_event(logger, logging.WARNING, "chat.author_only.error", error=exc)
+        log_event(
+            logger, logging.INFO, "chat.author_before_answer",
+            conversation_id=provisional.conversation_id, query_id=provisional.query_id, author=author.name,
+            only_author=bool(outcome.get("applied")), cards=len(response.artifact_results),
+        )
+        return {"author": author, "applied": bool(outcome.get("applied")), "response": response}
 
     def _author_portrait(self, group: AuthorGroup) -> dict[str, str | None] | None:
         """O retrato do autor (CHAT_AUTHOR_PORTRAITS), do ficheiro dos retratos; None
@@ -5458,6 +5606,71 @@ class ChatService:
         # corresponde. Não se mostra nada, não há «ver mais» e a resposta escreve-se
         # sem fichas (nem as da pesquisa, que ele acabou de rejeitar).
         preselected_none = preselection is not None and preselection.get("rule") == "preselect_none"
+
+        def answer_selects_cards() -> bool:
+            # O modelo escolhe os cartões: só com mais do que um cartão visível
+            # (com um só, nada há a escolher) e nunca na semelhança ancorada,
+            # cujo contexto repete os rótulos [doc_N] da peça de referência.
+            return (
+                bool(getattr(self.settings, "CHAT_MODEL_SELECTS_CARDS", False))
+                and requested_format.type == "text"
+                and retrieval_kind_for_log != "anchored_similarity"
+                and len(paged_artifact_results) > 1
+                # numa lista fechada (Tesouros Nacionais) todos os cartões correspondem
+                and not self._is_treasure_list_request(retrieval_request)
+                # com os cartões já escolhidos pelo pré-processamento, a AMÁLIA só escreve
+                and not (preselection is not None and preselection.get("rule") == "preselect")
+            )
+
+        # CHAT_AUTHOR_BEFORE_ANSWER: a ficha do autor e «só peças do autor»
+        # decidem-se aqui, com os cartões já escolhidos e antes de a resposta ser
+        # escrita, para o texto falar logo dos cartões que ficam. Quando é a
+        # AMÁLIA a escolher os cartões ao escrever, eles só se conhecem depois:
+        # fica o passo de handle_message.
+        author_first: dict[str, Any] | None = None
+        if (
+            bool(getattr(self.settings, "CHAT_AUTHOR_BEFORE_ANSWER", False))
+            and bool(getattr(self.settings, "CHAT_AUTHOR_CARD", False))
+            and requested_format.type == "text"
+            and results_page <= 1
+            and paged_artifact_results
+            and not preselected_none
+            and not answer_selects_cards()
+        ):
+            author_first = await self._author_before_answer(
+                payload,
+                ChatMessageResponse(
+                    conversation_id=conversation_id,
+                    query_id=query_id,
+                    response_format=requested_format,
+                    reply="",
+                    image_matches=paged_image_matches,
+                    artifact_results=paged_artifact_results,
+                    navigation_targets=paged_navigation_targets,
+                    results_page=results_page,
+                    results_page_size=results_page_size,
+                    results_total=results_total,
+                    results_has_more=results_has_more,
+                    results_request_id=results_request_id,
+                    search_scope=search_scope,
+                ),
+            )
+            if author_first["applied"]:
+                restricted = author_first["response"]
+                paged_artifact_results = list(restricted.artifact_results)
+                paged_image_matches = list(restricted.image_matches)
+                paged_navigation_targets = list(restricted.navigation_targets)
+                results_total = restricted.results_total
+                results_has_more = restricted.results_has_more
+        author_card_first = author_first["author"] if author_first is not None else None
+        # a abertura com os números do catálogo, quando os cartões são só do autor
+        author_opening = (
+            self._author_counts_opening(
+                author=author_card_first, total=results_total, shown=len(paged_artifact_results), language=language
+            )
+            if author_first is not None and author_first["applied"]
+            else None
+        )
         if preselected_none:
             results_total = 0
             results_has_more = False
@@ -5548,19 +5761,8 @@ class ChatService:
             },
         )
 
-        # O modelo escolhe os cartões: só com mais do que um cartão visível
-        # (com um só, nada há a escolher) e nunca na semelhança ancorada,
-        # cujo contexto repete os rótulos [doc_N] da peça de referência.
-        select_cards = (
-            bool(getattr(self.settings, "CHAT_MODEL_SELECTS_CARDS", False))
-            and requested_format.type == "text"
-            and retrieval_kind_for_log != "anchored_similarity"
-            and len(paged_artifact_results) > 1
-            # numa lista fechada (Tesouros Nacionais) todos os cartões correspondem
-            and not self._is_treasure_list_request(retrieval_request)
-            # com os cartões já escolhidos pelo pré-processamento, a AMÁLIA só escreve
-            and not (preselection is not None and preselection.get("rule") == "preselect")
-        )
+        # com o autor decidido antes da resposta, os cartões já são os finais
+        select_cards = author_first is None and answer_selects_cards()
 
         def build_text_final_message_for_result_count(result_count: int) -> str:
             limited_visible_retrieval_context = self._build_visible_results_retrieval_context(
@@ -5634,6 +5836,9 @@ class ChatService:
             stream_cb_factory = self._make_token_emitter(status_cb, query_id=query_id)
             if select_cards:
                 stream_cb_factory = self._card_selection_stream_factory(stream_cb_factory)
+        flush_author_opening: Callable[[], Awaitable[None]] | None = None
+        if stream_cb_factory is not None and author_opening:
+            stream_cb_factory, flush_author_opening = self._author_opening_stream(stream_cb_factory, author_opening)
 
         llm_started_at = time.monotonic()
         try:
@@ -5712,7 +5917,10 @@ class ChatService:
                 results_has_more=results_has_more,
                 results_request_id=results_request_id,
                 search_scope=search_scope,
+                author=author_card_first,
             )
+        if flush_author_opening is not None:
+            await flush_author_opening()
         llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
         log_event(
             logger,
@@ -5780,6 +5988,12 @@ class ChatService:
 
         if requested_format.type == "text" and not self._is_treasure_list_request(retrieval_request):
             final_reply_text = self._mention_every_card(final_reply_text, paged_artifact_results, language=language)
+        if author_opening:
+            # o mesmo texto que o streaming escreveu: a abertura com os números e a lista da AMÁLIA
+            final_reply_text = self._author_answer_with_counts(
+                final_reply_text, author=author_card_first, total=results_total,
+                shown=len(paged_artifact_results), language=language,
+            )
 
         if not carry_filters:
             state.filters = {}
@@ -5878,6 +6092,7 @@ class ChatService:
             results_has_more=results_has_more,
             results_request_id=results_request_id,
             search_scope=search_scope,
+            author=author_card_first,
         )
 
     async def regenerate_last_reply(

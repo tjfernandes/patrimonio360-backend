@@ -175,6 +175,38 @@ Com uma só peça não se mexe. É texto feito pelo backend, sem modelo; os test
 Fica por tratar a abertura das pesquisas que não são por autor: aí o total da pesquisa não é fiável (muitas vezes é o
 tamanho da janela, 1000) e a frase continua a ser a da AMÁLIA.
 
+## A decisão antes da resposta (2026-11-20)
+
+A ficha do autor e «só peças do autor» eram um passo dado depois de a resposta estar escrita. Com o streaming, o
+visitante via um texto a ser escrito sobre os cartões da pesquisa geral e, ao chegarem os cartões, outro no lugar dele:
+a resposta reescrita sobre os cartões do autor (`CHAT_AUTHOR_ONLY_NEW_ANSWER`) e com a abertura dos números
+(`CHAT_AUTHOR_ANSWER_COUNTS`). Em «Encontra obras de Joaquim Machado de Castro» (produção, 2026-11-20): a primeira
+escrita levou 2,5 s, a decisão saiu 1 s depois dela (ficaram 7 cartões, saiu 1) e a segunda escrita levou mais 2,8 s.
+
+Com `CHAT_AUTHOR_BEFORE_ANSWER`, a pesquisa de texto dá esse passo com os cartões já escolhidos e antes de a AMÁLIA
+escrever (`_author_before_answer`):
+
+- as duas perguntas ao modelo de pré-processamento (o nome é de um artista? o visitante só quer peças dele?) e a
+  pesquisa com o filtro do autor fazem-se antes do prompt final, que já só leva os cartões que ficam;
+- a AMÁLIA escreve uma vez;
+- a abertura com os números é o primeiro texto do streaming; o que a AMÁLIA escrever antes da lista fica retido e não
+  chega ao visitante (`_author_opening_stream`), e da lista em diante passa tudo. O texto final é o mesmo que se viu a
+  ser escrito. A linha «Nos cartões estão também: …» (`CHAT_ANSWER_ALL_CARDS`) continua a juntar-se no fim.
+
+As perguntas ao modelo são as mesmas e fazem-se uma vez por resposta: o passo de depois já não corre. Uma falha no
+passo de antes dá «sem ficha» ou «cartões como estavam», nunca uma segunda escrita.
+
+Fica como estava (passo de depois da resposta) quando é a AMÁLIA a escolher os cartões ao escrever
+(`CHAT_MODEL_SELECTS_CARDS` sem escolha utilizável do pré-processamento): aí os cartões só se conhecem com a resposta.
+Também nas respostas que não são a pesquisa de texto. Uma mensagem sem palavras do nome de nenhum autor dos cartões
+não faz pergunta nenhuma, como antes; com palavras de um nome, a primeira letra da resposta sai mais tarde: uns 70 ms
+por pergunta ao modelo e, quando os cartões passam a ser só do autor, o tempo da pesquisa com o filtro dele (não
+medido em produção).
+
+Os testes estão em `tests/test_author_before_answer.py`: a pesquisa de ponta a ponta com o streaming ligado (o texto
+visto é o texto final, uma escrita, cada pergunta uma vez) e o streaming da abertura com qualquer corte dos tokens.
+Não há medição com os modelos reais: as perguntas e o prompt final são os que já estavam medidos, muda a ordem.
+
 ## Limites conhecidos
 
 - A ficha só aparece quando a pesquisa mostra pelo menos uma peça do autor.
@@ -198,4 +230,5 @@ CHAT_AUTHOR_CARD_FOLLOW_UP=true   # opcional: a ficha também em «e deste autor
 CHAT_FOCUSED_ARTIFACT_AUTHOR=true   # opcional: «deste autor» é o autor da peça em foco
 CHAT_AUTHOR_ONLY_NEW_ANSWER=true   # opcional: a resposta reescreve-se quando os cartões mudam
 CHAT_AUTHOR_ANSWER_COUNTS=true   # opcional: a abertura diz os números do catálogo
+CHAT_AUTHOR_BEFORE_ANSWER=true   # opcional: decide antes de escrever; o texto não muda ao chegarem os cartões
 ```
