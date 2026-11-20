@@ -233,6 +233,17 @@ class Settings(BaseSettings):
     # linha «Nos cartões estão também: …» depois do fecho. Sem lista no texto
     # fica a linha de sempre.
     CHAT_MISSING_CARDS_IN_LIST: bool = False
+    # O nome de cada peça na lista da resposta vai a negrito («1. **Fé** – …»):
+    # o título, ou o n.º de inventário quando a ficha não tem título. É posto
+    # pelo serviço nos itens que abrem com o nome de um cartão, à medida que o
+    # texto chega (streaming) e no texto final; o prompt não muda
+    # (docs/lista-da-resposta.md, 2026-11-20).
+    CHAT_ANSWER_BOLD_NAMES: bool = False
+    # Com os cartões só do autor (CHAT_AUTHOR_ONLY_RESULTS), a primeira página
+    # enche-se com peças dele até ao tamanho da página, mesmo quando a escolha
+    # dos cartões a deixou mais curta: «obras de Machado de Castro» mostrava 6
+    # das 7 peças e a 7.ª ficava sozinha em «Ver mais resultados» (2026-11-20).
+    CHAT_AUTHOR_ONLY_FILL_PAGE: bool = False
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);

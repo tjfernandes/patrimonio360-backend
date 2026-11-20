@@ -144,6 +144,26 @@ class TestAuthorBeforeAnswer(_Flow):
         self.assertEqual(response.reply, f"{opening}\n\n{LIST}")
         self.assertEqual(streamed, response.reply)
 
+    def test_with_fill_page_the_answer_is_written_about_the_full_page(self) -> None:
+        # CHAT_AUTHOR_ONLY_FILL_PAGE: a escolha deixou três cartões; a página enche-se antes de a AMÁLIA escrever
+        service, llm = self._flow(_Pre(cards=["doc_1", "doc_3", "doc_5"]), CHAT_AUTHOR_ONLY_FILL_PAGE=True)
+        response, streamed = self._ask(service)
+        self.assertEqual([card.artifact_id for card in response.artifact_results], [f"l{n}" for n in range(1, 9)])
+        self.assertEqual(len(llm.prompts), 1)
+        self.assertIn("inv l8", llm.prompts[0])
+        self.assertEqual(response.reply, f"{OPENING}\n\n{LIST}")
+        self.assertEqual(streamed, response.reply)
+
+    def test_names_in_bold_while_the_text_is_written_and_in_the_final_text(self) -> None:
+        # CHAT_ANSWER_BOLD_NAMES com a lista decidida no prompt: a AMÁLIA escreve-a sem negrito e sem falhas
+        wrote = "Encontrei 8 peças:\n" + "\n".join(f"{n}. Peça l{n} – descrição {n}." for n in range(1, 9))
+        service, llm = self._flow(_Pre(cards=self.ALL), wrote, CHAT_ANSWER_ALL_CARDS=True, CHAT_ANSWER_LIST_PLAN=True,
+                                  CHAT_UNTITLED_CARD_BY_INVENTORY=True, CHAT_ANSWER_BOLD_NAMES=True)
+        response, streamed = self._ask(service)
+        self.assertNotIn("**", llm.prompts[0])
+        self.assertEqual(response.reply, OPENING + "\n\n" + "\n".join(f"{n}. **Peça l{n}** – descrição {n}." for n in range(1, 9)))
+        self.assertEqual(streamed, response.reply)
+
     def test_other_authors_wanted_too_the_card_comes_and_nothing_else_changes(self) -> None:
         pre = _Pre(cards=self.ALL, only="B")
         service, llm = self._flow(pre)

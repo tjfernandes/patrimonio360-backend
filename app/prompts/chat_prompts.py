@@ -319,7 +319,12 @@ def answer_list_plan(retrieval_context: str, language: str | None = None) -> str
     """O bloco «LISTA A ESCREVER» para os cartões compactos de `retrieval_context`:
     uma linha começada por cartão («N. nome –»), pela ordem dos cartões. O nome é o título do cartão (o
     n.º de inventário quando a ficha não tem título, ver _format_docs_compact);
-    títulos repetidos levam o n.º entre parênteses. Vazio com menos de dois cartões."""
+    títulos repetidos levam o n.º entre parênteses. Vazio com menos de dois cartões.
+
+    O nome vai sem negrito: o negrito é posto pelo serviço, no streaming e no texto final
+    (CHAT_ANSWER_BOLD_NAMES), e não depende de a AMÁLIA o copiar. Com «N. **nome** –» no prompt ela
+    escrevia-o em 226 de 232 itens, mas a medição não deixou concluir que não larga a lista mais vezes
+    (docs/lista-da-resposta.md, 2026-11-20)."""
     cards = [(m["title"].strip(), m["inventory"].strip()) for m in _CARD_HEADER.finditer(retrieval_context or "")]
     if len(cards) < 2:
         return ""

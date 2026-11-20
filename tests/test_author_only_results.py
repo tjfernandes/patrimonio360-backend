@@ -93,8 +93,9 @@ class _WithStoredSearch(_Base):
 
     def _service_with(self, preprocess: _Preprocess, first_page: list[dict], *, catalogue=CATALOGO, flag: bool = True,
                       request: dict | None = REQUEST, fail_search: bool = False, follow_up: bool = False,
-                      new_answer: bool = False, all_cards: bool = False, llm=None, counts: bool = False):
+                      new_answer: bool = False, all_cards: bool = False, llm=None, counts: bool = False, fill_page: bool = False):
         service = self._service(self._settings(CHAT_AUTHOR_CARD=True, CHAT_AUTHOR_ONLY_RESULTS=flag, CHAT_RETRIEVAL_RESULTS_PAGE_SIZE=8,
+                                               CHAT_AUTHOR_ONLY_FILL_PAGE=fill_page,
                                                CHAT_AUTHOR_CARD_FOLLOW_UP=follow_up, CHAT_AUTHOR_ONLY_NEW_ANSWER=new_answer,
                                                CHAT_ANSWER_ALL_CARDS=all_cards, CHAT_COMPACT_ANSWER_CONTEXT=True,
                                                CHAT_AUTHOR_ANSWER_COUNTS=counts), llm=llm)
@@ -231,6 +232,24 @@ class TestAuthorOnlyResults(_WithStoredSearch):
         self.assertEqual([card.artifact_id for card in response.artifact_results], ["l1", "l2", "l3"])
         self.assertEqual((response.results_total, response.results_has_more), (19, True))
         self.assertEqual([card.artifact_id for card in self._page(service, response, 2).artifact_results], [f"l{n}" for n in range(4, 12)])
+
+    def test_with_fill_page_a_short_page_is_filled_with_the_authors_pieces(self) -> None:
+        # CHAT_AUTHOR_ONLY_FILL_PAGE: os três escolhidos primeiro, depois as peças dele que vêm a seguir na pesquisa
+        self.assertFalse(Settings(_env_file=None).CHAT_AUTHOR_ONLY_FILL_PAGE)
+        service = self._service_with(_Preprocess("A"), LOPES[:3], fill_page=True)
+        response = self._ask(service)
+        self.assertEqual([card.artifact_id for card in response.artifact_results], [f"l{n}" for n in range(1, 9)])
+        self.assertEqual((response.results_total, response.results_has_more), (19, True))
+        self.assertEqual(len(response.image_matches), 3)   # as miniaturas dos que entram vêm da pesquisa (aqui sem imagens)
+        self.assertEqual([card.artifact_id for card in self._page(service, response, 2).artifact_results], [f"l{n}" for n in range(9, 17)])
+
+    def test_with_fill_page_an_author_with_few_pieces_shows_them_all(self) -> None:
+        # «obras de Machado de Castro»: a escolha deixou 2 das 3 peças dele; a 3.ª não fica sozinha em «ver mais»
+        few = [_doc("m1", "a:lopes"), _doc("m2", "a:lopes"), _doc("m3", "a:lopes")]
+        service = self._service_with(_Preprocess("A"), few[:2], catalogue=few + OUTROS, fill_page=True)
+        response = self._ask(service)
+        self.assertEqual([card.artifact_id for card in response.artifact_results], ["m1", "m2", "m3"])
+        self.assertEqual((response.results_total, response.results_has_more), (3, False))
 
     def test_an_author_with_few_pieces_has_no_more_results(self) -> None:
         catalogue = [_doc("j1", "a:lopes"), _doc("o1", "a:queiros"), _doc("j2", "a:lopes"), *OUTROS[1:9]]

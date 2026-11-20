@@ -58,6 +58,40 @@ cartões confirmassem.
 Tentou-se e ficou de fora: um modelo com campos «< >» para preencher (a AMÁLIA copiava os «< >» e as respostas
 saíam com o dobro do tamanho) e a lista no fim do prompt (a resposta abria com «Amália:»).
 
+## Nomes a negrito (2026-11-20)
+
+Com `CHAT_ANSWER_BOLD_NAMES`, o nome da peça que abre cada item da lista vai a negrito: o título, ou o n.º de
+inventário quando a ficha não tem título («1. **Fé** – …», «7. **584 Esc** – …»; num título repetido o n.º fica
+fora do negrito, «**São Jerónimo** (2 Pint)»). É posto pelo serviço, com a mesma regra em dois sítios:
+
+- **no streaming** (`_bold_names_stream`): o princípio de cada linha fica retido as poucas letras que leva a saber
+  se é um item que abre com o nome de um cartão; o nome sai inteiro, já a negrito, e o resto da linha passa;
+- **no texto final** (`_bold_names_in_list`, e nas linhas que a garantia da lista escreve): o que se viu a ser
+  escrito e o texto final ficam iguais nos itens que a AMÁLIA escreveu como o prompt pede.
+
+Vale para qualquer resposta com lista da pesquisa de texto, com ou sem a lista no prompt. Um item que já abre a
+negrito, ou que não abre com o nome de um cartão, fica como está; fora da lista nada muda.
+
+O prompt não muda. Tentou-se pôr o negrito nas linhas começadas («1. **Fé** –»), para ser a AMÁLIA a escrevê-lo
+(`scripts/medir_lista_da_resposta.py`, variantes `lista` e, nessa altura, `negrito`):
+
+| | Linhas sem negrito (como está) | Linhas com negrito no prompt |
+|---|---|---|
+| 20 pedidos de controlo × 2: cartões com linha própria, só a AMÁLIA | 225 de 260 | 232 de 260 |
+| Controlo: itens que ela escreve a negrito | 40 de 231 | 226 de 232 |
+| «obras de machado de castro» × 12: cartões com linha própria, só a AMÁLIA | 82 de 84 | 54 de 84 |
+
+No controlo não fez diferença e ela copiava o negrito. No caso do autor pareceu largar a lista mais vezes, mas o
+mesmo caso, com o prompt sem negrito e sem mais nenhuma alteração, deu noutros lotes do mesmo dia 62 de 84, 68 de
+84 e 21 de 42: os lotes variam mais do que a diferença medida, e não dá para a atribuir ao negrito. Ficou de fora
+porque o negrito do serviço não precisa dele. Com a flag, o texto final tem os itens a negrito em 84 de 84 (caso
+do autor) sem depender do que ela escrever.
+
+O que essa variação mostra, e não é de agora: no caso do autor a AMÁLIA responde em prosa numa parte das respostas
+(entre 2 % e 50 % dos cartões por lote), e aí a garantia refaz a lista no fim, por cima do que se viu a ser escrito.
+
+Testes: `tests/test_answer_bold_names.py` (o streaming é o texto final com qualquer corte dos tokens).
+
 ## Limites
 
 - **A AMÁLIA ainda mistura factos entre cartões vizinhos**: descreve a «Caridade» com a Santa Ana da 584 Esc. A
@@ -82,4 +116,5 @@ saíam com o dobro do tamanho) e a lista no fim do prompt (a resposta abria com 
 CHAT_UNTITLED_CARD_BY_INVENTORY=true
 CHAT_ANSWER_LIST_PLAN=true
 CHAT_MISSING_CARDS_IN_LIST=true
+CHAT_ANSWER_BOLD_NAMES=true   # opcional: o nome de cada peça a negrito na lista
 ```

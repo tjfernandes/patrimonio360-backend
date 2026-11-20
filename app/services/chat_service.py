@@ -3581,19 +3581,169 @@ class ChatService:
             claim(position, fold(name))
         for position, card in enumerate(cards):
             claim(position, fold(card.title or ""), title_only=True)
+        bold = bool(getattr(self.settings, "CHAT_ANSWER_BOLD_NAMES", False))
         out: list[str] = []
         for position, (card, name) in enumerate(zip(cards, names)):
             number = position + 1
             if position in line_of:
-                out.append(f"{number}. {bodies[line_of[position]]}")
+                body = bodies[line_of[position]]
+                out.append(f"{number}. {self._bold_item_name(body, [card]) if bold else body}")
                 continue
             inventory = str(card.inventory_number or "").strip()
             sentence = "" if english else self._first_sentence(card.description)
+            shown = self._bold_list_name(card, name) if bold else name
             if sentence:
-                out.append(f"{number}. {name} – {sentence}")
+                out.append(f"{number}. {shown} – {sentence}")
             else:
-                out.append(f"{number}. {name}" + (f" ({inventory})" if inventory and inventory.casefold() not in name.casefold() else ""))
+                out.append(f"{number}. {shown}" + (f" ({inventory})" if inventory and inventory.casefold() not in name.casefold() else ""))
         return "\n".join(([opening] if opening else []) + out)
+
+    # ----- Nomes das peças a negrito (CHAT_ANSWER_BOLD_NAMES) ----- #
+
+    def _card_list_title(self, card: ArtifactResult) -> str:
+        """Como a peça se chama na lista: o título, ou o n.º de inventário quando a ficha não tem título."""
+        return str(card.title or "").strip() or str(card.inventory_number or "").strip()
+
+    def _bold_list_name(self, card: ArtifactResult, name: str) -> str:
+        """`name` (de _answer_list_names) com o título a negrito: «**São Jerónimo** (2 Pint)»."""
+        title = self._card_list_title(card)
+        if title and name.startswith(title):
+            return f"**{title}**{name[len(title):]}"
+        return f"**{name}**"
+
+    def _card_name_keys(self, cards: list[ArtifactResult]) -> list[str]:
+        """Os nomes das peças dobrados (author_cards.fold), os mais compridos primeiro."""
+        return sorted({fold(self._card_list_title(card)) for card in cards} - {""}, key=len, reverse=True)
+
+    _ITEM_ARTICLE = re.compile(r"(?i)(?:o|a|os|as|the)\s+")
+
+    def _item_name_span(self, body: str, keys: list[str]) -> tuple[int, int] | None:
+        """Onde está o nome de uma peça no princípio do texto de um item da
+        lista (com ou sem artigo: «A Caixa, do século XVII…»), ou None."""
+        lead = len(body) - len(body.lstrip(" –—-"))
+        article = self._ITEM_ARTICLE.match(body[lead:])
+        starts = [lead] + ([lead + article.end()] if article else [])
+        for key in keys:
+            if len(key) < 2:
+                continue
+            for start in starts:
+                # o nome no texto pode ter mais letras do que dobrado (pontuação, espaços): o fim é a
+                # primeira posição em que o texto dobrado é o nome e a palavra acabou
+                for end in range(start + 1, min(start + 2 * len(key) + 8, len(body)) + 1):
+                    if fold(body[start:end]) == key and not (end < len(body) and body[end].isalnum()):
+                        return start, end
+        return None
+
+    def _bold_item_name(self, body: str, cards: list[ArtifactResult], *, keys: list[str] | None = None) -> str:
+        """O texto de um item da lista com o nome da peça a negrito, quando o
+        item abre com o nome de um dos `cards`. Um item que já abre a negrito,
+        ou que não abre com nenhum nome, fica como está."""
+        if body.lstrip().startswith(("**", "__")):
+            return body
+        span = self._item_name_span(body, self._card_name_keys(cards) if keys is None else keys)
+        if span is None:
+            return body
+        return f"{body[:span[0]]}**{body[span[0]:span[1]]}**{body[span[1]:]}"
+
+    def _bold_item_line(self, line: str, keys: list[str]) -> str:
+        """Uma linha do texto: se for um item da lista que abre com o nome de uma peça, com ele a negrito."""
+        match = self._LIST_ITEM.match(line)
+        if match is None:
+            return line
+        return f"{match['indent']}{match['marker']}{match['gap']}{self._bold_item_name(match['body'], [], keys=keys)}"
+
+    def _bold_names_in_list(self, text: str, cards: list[ArtifactResult]) -> str:
+        """CHAT_ANSWER_BOLD_NAMES: nos itens da lista que abrem com o nome de uma
+        peça dos cartões, o nome passa a negrito. O resto do texto não muda."""
+        if not bool(getattr(self.settings, "CHAT_ANSWER_BOLD_NAMES", False)) or not cards or not (text or "").strip():
+            return text
+        keys = self._card_name_keys(cards)
+        return "\n".join(self._bold_item_line(line, keys) for line in text.split("\n"))
+
+    # o princípio de uma linha que ainda pode vir a ser um item da lista («», «1», «12.», «- »)
+    _LIST_MARKER_SO_FAR = re.compile(r"^[ \t]*(?:\d+[.)]?|[-•*])?[ \t]*$")
+    _LIST_ITEM_SO_FAR = re.compile(r"^(?P<head>[ \t]*(?:\d+[.)]|[-•*])[ \t]+)(?P<body>.*)$", re.DOTALL)
+    _BOLD_STREAM_HOLD = 240
+
+    def _bold_item_so_far(self, held: str, keys: list[str]) -> str | None:
+        """O princípio de uma linha, ainda a chegar: o texto a enviar quando já
+        se sabe como a linha abre (com o nome a negrito, se for um item que abre
+        com o nome de uma peça), ou None enquanto não se sabe."""
+        match = self._LIST_ITEM_SO_FAR.match(held)
+        if match is None:
+            return None if self._LIST_MARKER_SO_FAR.match(held) else held
+        head, body = match["head"], match["body"]
+        if not body or body in ("*", "_"):
+            return None
+        if body.startswith(("**", "__")):
+            return held
+        lead = len(body) - len(body.lstrip(" –—-"))
+        article = self._ITEM_ARTICLE.match(body[lead:])
+        if re.fullmatch(r"(?i)(?:o|a|os|as|t|th|the)", body[lead:].strip()):
+            return None  # pode ser o artigo antes do nome
+        so_far = [fold(body[lead:])] + ([fold(body[lead + article.end():])] if article else [])
+        span = self._item_name_span(body, keys)
+        matched = len(fold(body[span[0]:span[1]])) if span else 0
+        # um nome mais comprido ainda pode estar a chegar («São Jerónimo» de «São Jerónimo Penitente»)
+        if any(key.startswith(text) and len(key) > max(matched, len(text) - 1) for key in keys for text in so_far):
+            return None
+        if span is None:
+            return held
+        if span[1] >= len(body):
+            return None  # a palavra pode não ter acabado («Fé» de «Féria»)
+        return f"{head}{body[:span[0]]}**{body[span[0]:span[1]]}**{body[span[1]:]}"
+
+    def _bold_names_stream(
+        self, factory: Callable[[], Callable[[str], Awaitable[None]]], cards: list[ArtifactResult]
+    ) -> tuple[Callable[[], Callable[[str], Awaitable[None]]], Callable[[], Awaitable[None]]]:
+        """CHAT_ANSWER_BOLD_NAMES no streaming: o nome da peça que abre um item
+        da lista sai logo a negrito, como vai estar no texto final
+        (_bold_names_in_list). O princípio de cada linha fica retido as poucas
+        letras que leva a saber se abre com o nome de uma peça; o resto passa.
+        Devolve a fábrica dos emissores e um `flush` para o fim da geração."""
+        keys = self._card_name_keys(cards)
+        last: dict[str, Any] = {}
+
+        def wrapped() -> Callable[[str], Awaitable[None]]:
+            emit = factory()
+            stream = {"held": "", "passing": False}
+            last["emit"], last["stream"] = emit, stream
+
+            async def filtered(delta: str) -> None:
+                text, stream["held"] = stream["held"] + (delta or ""), ""
+                out: list[str] = []
+                while text:
+                    newline = text.find("\n")
+                    if stream["passing"]:
+                        # a linha já está decidida: passa até ao fim dela
+                        cut = len(text) if newline == -1 else newline + 1
+                        out.append(text[:cut])
+                        text, stream["passing"] = text[cut:], newline == -1
+                        continue
+                    if newline != -1:
+                        out.append(self._bold_item_line(text[:newline], keys) + "\n")
+                        text = text[newline + 1:]
+                        continue
+                    decided = self._bold_item_so_far(text, keys)
+                    if decided is None and len(text) <= self._BOLD_STREAM_HOLD:
+                        stream["held"] = text
+                    else:
+                        out.append(text if decided is None else decided)
+                        stream["passing"] = True
+                    text = ""
+                if out:
+                    await emit("".join(out))
+
+            return filtered
+
+        async def flush() -> None:
+            stream = last.get("stream")
+            if not stream or not stream["held"]:
+                return
+            held, stream["held"] = stream["held"], ""
+            await last["emit"](self._bold_item_line(held, keys))
+
+        return wrapped, flush
 
     # um item de lista: «1. …», «2) …», «- …», «• …», «* …»
     _LIST_ITEM = re.compile(r"^(?P<indent>[ \t]*)(?P<marker>\d+[.)]|[-•*])(?P<gap>[ \t]+)(?P<body>\S.*)$")
@@ -3634,7 +3784,7 @@ class ChatService:
                 bullet = f"{number}{marker[-1]}"
             else:
                 bullet = marker
-            shown = f"**{name}**" if bold else name
+            shown = f"**{name}**" if (bold or bool(getattr(self.settings, "CHAT_ANSWER_BOLD_NAMES", False))) else name
             sentence = "" if english else self._first_sentence(card.description)
             if sentence:
                 line = f"{indent}{bullet}{gap}{shown}{separator_text}{sentence}"
@@ -3859,6 +4009,7 @@ class ChatService:
         if not text:
             return response.reply
         text = self._mention_every_card(text, cards, language=language, list_planned=has_answer_list_plan(prompt))
+        text = self._bold_names_in_list(text, cards)
         # a conversa guardada fica com o texto que o visitante vê
         history = getattr(state, "history", None) if state is not None else None
         if history and str(getattr(history[-1], "role", "")) != "user":
@@ -3960,8 +4111,11 @@ class ChatService:
         fetched_all = len(fetched) >= max(int(page_result.total), 0)
         shown = set(shown_ids)
         rest = [doc for doc in self._collapse_identical_set_members(fetched) if not self._card_artifact_ids(doc) & shown]
-        # repõem-se os cartões que saíram; uma página que o modelo deixou mais curta fica como ele a escolheu
-        fill_docs = rest[: max(min(len(response.artifact_results), page_size) - len(kept), 0)]
+        # repõem-se os cartões que saíram; uma página que o modelo deixou mais curta fica como ele a escolheu,
+        # a não ser com CHAT_AUTHOR_ONLY_FILL_PAGE: aí enche-se com peças do autor (a escolha foi feita entre
+        # as candidatas da pesquisa geral, e num pedido pelas obras de um autor as outras peças dele também contam)
+        fill_to = page_size if bool(getattr(self.settings, "CHAT_AUTHOR_ONLY_FILL_PAGE", False)) else min(len(response.artifact_results), page_size)
+        fill_docs = rest[: max(fill_to - len(kept), 0)]
         fill_cards: list[ArtifactResult] = []
         fill_images: list[ImageMatchResult] = []
         fill_targets: list[TourNavigationTarget] = []
@@ -6014,6 +6168,16 @@ class ChatService:
         flush_author_opening: Callable[[], Awaitable[None]] | None = None
         if stream_cb_factory is not None and author_opening:
             stream_cb_factory, flush_author_opening = self._author_opening_stream(stream_cb_factory, author_opening)
+        # CHAT_ANSWER_BOLD_NAMES: o nome das peças a negrito já no streaming (o filtro mais perto do modelo)
+        flush_bold_names: Callable[[], Awaitable[None]] | None = None
+        if (
+            stream_cb_factory is not None
+            and bool(getattr(self.settings, "CHAT_ANSWER_BOLD_NAMES", False))
+            and paged_artifact_results
+            and not preselected_none
+            and not self._is_treasure_list_request(retrieval_request)
+        ):
+            stream_cb_factory, flush_bold_names = self._bold_names_stream(stream_cb_factory, paged_artifact_results)
 
         llm_started_at = time.monotonic()
         try:
@@ -6094,6 +6258,8 @@ class ChatService:
                 search_scope=search_scope,
                 author=author_card_first,
             )
+        if flush_bold_names is not None:
+            await flush_bold_names()
         if flush_author_opening is not None:
             await flush_author_opening()
         llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
@@ -6166,6 +6332,7 @@ class ChatService:
                 final_reply_text, paged_artifact_results, language=language,
                 list_planned=has_answer_list_plan(final_message),
             )
+            final_reply_text = self._bold_names_in_list(final_reply_text, paged_artifact_results)
         if author_opening:
             # o mesmo texto que o streaming escreveu: a abertura com os números e a lista da AMÁLIA
             final_reply_text = self._author_answer_with_counts(

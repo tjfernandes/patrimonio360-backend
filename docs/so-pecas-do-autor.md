@@ -33,7 +33,12 @@ Só com a resposta A os cartões passam a ser só do autor:
    autor (`creator_ids`, todas as grafias que a ficha junta).
 2. Na primeira página ficam os cartões que já eram dele, pela ordem em que estavam. Os lugares dos cartões que saem são
    para as peças dele que vêm a seguir na pesquisa. Uma página que o modelo de escolha dos cartões deixou mais curta não é
-   aumentada.
+   aumentada, a não ser com `CHAT_AUTHOR_ONLY_FILL_PAGE` (2026-11-20): aí a página enche-se com peças dele até ao tamanho
+   da página, os cartões escolhidos primeiro. Em «Encontra as obras de Machado de Castro neste museu?» a escolha ficou
+   por 6 das 15 candidatas, a página por 6 cartões e a 7.ª peça dele (584 Esc, sem título) ia sozinha para «Ver mais
+   resultados». A escolha é feita entre as candidatas da pesquisa geral; num pedido pelas obras de um autor as outras
+   peças dele também contam, e já eram elas que vinham em «ver mais». Num pedido mais estreito («retratos de …») entram
+   na página peças dele que a escolha não tinha posto, pela ordem da pesquisa.
 3. `results_total` passa a ser o número de peças do autor que a pesquisa encontra, e `results_has_more` diz se há mais.
 4. O pedido guardado para «ver mais resultados» fica com o filtro: as páginas seguintes são as peças dele que ainda não
    foram mostradas, sem repetições.
