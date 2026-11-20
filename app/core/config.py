@@ -207,6 +207,14 @@ class Settings(BaseSettings):
     # vez dos que a AMÁLIA escrever («Encontrei 2 peças» ao lado de 8 cartões).
     # A lista das peças fica como ela a escreveu.
     CHAT_AUTHOR_ANSWER_COUNTS: bool = False
+    # A ficha do autor e «só peças do autor» decidem-se antes de a resposta ser
+    # escrita, e não depois: a AMÁLIA escreve uma vez, já sobre os cartões do
+    # autor, e a abertura com os números do catálogo é o início do streaming.
+    # Sem isto o visitante via um texto a ser escrito e, ao chegarem os cartões,
+    # outro no lugar dele (e esperava ~3 s pela segunda escrita). Só na pesquisa
+    # de texto com os cartões já escolhidos antes da resposta; nos outros casos
+    # fica o passo de depois (docs/ficha-do-autor.md, 2026-11-20).
+    CHAT_AUTHOR_BEFORE_ANSWER: bool = False
     # O texto da resposta fala de todas as peças dos cartões mostrados, uma a uma,
     # em vez de destacar até três (docs/todos-os-cartoes.md).
     CHAT_ANSWER_ALL_CARDS: bool = False
