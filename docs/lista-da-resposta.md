@@ -92,6 +92,51 @@ O que essa variação mostra, e não é de agora: no caso do autor a AMÁLIA res
 
 Testes: `tests/test_answer_bold_names.py` (o streaming é o texto final com qualquer corte dos tokens).
 
+## Só título e descrição; a visita só quando se pergunta (2026-11-20)
+
+Em «Encontra as obras de Machado de Castro neste museu?» a AMÁLIA acabava as linhas da lista com «Não está presente
+na visita virtual» em vez de descrever a peça, e errava: escreveu-o da «Fé», cujo cartão dizia «Na visita virtual:
+sim», e fechou com «Apenas Liberalidade e 584 Esc estão acessíveis». Quando escrevia o rótulo à letra («Na visita
+virtual: sim»), a sanitização tirava-o e o item ficava só com o nome.
+
+Com `CHAT_TOUR_PRESENCE_ONLY_IF_ASKED`, a resposta só fala de estar ou não na visita quando o visitante o pergunta
+(«nesta visita», «na visita virtual», «in this tour»: `_asks_about_tour`, as expressões que a pesquisa já reconhece).
+Nos outros pedidos:
+
+- os cartões do prompt final não levam a linha «Na visita virtual»;
+- o que a AMÁLIA disser sobre a visita sai dos itens da lista, e fica o nome e a descrição (`_strip_tour_talk`);
+  a abertura de sempre perde o «nesta visita virtual» («Encontrei 4 peças de … nesta visita virtual:»);
+- uma linha que fique só com o nome leva a primeira frase da ficha, como as linhas que ela não escreveu;
+- a abertura das respostas por autor não diz «N delas nesta visita».
+
+A ficha do autor e o botão «Ver na tour» dos cartões continuam a dizer o que está na visita.
+
+Com `CHAT_STREAM_COMMITTED_LIST`, quando a lista vai decidida no prompt, o streaming só envia texto que vai estar
+na resposta final (`_committed_list_stream`). A cada linha que a AMÁLIA acaba, o texto escrito até aí passa pelo
+tratamento da resposta final e envia-se o que já é certo: a abertura e as linhas dos primeiros cartões seguidos
+que ela já escreveu, com o nome a negrito. O fecho que ela escreve depois da lista nunca aparece. Uma resposta em
+prosa só aparece no fim, já como lista (com a abertura do autor, essa aparece logo). O texto chega linha a linha e
+não letra a letra.
+
+Medição com a AMÁLIA real e o streaming ligado (`scripts/medir_lista_da_resposta.py`, variantes `negrito` — como
+estava em produção — e `sobrio`):
+
+| | Como estava | Com as duas flags |
+|---|---|---|
+| «obras de machado de castro» × 10: itens que falam da visita (ela / texto final) | 41 / 28 de 70 | 0 / 0 |
+| «…de Machado de Castro neste museu?» × 10: itens que falam da visita | 52 / 45 de 70 | 0 / 0 |
+| Os dois pedidos: itens finais só com o nome | 14 de 140 | 0 |
+| Os dois pedidos: cartões com linha própria, só a AMÁLIA | 132 de 140 | 140 de 140 |
+| 20 pedidos de controlo × 2: cartões com linha própria, só a AMÁLIA | 222 de 260 | 209 de 260 |
+| Controlo: respostas finais com todos na lista | 39 de 40 | 38 de 40 |
+| Texto enviado igual ao texto final (os três conjuntos, mais 2 × 2 do autor) | não medido | 64 de 64 |
+
+Sem a linha da visita nos cartões, a AMÁLIA passou a descrever as peças. No controlo os cartões com linha própria
+ficaram 13 abaixo; os lotes do mesmo prompt deram neste dia 222, 225 e 232 de 260, por isso não dá para dizer que
+piorou nem que ficou igual.
+
+Testes: `tests/test_tour_presence_only_if_asked.py`.
+
 ## Limites
 
 - **A AMÁLIA ainda mistura factos entre cartões vizinhos**: descreve a «Caridade» com a Santa Ana da 584 Esc. A
@@ -102,7 +147,7 @@ Testes: `tests/test_answer_bold_names.py` (o streaming é o texto final com qual
 - **O fecho desaparece sempre**, mesmo quando era inofensivo.
 - **A abertura continua a ser dela** (nas perguntas por um autor é a dos números do catálogo).
 - **Com streaming, o texto muda no fim** quando a garantia mexe: o frontend tem de mostrar o `reply` final, como já
-  acontecia com a última linha.
+  acontecia com a última linha. Com `CHAT_STREAM_COMMITTED_LIST` deixa de mudar: só é enviado texto que fica.
 - Só a pesquisa de texto com os cartões escolhidos antes da resposta. Quando é a AMÁLIA a escolher os cartões na
   própria resposta, a lista não vai no prompt.
 
@@ -117,4 +162,6 @@ CHAT_UNTITLED_CARD_BY_INVENTORY=true
 CHAT_ANSWER_LIST_PLAN=true
 CHAT_MISSING_CARDS_IN_LIST=true
 CHAT_ANSWER_BOLD_NAMES=true   # opcional: o nome de cada peça a negrito na lista
+CHAT_TOUR_PRESENCE_ONLY_IF_ASKED=true   # opcional: só título e descrição; a visita só quando se pergunta
+CHAT_STREAM_COMMITTED_LIST=true   # opcional: o streaming só envia texto que fica na resposta final
 ```

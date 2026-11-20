@@ -1595,8 +1595,12 @@ class ChatService:
         artifact_results: list[ArtifactResult],
         navigation_targets: list[TourNavigationTarget] | None = None,
         visual_facts: dict[str, str] | None = None,
+        tour_presence: bool = True,
     ) -> list[dict[str, object]]:
         """Fichas dos cartões para os prompts.
+
+        `tour_presence=False` (CHAT_TOUR_PRESENCE_ONLY_IF_ASKED) tira o campo
+        in_tour: o cartão do prompt não leva a linha «Na visita virtual».
 
         `visual_facts` (CHAT_VISUAL_CARD_FACTS) dá a cada peça o que a legenda
         da fotografia diz dela; vai para a linha «Aspeto na fotografia».
@@ -1626,6 +1630,8 @@ class ChatService:
             if payload:
                 if navigable and str(payload.get("inventory_number") or "").strip().casefold() in navigable:
                     payload["in_tour"] = True
+                if not tour_presence:
+                    payload.pop("in_tour", None)
                 facts = (visual_facts or {}).get(artifact.artifact_id)
                 if facts:
                     payload["visual_facts"] = facts
@@ -1695,9 +1701,10 @@ class ChatService:
         include_image_matches_section: bool = True,
         navigation_targets: list[TourNavigationTarget] | None = None,
         visual_facts: dict[str, str] | None = None,
+        tour_presence: bool = True,
     ) -> str:
         artifact_docs = self._artifact_results_as_prompt_docs(
-            artifact_results, navigation_targets=navigation_targets, visual_facts=visual_facts
+            artifact_results, navigation_targets=navigation_targets, visual_facts=visual_facts, tour_presence=tour_presence
         )
         image_docs = (
             self._image_matches_as_visible_prompt_docs(image_matches)
@@ -3466,7 +3473,8 @@ class ChatService:
         return rest[skip: skip + page_size], (len(rest) > skip + page_size if fetched_all else None)
 
     def _mention_every_card(
-        self, text: str, cards: list[ArtifactResult], *, language: str | None, list_planned: bool = False
+        self, text: str, cards: list[ArtifactResult], *, language: str | None, list_planned: bool = False,
+        report: dict[str, Any] | None = None,
     ) -> str:
         """CHAT_ANSWER_ALL_CARDS: a garantia de que o texto fala de todos os cartões
         mostrados. A instrução pede-o à AMÁLIA, que em cerca de um décimo dos
@@ -3477,7 +3485,7 @@ class ChatService:
         if not bool(getattr(self.settings, "CHAT_ANSWER_ALL_CARDS", False)) or len(cards) < 2 or not (text or "").strip():
             return text
         if list_planned and bool(getattr(self.settings, "CHAT_ANSWER_LIST_PLAN", False)):
-            return self._answer_list_as_planned(text, cards, english=normalize_language(language) == "en")
+            return self._answer_list_as_planned(text, cards, english=normalize_language(language) == "en", report=report)
         folded = fold(text)
         by_title: dict[str, list[ArtifactResult]] = {}
         for card in cards:
@@ -3530,7 +3538,9 @@ class ChatService:
             for title, inventory in pairs
         ]
 
-    def _answer_list_as_planned(self, text: str, cards: list[ArtifactResult], *, english: bool) -> str:
+    def _answer_list_as_planned(
+        self, text: str, cards: list[ArtifactResult], *, english: bool, report: dict[str, Any] | None = None
+    ) -> str:
         """CHAT_ANSWER_LIST_PLAN: a resposta fica como o prompt a pediu, mesmo
         que a AMÁLIA não o tenha cumprido: a abertura dela e uma linha por
         cartão, pela ordem dos cartões, «N. nome – frase». Cada linha é a que
@@ -3582,10 +3592,19 @@ class ChatService:
         for position, card in enumerate(cards):
             claim(position, fold(card.title or ""), title_only=True)
         bold = bool(getattr(self.settings, "CHAT_ANSWER_BOLD_NAMES", False))
+        # CHAT_TOUR_PRESENCE_ONLY_IF_ASKED: uma linha dela que ficou só com o nome (a frase era sobre a
+        # visita, ou um rótulo do cartão que a sanitização tirou) leva a frase da ficha, como as que faltam
+        fill_bare = bool(getattr(self.settings, "CHAT_TOUR_PRESENCE_ONLY_IF_ASKED", False))
+        if report is not None:
+            # quantos cartões seguidos, desde o primeiro, têm linha escrita por ela (CHAT_STREAM_COMMITTED_LIST)
+            leading = 0
+            while leading in line_of:
+                leading += 1
+            report.update(cards=len(cards), leading=leading)
         out: list[str] = []
         for position, (card, name) in enumerate(zip(cards, names)):
             number = position + 1
-            if position in line_of:
+            if position in line_of and not (fill_bare and self._item_is_only_the_name(bodies[line_of[position]], card)):
                 body = bodies[line_of[position]]
                 out.append(f"{number}. {self._bold_item_name(body, [card]) if bold else body}")
                 continue
@@ -3610,6 +3629,103 @@ class ChatService:
         if title and name.startswith(title):
             return f"**{title}**{name[len(title):]}"
         return f"**{name}**"
+
+    def _item_is_only_the_name(self, body: str, card: ArtifactResult) -> bool:
+        """O texto de um item é só o nome da peça (com ou sem negrito e n.º de inventário), sem frase."""
+        plain = body.replace("*", "").replace("_", " ")
+        rest = fold(plain)
+        for part in (self._card_list_title(card), str(card.inventory_number or "")):
+            key = fold(part)
+            if key and rest.startswith(key):
+                rest = rest[len(key):].strip()
+        return not rest
+
+    # falar de estar (ou não) na visita virtual
+    _TOUR_TALK = re.compile(
+        r"(?i)\bvisita\s+virtual\b|\b(?:n|d)esta\s+visita\b|\b(?:n|d)a\s+visita\b|\bvirtual\s+tour\b|\b(?:this|the)\s+tour\b"
+    )
+    _YES_NO_ONLY = frozenset({"sim", "nao", "yes", "no", ""})
+    # a abertura de sempre: «Encontrei 4 peças de Gregório Lopes nesta visita virtual:»
+    _OPENING_TOUR_TAIL = re.compile(
+        r"(?i)^(?P<head>\s*(?:encontrei|encontr[áa]mos|h[áa]|existem|foram encontrad[ao]s|aqui est[ãa]o|i found|there (?:is|are)|here (?:is|are))\b.*?)"
+        r"\s+(?:presentes?\s+|dispon[ií]ve(?:l|is)\s+|available\s+)?(?:(?:n|d)esta\s+visita(?:\s+virtual)?|na\s+visita\s+virtual|in\s+this\s+(?:virtual\s+)?tour)"
+        r"(?P<end>\s*[:.!]?\s*)$"
+    )
+
+    def _asks_about_tour(self, *messages: str | None, retrieval_request: dict[str, Any] | None = None) -> bool:
+        """O visitante pergunta pela visita virtual («nesta visita», «na visita virtual», «in this tour»)."""
+        if isinstance(retrieval_request, dict) and retrieval_request.get("tour_scope"):
+            return True
+        return any(self._extract_tour_scope_expression(message or "") for message in messages)
+
+    def _without_tour_talk(self, sentence: str) -> str:
+        """Uma frase sem as orações que falam da visita virtual («Modelo em barro,
+        não está presente na visita virtual.» → «Modelo em barro.»). Vazia se
+        não sobrar nada que descreva a peça."""
+        kept_sentences: list[str] = []
+        for part in re.split(r"(?<=[.!?])\s+", sentence.strip()):
+            if not part or not self._TOUR_TALK.search(part):
+                if part:
+                    kept_sentences.append(part)
+                continue
+            clauses = re.split(r"(,\s+|;\s+|\s[–—-]\s|\s+(?:mas|e|but|and)\s+(?=n[ãa]o\b|est[áa]\b|not\b|is\b))", part)
+            kept: list[str] = []
+            for index in range(0, len(clauses), 2):
+                clause = clauses[index]
+                if self._TOUR_TALK.search(clause) or fold(clause) in self._YES_NO_ONLY:
+                    continue
+                if kept:
+                    kept.append(clauses[index - 1])
+                kept.append(clause)
+            rest = "".join(kept).strip(" ,;:–—-")
+            if fold(rest):
+                kept_sentences.append(rest if rest[-1] in ".!?…»\"" else rest + ".")
+        return " ".join(kept_sentences).strip()
+
+    def _strip_tour_talk(self, text: str, cards: list[ArtifactResult]) -> str:
+        """CHAT_TOUR_PRESENCE_ONLY_IF_ASKED, quando o visitante não perguntou pela
+        visita: nos itens da lista sai o que se diz sobre estar ou não na visita
+        virtual (fica o nome e a descrição; um item que fique sem frase leva
+        depois a da ficha), e a abertura de sempre perde o «nesta visita
+        virtual». O resto do texto não muda."""
+        if not (text or "").strip() or not self._TOUR_TALK.search(text):
+            return text
+        keys = self._card_name_keys(cards)
+        lines = text.split("\n")
+        first_item = next((index for index, line in enumerate(lines) if self._LIST_ITEM.match(line)), None)
+        for index, line in enumerate(lines):
+            if not self._TOUR_TALK.search(line):
+                continue
+            match = self._LIST_ITEM.match(line)
+            if match is None:
+                if first_item is None or index < first_item:
+                    opening = self._OPENING_TOUR_TAIL.match(line)
+                    if opening is not None:
+                        lines[index] = f"{opening['head']}{opening['end']}"
+                continue
+            body = match["body"]
+            # onde acaba o nome: o negrito dela, o nome de um cartão, ou o separador
+            bold = re.match(r"\s*(\*\*|__).+?\1", body)
+            span = None if bold else self._item_name_span(body, keys)
+            if bold is not None:
+                cut = bold.end()
+            elif span is not None:
+                cut = span[1]
+            else:
+                separator = self._LIST_ITEM_SEPARATOR.search(body)
+                cut = separator.start() if separator else 0
+            inventory = re.match(r"\s*\([^()]{1,40}\)", body[cut:])
+            if inventory is not None and not self._TOUR_TALK.search(inventory.group()):
+                cut += inventory.end()
+            name, rest = body[:cut], body[cut:]
+            if self._TOUR_TALK.search(name):
+                continue  # o nome da peça fala de uma visita: não se mexe
+            separator = re.match(r"\s*(?:[–—-]|:|,)?\s*", rest)
+            sentence = self._without_tour_talk(rest[separator.end():])
+            joiner = separator.group() if (separator.group().strip() or not name) else " – "
+            new_body = f"{name}{joiner}{sentence}" if sentence else name.rstrip()
+            lines[index] = f"{match['indent']}{match['marker']}{match['gap']}{new_body}" if new_body.strip() else line
+        return "\n".join(lines)
 
     def _card_name_keys(self, cards: list[ArtifactResult]) -> list[str]:
         """Os nomes das peças dobrados (author_cards.fold), os mais compridos primeiro."""
@@ -3833,10 +3949,11 @@ class ChatService:
     )
 
     def _author_counts_opening(
-        self, *, author: ChatAuthorCard | None, total: int, shown: int, language: str | None
+        self, *, author: ChatAuthorCard | None, total: int, shown: int, language: str | None, tour_presence: bool = True
     ) -> str | None:
         """A frase de abertura com os números do catálogo (CHAT_AUTHOR_ANSWER_COUNTS),
-        ou None quando não se aplica: flag desligada, sem autor ou uma só peça."""
+        ou None quando não se aplica: flag desligada, sem autor ou uma só peça.
+        `tour_presence=False` (CHAT_TOUR_PRESENCE_ONLY_IF_ASKED): sem «N delas nesta visita»."""
         if not bool(getattr(self.settings, "CHAT_AUTHOR_ANSWER_COUNTS", False)):
             return None
         if author is None or total < 2 or shown < 1:
@@ -3844,7 +3961,7 @@ class ChatService:
         english = normalize_language(language) == "en"
         name = self._author_name_for_request(author.name)
         count = max(int(author.artifact_count or 0), total)
-        in_tour = max(int(author.in_tour_count or 0), 0)
+        in_tour = max(int(author.in_tour_count or 0), 0) if tour_presence else 0
         if english:
             opening = (
                 f"The museum has {count} objects by {name}" if total >= count
@@ -3892,7 +4009,8 @@ class ChatService:
         return body
 
     def _author_answer_with_counts(
-        self, text: str, *, author: ChatAuthorCard | None, total: int, shown: int, language: str | None
+        self, text: str, *, author: ChatAuthorCard | None, total: int, shown: int, language: str | None,
+        tour_presence: bool = True,
     ) -> str:
         """CHAT_AUTHOR_ANSWER_COUNTS: numa resposta só com peças de um autor, a
         abertura diz os números do catálogo e não os que a AMÁLIA escrever.
@@ -3905,10 +4023,86 @@ class ChatService:
         mais resultados»):»); numa resposta sem lista,
         a abertura junta-se à frente e sai a primeira frase se contar peças. Com
         uma só peça não se mexe: a resposta é sobre ela."""
-        opening = self._author_counts_opening(author=author, total=total, shown=shown, language=language)
+        opening = self._author_counts_opening(
+            author=author, total=total, shown=shown, language=language, tour_presence=tour_presence
+        )
         if opening is None or not (text or "").strip():
             return text
         return f"{opening}\n\n{self._author_answer_body(text.strip(), final=True)}"
+
+    def _committed_list_stream(
+        self,
+        factory: Callable[[], Callable[[str], Awaitable[None]]],
+        finish_text: Callable[[str, dict[str, Any] | None], str],
+        *,
+        opening: str | None,
+    ) -> tuple[Callable[[], Callable[[str], Awaitable[None]]], Callable[[str], Awaitable[None]]]:
+        """CHAT_STREAM_COMMITTED_LIST: o streaming de uma resposta com a lista
+        decidida no prompt só envia texto que vai estar na resposta final.
+
+        A cada linha que a AMÁLIA acaba, o texto escrito até aí passa pelo
+        mesmo tratamento da resposta final (`finish_text`: sanitização,
+        garantia da lista, negrito, abertura do autor) e envia-se o que já é
+        certo: a abertura e as linhas da lista dos primeiros cartões seguidos
+        que ela já escreveu. O que ela escrever fora disso (o fecho depois da
+        lista, uma resposta em prosa) não é enviado; no fim, `finish(texto
+        final)` envia o que faltar. `opening` é a abertura do autor, certa
+        desde o primeiro token. Devolve a fábrica dos emissores e o `finish`."""
+        last: dict[str, Any] = {}
+
+        def wrapped() -> Callable[[str], Awaitable[None]]:
+            emit = factory()
+            stream = {"raw": "", "sent": "", "dead": False}
+            last["emit"], last["stream"] = emit, stream
+
+            async def send(committed: str) -> None:
+                if not committed.startswith(stream["sent"]):
+                    stream["dead"] = True  # o que já foi enviado deixou de ser o princípio do texto: pára aqui
+                    return
+                more = committed[len(stream["sent"]):]
+                if more:
+                    stream["sent"] = committed
+                    await emit(more)
+
+            async def filtered(delta: str) -> None:
+                stream["raw"] += delta or ""
+                if stream["dead"]:
+                    return
+                if opening and not stream["sent"]:
+                    await send(f"{opening}\n\n")
+                if "\n" not in (delta or ""):
+                    return
+                complete = stream["raw"][: stream["raw"].rfind("\n") + 1]
+                if not complete.strip():
+                    return
+                report: dict[str, Any] = {}
+                try:
+                    text = finish_text(complete, report)
+                except Exception:  # noqa: BLE001 — o streaming nunca trava a resposta
+                    return
+                cards, leading = int(report.get("cards") or 0), int(report.get("leading") or 0)
+                lines = text.split("\n")
+                if cards < 1 or len(lines) < cards or (leading < 1 and not opening):
+                    return
+                head, items = lines[:-cards], lines[-cards:]
+                committed = "\n".join(head + items[:leading])
+                await send(committed if leading >= cards else committed + "\n")
+
+            return filtered
+
+        async def finish(final_text: str) -> None:
+            stream = last.get("stream")
+            if not stream or stream["dead"]:
+                return
+            if not final_text.startswith(stream["sent"]):
+                log_event(logger, logging.INFO, "chat.stream.committed_mismatch", sent_chars=len(stream["sent"]))
+                return
+            more = final_text[len(stream["sent"]):]
+            if more:
+                stream["sent"] = final_text
+                await last["emit"](more)
+
+        return wrapped, finish
 
     def _author_opening_stream(
         self, factory: Callable[[], Callable[[str], Awaitable[None]]], opening: str
@@ -3966,6 +4160,7 @@ class ChatService:
         total: int,
         page_size: int,
         state: ChatSessionState | None,
+        tour_presence: bool = True,
     ) -> str:
         """CHAT_AUTHOR_ONLY_NEW_ANSWER: a resposta foi escrita para os cartões da
         pesquisa geral, e os cartões passaram a ser só do autor (saíram os de
@@ -3983,6 +4178,7 @@ class ChatService:
                 artifact_results=cards, image_matches=[], page=1, page_size=page_size, total=total,
                 prefer_artifact_results=True, include_image_matches_section=False,
                 navigation_targets=None if (scope is not None and scope.is_cross_museum) else targets,
+                tour_presence=tour_presence,
             )
             prompt = build_final_answer_prompt_v2(
                 museum_name=(scope.museum_name if scope is not None else None) or payload.museum_name,
@@ -3998,8 +4194,9 @@ class ChatService:
                 system_prompt=self._final_system_prompt(payload.system_prompt, language),
                 model_override=None,
             )
+            raw = str(getattr(llm_response, "text", "") or "")
             text = self._sanitize_assistant_reply(
-                str(getattr(llm_response, "text", "") or ""),
+                raw if tour_presence else self._strip_tour_talk(raw, cards),
                 docs=self._artifact_results_as_prompt_docs(cards, navigation_targets=targets),
                 language=language,
             )
@@ -4170,13 +4367,19 @@ class ChatService:
             outcome["applied"] = True
         reply = response.reply
         if write_reply:
+            # CHAT_TOUR_PRESENCE_ONLY_IF_ASKED: só se fala da visita se o visitante a perguntou
+            tour_presence = not bool(getattr(self.settings, "CHAT_TOUR_PRESENCE_ONLY_IF_ASKED", False)) or self._asks_about_tour(
+                message, payload.message, retrieval_request=request
+            )
             if len(kept) != len(response.artifact_results) or fill_cards:
                 # os cartões já não são os que a resposta descreveu: escreve-se outra, sobre estes
                 reply = await self._author_only_new_answer(
                     payload, response, message=message, cards=cards, targets=targets, total=total, page_size=page_size, state=state,
+                    tour_presence=tour_presence,
                 )
             reply = self._author_answer_with_counts(
-                reply, author=author, total=total, shown=len(cards), language=payload.language or (state.language if state else None)
+                reply, author=author, total=total, shown=len(cards), language=payload.language or (state.language if state else None),
+                tour_presence=tour_presence,
             )
         return response.model_copy(update={
             "reply": reply,
@@ -5992,10 +6195,15 @@ class ChatService:
                 results_total = restricted.results_total
                 results_has_more = restricted.results_has_more
         author_card_first = author_first["author"] if author_first is not None else None
+        # CHAT_TOUR_PRESENCE_ONLY_IF_ASKED: a resposta só fala de estar ou não na visita se o visitante o perguntou
+        speaks_of_tour = not bool(getattr(self.settings, "CHAT_TOUR_PRESENCE_ONLY_IF_ASKED", False)) or self._asks_about_tour(
+            original_message, str(router_decision.get("rewritten_query") or ""), retrieval_request=retrieval_request
+        )
         # a abertura com os números do catálogo, quando os cartões são só do autor
         author_opening = (
             self._author_counts_opening(
-                author=author_card_first, total=results_total, shown=len(paged_artifact_results), language=language
+                author=author_card_first, total=results_total, shown=len(paged_artifact_results), language=language,
+                tour_presence=speaks_of_tour,
             )
             if author_first is not None and author_first["applied"]
             else None
@@ -6017,6 +6225,7 @@ class ChatService:
             include_image_matches_section=False,
             navigation_targets=prompt_navigation_targets,
             visual_facts=visual_facts,
+            tour_presence=speaks_of_tour,
         )
         retrieval_mode_for_log = (
             retrieval_kind_for_log
@@ -6103,6 +6312,7 @@ class ChatService:
                 prefer_artifact_results=True,
                 include_image_matches_section=False,
                 navigation_targets=prompt_navigation_targets,
+                tour_presence=speaks_of_tour,
             )
             limited_final_retrieval_context = (
                 retrieval_context
@@ -6165,13 +6375,53 @@ class ChatService:
             stream_cb_factory = self._make_token_emitter(status_cb, query_id=query_id)
             if select_cards:
                 stream_cb_factory = self._card_selection_stream_factory(stream_cb_factory)
+        reply_docs = (
+            []
+            if preselected_none
+            else (self._artifact_results_as_prompt_docs(paged_artifact_results) or retrieved_docs)
+        )
+        list_planned = has_answer_list_plan(final_message)
+        lists_cards = requested_format.type == "text" and not self._is_treasure_list_request(retrieval_request)
+
+        def sanitize_reply(raw: str) -> str:
+            # o que a AMÁLIA disser da visita sai antes da sanitização, que tiraria só o rótulo do cartão
+            text = raw if speaks_of_tour else self._strip_tour_talk(raw, paged_artifact_results)
+            return self._sanitize_assistant_reply(text, docs=reply_docs, language=language)
+
+        def finish_reply(text: str, report: dict[str, Any] | None = None) -> str:
+            if lists_cards:
+                text = self._mention_every_card(
+                    text, paged_artifact_results, language=language, list_planned=list_planned, report=report,
+                )
+                text = self._bold_names_in_list(text, paged_artifact_results)
+            if author_opening:
+                # a abertura com os números e a lista da AMÁLIA
+                text = self._author_answer_with_counts(
+                    text, author=author_card_first, total=results_total,
+                    shown=len(paged_artifact_results), language=language, tour_presence=speaks_of_tour,
+                )
+            return text
+
+        finish_committed: Callable[[str], Awaitable[None]] | None = None
         flush_author_opening: Callable[[], Awaitable[None]] | None = None
-        if stream_cb_factory is not None and author_opening:
-            stream_cb_factory, flush_author_opening = self._author_opening_stream(stream_cb_factory, author_opening)
-        # CHAT_ANSWER_BOLD_NAMES: o nome das peças a negrito já no streaming (o filtro mais perto do modelo)
         flush_bold_names: Callable[[], Awaitable[None]] | None = None
         if (
             stream_cb_factory is not None
+            and list_planned
+            and lists_cards
+            and not select_cards
+            and bool(getattr(self.settings, "CHAT_STREAM_COMMITTED_LIST", False))
+        ):
+            # CHAT_STREAM_COMMITTED_LIST: só chega ao visitante texto que fica na resposta final
+            stream_cb_factory, finish_committed = self._committed_list_stream(
+                stream_cb_factory, lambda raw, report=None: finish_reply(sanitize_reply(raw), report), opening=author_opening,
+            )
+        elif stream_cb_factory is not None and author_opening:
+            stream_cb_factory, flush_author_opening = self._author_opening_stream(stream_cb_factory, author_opening)
+        # CHAT_ANSWER_BOLD_NAMES: o nome das peças a negrito já no streaming (o filtro mais perto do modelo)
+        if (
+            stream_cb_factory is not None
+            and finish_committed is None
             and bool(getattr(self.settings, "CHAT_ANSWER_BOLD_NAMES", False))
             and paged_artifact_results
             and not preselected_none
@@ -6274,21 +6524,12 @@ class ChatService:
             duration_ms=round(llm_latency_ms, 1),
         )
 
-        reply_docs = (
-            []
-            if preselected_none
-            else (self._artifact_results_as_prompt_docs(paged_artifact_results) or retrieved_docs)
-        )
         # O bloco «[[cartões: …]]» sai antes da sanitização, que trocaria os
         # rótulos [doc_N] pelos títulos.
         llm_text, model_cards = (
             self._split_card_selection(llm_response.text) if select_cards else (llm_response.text, None)
         )
-        final_reply_text = self._sanitize_assistant_reply(
-            llm_text,
-            docs=reply_docs,
-            language=language,
-        )
+        final_reply_text = sanitize_reply(llm_text)
         # Quick win FILT-02 (modo observação): regista títulos/inventários
         # citados que não existem nos cartões visíveis. Nunca altera a resposta.
         grounding_report = self._grounding_report(
@@ -6327,18 +6568,10 @@ class ChatService:
                 **card_selection,
             )
 
-        if requested_format.type == "text" and not self._is_treasure_list_request(retrieval_request):
-            final_reply_text = self._mention_every_card(
-                final_reply_text, paged_artifact_results, language=language,
-                list_planned=has_answer_list_plan(final_message),
-            )
-            final_reply_text = self._bold_names_in_list(final_reply_text, paged_artifact_results)
-        if author_opening:
-            # o mesmo texto que o streaming escreveu: a abertura com os números e a lista da AMÁLIA
-            final_reply_text = self._author_answer_with_counts(
-                final_reply_text, author=author_card_first, total=results_total,
-                shown=len(paged_artifact_results), language=language,
-            )
+        final_reply_text = finish_reply(final_reply_text)
+        if finish_committed is not None:
+            # o streaming enviou o princípio deste texto: segue o que falta
+            await finish_committed(final_reply_text)
 
         if not carry_filters:
             state.filters = {}
