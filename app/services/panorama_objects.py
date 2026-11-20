@@ -13,17 +13,23 @@ Desde 2026-10-31 o mesmo ficheiro dá «Ver na tour» às peças sem hotspot:
 `locate()` diz em que panorama e para onde (yaw, pitch) uma peça foi
 localizada com segurança, e `object_navigation_target()` faz dela um alvo de
 navegação (TOUR_OBJECT_TARGETS_ENABLED, chat_service._resolve_target_dicts).
+
+A mesma peça é quase sempre localizada em vários panoramas (no MNAA, 580 das
+798 peças sem hotspot). «Ver na tour» leva ao panorama em que ela aparece
+maior — o ponto da visita mais perto da peça — e não ao de maior cosseno
+(TOUR_TARGETS_CLOSEST_VIEW, `angular_size`, 2026-11-20).
 """
 from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import threading
 import time
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterable
 
 from app.core.config import get_settings
 
@@ -40,6 +46,22 @@ def normalize_slug(value: str | None) -> str | None:
 
 def normalize_inventory(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
+
+
+def angular_size(obj: dict[str, Any]) -> float:
+    """Tamanho aparente do objeto visto do panorama (graus², aproximado):
+    quanto maior, mais perto da peça está esse ponto da visita. Sai da caixa
+    angular e não de `area_fraction`, que é a fração da vista em que o objeto
+    foi recortado e as vistas não têm todas o mesmo campo (90° e 45° no MNAA:
+    a mesma peça dá frações 4 vezes diferentes)."""
+    bbox = obj.get("bbox") or {}
+    try:
+        yaw_span = (float(bbox["yaw_max"]) - float(bbox["yaw_min"])) % 360.0
+        pitch_min, pitch_max = float(bbox["pitch_min"]), float(bbox["pitch_max"])
+    except (KeyError, TypeError, ValueError):
+        return 0.0
+    width = yaw_span * math.cos(math.radians((pitch_min + pitch_max) / 2.0))
+    return max(width, 0.0) * max(pitch_max - pitch_min, 0.0)
 
 
 def public_object(entry: dict[str, Any], *, hotspot_overlay_id: str | None = None) -> dict[str, Any]:
@@ -167,10 +189,26 @@ class PanoramaObjectStore:
             self._by_inventory[slug] = index
             return index
 
-    def locate(self, museum: str | None, inventory: Any, *, min_score: float = 0.80) -> dict[str, Any] | None:
-        """Onde a peça `inventory` está na visita: o melhor objeto definitivo
-        entre os panoramas em que foi localizada (confirmados primeiro, depois
-        pelo cosseno; empate pela área). None se não foi localizada com segurança."""
+    def locate(
+        self,
+        museum: str | None,
+        inventory: Any,
+        *,
+        min_score: float = 0.80,
+        nearby: Callable[[str], Iterable[str]] | None = None,
+    ) -> dict[str, Any] | None:
+        """Onde a peça `inventory` está na visita, entre os panoramas em que
+        foi localizada com segurança. None se não foi.
+
+        O sítio é o da identificação mais segura (confirmada primeiro, depois
+        o cosseno; empate pela área). Com `nearby` (panorama → panoramas a
+        poucos passos, do grafo da visita), a resposta é a vista mais próxima
+        desse sítio: de todas as localizações ligadas à mais segura por
+        panoramas vizinhos, aquela em que a peça aparece maior. As que ficam
+        noutra zona da visita não entram — são quase sempre outra peça
+        parecida, e a maior delas levaria o visitante à sala errada. Sem
+        `nearby`, fica a identificação mais segura.
+        """
         payload = self.museum(museum)
         slug = normalize_slug(museum)
         if payload is None or slug is None:
@@ -186,7 +224,46 @@ class PanoramaObjectStore:
             confirmed = str(obj.get("accepted_by") or "") in self._CONFIRMED_BY
             return (confirmed, float(obj.get("score") or 0.0), float(obj.get("area_fraction") or 0.0))
 
-        return max(candidates, key=rank)
+        safest = max(candidates, key=rank)
+        if nearby is None:
+            return safest
+        place = self._same_place(safest, candidates, nearby)
+        return max(place, key=lambda obj: (angular_size(obj), *rank(obj)))
+
+    @staticmethod
+    def _same_place(
+        anchor: dict[str, Any], candidates: list[dict[str, Any]], nearby: Callable[[str], Iterable[str]]
+    ) -> list[dict[str, Any]]:
+        """As localizações do mesmo sítio da visita que `anchor`: as do seu
+        panorama e as dos panoramas a que se chega de vizinho em vizinho
+        passando só por panoramas em que a peça também foi localizada."""
+        panoramas = {str(o.get("panorama_key") or "") for o in candidates}
+        start = str(anchor.get("panorama_key") or "")
+        place, frontier = {start}, [start]
+        while frontier:
+            try:
+                reach = set(nearby(frontier.pop()))
+            except Exception:  # um grafo estragado não tira o «Ver na tour»
+                continue
+            found = (panoramas & reach) - place
+            place |= found
+            frontier.extend(found)
+        return [o for o in candidates if str(o.get("panorama_key") or "") in place]
+
+    def view_size(self, museum: str | None, inventory: Any, panorama_key: str | None) -> float:
+        """Tamanho aparente (`angular_size`) da peça no panorama, para escolher
+        entre os hotspots de uma peça assinalada em vários; 0 se a indexação
+        não a recortou ali. Qualquer identificação serve: o hotspot já diz que
+        a peça está nesse panorama."""
+        slug = normalize_slug(museum)
+        key = normalize_inventory(inventory)
+        wanted = str(panorama_key or "").strip()
+        if self.museum(museum) is None or slug is None or not key or not wanted:
+            return 0.0
+        return max(
+            (angular_size(o) for o in self._inventory_index(slug).get(key, []) if o.get("panorama_key") == wanted),
+            default=0.0,
+        )
 
 
 @lru_cache(maxsize=1)

@@ -10,15 +10,16 @@ import json
 from pathlib import Path
 
 from app.schemas.chat import TourNavigationTarget
-from app.services.panorama_objects import PanoramaObjectStore, object_navigation_target
+from app.services.panorama_objects import PanoramaObjectStore, angular_size, object_navigation_target
+from app.services.route_planning.graph import TourGraph
 from tests.test_tour_location import _Base
 
 
-def _obj(pano: str, inv: str, score: float, *, accepted_by: str | None = None, area: float = 0.05, yaw: float = 10.0, pitch: float = -2.0, idx: int = 0, title: str = "Peça") -> dict:
+def _obj(pano: str, inv: str, score: float, *, accepted_by: str | None = None, area: float = 0.05, yaw: float = 10.0, pitch: float = -2.0, idx: int = 0, title: str = "Peça", half: float = 5.0) -> dict:
     obj = {
         "object_id": f"{pano}:{idx}", "panorama_key": pano, "artifact_id": f"a-{inv}", "inventory_number": inv, "title": title,
         "score": score, "runner_up_score": 0.5, "image_name": f"Images/{inv}.jpg", "yaw": yaw, "pitch": pitch, "area_fraction": area,
-        "bbox": {"yaw_min": yaw - 5, "yaw_max": yaw + 5, "pitch_min": pitch - 5, "pitch_max": pitch + 5}, "polygon": [[yaw - 5, pitch + 5], [yaw + 5, pitch + 5], [yaw + 5, pitch - 5]],
+        "bbox": {"yaw_min": yaw - half, "yaw_max": yaw + half, "pitch_min": pitch - half, "pitch_max": pitch + half}, "polygon": [[yaw - 5, pitch + 5], [yaw + 5, pitch + 5], [yaw + 5, pitch - 5]],
         "prompt": "artwork",
     }
     if accepted_by:
@@ -146,7 +147,7 @@ class TestResolveTargets(_WithObjects):
     def test_piece_with_hotspot_is_not_duplicated(self) -> None:
         service = self._enabled()
         targets = service._resolve_navigation_targets(museum_slug="mnt", museum_id="mnt", docs=[{"inventory_number": "5262"}])
-        # resolve_targets devolve no máximo len(inventories) entradas: aqui só a 1.ª dos dois hotspots da peça
+        # um alvo por peça: dos dois hotspots da 5262 fica o do panorama em que a indexação a recortou
         self.assertEqual([(t.source, t.panorama_key) for t in targets], [("hotspot", "pan_musica")])
 
     def test_museum_without_objects_file(self) -> None:
@@ -163,3 +164,165 @@ class TestResolveTargets(_WithObjects):
         targets = service._resolve_navigation_targets(museum_slug="mnt", museum_id="mnt", docs=[{"inventory_number": "777"}])
         entries = service._log_navigation_target_entries(navigation_targets=targets, artifact_results=[])
         self.assertEqual((entries[0]["source"], entries[0]["overlay_id"]), ("object", "object:pan_musica:0"))
+
+
+# ----- A vista mais próxima da peça (TOUR_TARGETS_CLOSEST_VIEW, 2026-11-20) ----- #
+
+# Uma visita em fila: a — b — c — d — e — f, mais as salas dos hotspots do
+# test_tour_location (Música ao lado da Música 2; Cantonal ao lado da Cantonal 2).
+_LINE = ["pan_a", "pan_b", "pan_c", "pan_d", "pan_e", "pan_f"]
+_PAIRS = [*zip(_LINE, _LINE[1:]), ("pan_musica", "pan_musica_2"), ("pan_cantonal", "pan_cantonal_2")]
+GRAPH = {
+    "museum_slug": "mnt",
+    "nodes": [{"panorama_key": k, "playlist_index": i, "room": "Sala"} for i, k in enumerate(
+        [*_LINE, "pan_musica", "pan_musica_2", "pan_cantonal", "pan_cantonal_2"])],
+    # as ligações só num sentido também contam como vizinhança
+    "edges": [{"source": a, "target": b, "kinds": ["adjacent"]} for a, b in _PAIRS],
+}
+NEAR_OBJECTS = {
+    "pan_a": {"objects": [
+        _obj("pan_a", "2001", 0.95, half=2, idx=0),                  # o maior cosseno, mas de longe
+        _obj("pan_a", "2002", 0.93, half=2, idx=1),
+        _obj("pan_a", "2003", 0.95, half=2, idx=2),
+        _obj("pan_a", "2004", 0.70, accepted_by="vlm", half=3, idx=3),
+    ]},
+    "pan_b": {"objects": [
+        _obj("pan_b", "2001", 0.85, half=10, yaw=-40.0, pitch=-8.0, idx=0),  # a vista mais próxima
+        _obj("pan_b", "2004", 0.99, half=12, idx=1),                 # maior e com mais cosseno, mas não confirmada
+        _obj("pan_b", "2005", 0.60, half=12, idx=2),                 # abaixo do mínimo: não conta
+    ]},
+    "pan_c": {"objects": [
+        _obj("pan_c", "2001", 0.82, half=6, idx=0),
+        _obj("pan_c", "2003", 0.84, half=4, idx=1),
+        _obj("pan_c", "2005", 0.90, half=2, idx=2),
+    ]},
+    "pan_e": {"objects": [_obj("pan_e", "2003", 0.83, half=9, idx=0)]},      # a dois de c, que está a dois de a
+    "pan_f": {"objects": [_obj("pan_f", "2002", 0.85, half=15, idx=0)]},     # enorme, mas noutra zona: peça parecida
+    # hotspots: a 38090 vê-se maior do 2.º hotspot do ficheiro; a 5262 só foi recortada no 2.º
+    "pan_musica_2": {"objects": [_obj("pan_musica_2", "38090", 0.70, half=3, idx=0)]},
+    "pan_cantonal_2": {"objects": [_obj("pan_cantonal_2", "38090", 0.66, half=11, idx=0)]},
+    "pan_cantonal": {"objects": [_obj("pan_cantonal", "5262", 0.55, half=4, idx=0)]},
+}
+
+
+class _WithGraph(_Base):
+    def setUp(self) -> None:
+        super().setUp()
+        (Path(self._tmp.name) / "panorama-objects-mnt.json").write_text(json.dumps({"museum_slug": "mnt", "panoramas": NEAR_OBJECTS}), encoding="utf-8")
+        (Path(self._tmp.name) / "tour-graph-mnt.json").write_text(json.dumps(GRAPH), encoding="utf-8")
+        self.store = PanoramaObjectStore(self._tmp.name, check_interval=0.0)
+        self.graph = TourGraph(GRAPH)
+
+    def _enabled(self, **overrides):
+        service = self._service(self._settings(CHAT_TOUR_LOCATION_ANSWERS=True, TOUR_OBJECT_TARGETS_ENABLED=True, **overrides))
+        service._panorama_object_store = self.store
+        return service
+
+    def _panorama(self, service, inventory: str) -> str | None:
+        targets = service._resolve_navigation_targets(museum_slug="mnt", museum_id="mnt", docs=[{"inventory_number": inventory}])
+        return targets[0].panorama_key if targets else None
+
+
+class TestAngularSize(_WithGraph):
+    def test_size_comes_from_the_angular_box(self) -> None:
+        self.assertAlmostEqual(angular_size(_obj("p", "1", 0.9, pitch=0.0, half=5)), 100.0)
+        # a mesma largura em yaw ocupa menos perto dos polos
+        self.assertAlmostEqual(angular_size(_obj("p", "1", 0.9, pitch=-60.0, half=5)), 50.0)
+        # a caixa que atravessa os ±180° não fica com 350° de largura
+        wrapped = {"bbox": {"yaw_min": 175.0, "yaw_max": -175.0, "pitch_min": -5.0, "pitch_max": 5.0}}
+        self.assertAlmostEqual(angular_size(wrapped), 100.0)
+        for broken in ({}, {"bbox": None}, {"bbox": {"yaw_min": 1}}, {"bbox": {"yaw_min": "x", "yaw_max": 2, "pitch_min": 0, "pitch_max": 1}}):
+            self.assertEqual(angular_size(broken), 0.0)
+
+    def test_graph_nearby_ignores_direction(self) -> None:
+        self.assertEqual(self.graph.nearby("pan_c", 1), {"pan_b", "pan_c", "pan_d"})
+        self.assertEqual(self.graph.nearby("pan_a", 2), {"pan_a", "pan_b", "pan_c"})
+        self.assertEqual(self.graph.nearby("pan_a", 0), {"pan_a"})
+        self.assertEqual(self.graph.nearby("pan_nenhum", 2), set())
+
+
+class TestClosestView(_WithGraph):
+    def _locate(self, inventory: str, hops: int = 2) -> str | None:
+        located = self.store.locate("mnt", inventory, nearby=lambda key: self.graph.nearby(key, hops))
+        return located["panorama_key"] if located else None
+
+    def test_closest_view_of_the_same_place(self) -> None:
+        self.assertEqual(self.store.locate("mnt", "2001")["panorama_key"], "pan_a")   # sem grafo: a mais segura
+        located = self.store.locate("mnt", "2001", nearby=lambda key: self.graph.nearby(key, 2))
+        self.assertEqual((located["panorama_key"], located["yaw"], located["pitch"]), ("pan_b", -40.0, -8.0))
+
+    def test_lookalike_in_another_zone_is_ignored(self) -> None:
+        self.assertEqual(self._locate("2002"), "pan_a")
+
+    def test_place_follows_neighbours_that_also_see_the_piece(self) -> None:
+        self.assertEqual(self._locate("2003"), "pan_e")
+        # com um só passo, c já não é vizinho de a
+        self.assertEqual(self._locate("2003", hops=1), "pan_a")
+
+    def test_only_definitive_locations_count(self) -> None:
+        # confirmada pelo VLM em a; em b só cosseno (≥ 0,80 → definitiva) e maior
+        self.assertEqual(self._locate("2004"), "pan_b")
+        # a de b está abaixo do mínimo: fica a de c
+        self.assertEqual(self._locate("2005"), "pan_c")
+
+    def test_broken_graph_keeps_the_safest(self) -> None:
+        def broken(_key: str):
+            raise RuntimeError("grafo estragado")
+        self.assertEqual(self.store.locate("mnt", "2001", nearby=broken)["panorama_key"], "pan_a")
+
+    def test_view_size(self) -> None:
+        self.assertGreater(self.store.view_size("mnt", "38090", "pan_cantonal_2"), self.store.view_size("mnt", " 38090 ", "pan_musica_2"))
+        for args in (("mnt", "38090", "pan_a"), ("mnt", "0000", "pan_a"), ("mnaa", "38090", "pan_musica_2"), ("mnt", "", "pan_a"), ("mnt", "38090", None)):
+            self.assertEqual(self.store.view_size(*args), 0.0)
+
+
+class TestClosestTargets(_WithGraph):
+    def test_object_target_is_the_closest_view(self) -> None:
+        service = self._enabled()
+        targets = service._resolve_navigation_targets(museum_slug="mnt", museum_id="mnt", docs=[{"inventory_number": "2001"}])
+        self.assertEqual([(t.source, t.panorama_key, t.overlay_id, t.yaw, t.pitch) for t in targets], [("object", "pan_b", "object:pan_b:0", -40.0, -8.0)])
+        self.assertEqual([self._panorama(service, i) for i in ("2002", "2003")], ["pan_a", "pan_e"])
+
+    def test_hops_are_configurable(self) -> None:
+        self.assertEqual(self._panorama(self._enabled(TOUR_TARGETS_CLOSEST_VIEW_HOPS=1), "2003"), "pan_a")
+
+    def test_disabled_keeps_the_safest_identification(self) -> None:
+        service = self._enabled(TOUR_TARGETS_CLOSEST_VIEW=False)
+        self.assertEqual([self._panorama(service, i) for i in ("2001", "2003")], ["pan_a", "pan_a"])
+
+    def test_without_graph_file_keeps_the_safest_identification(self) -> None:
+        (Path(self._tmp.name) / "tour-graph-mnt.json").unlink()
+        self.assertEqual(self._panorama(self._enabled(), "2001"), "pan_a")
+
+    def test_hotspot_of_the_closest_panorama(self) -> None:
+        service = self._enabled()
+        docs = [{"inventory_number": i} for i in ("38090", "5262", "19663", "4703")]
+        targets = service._resolve_navigation_targets(museum_slug="mnt", museum_id="mnt", docs=docs)
+        # um alvo por peça, pela ordem pedida; nenhuma fica de fora por outra ter dois hotspots
+        self.assertEqual(
+            [(t.inventory_id, t.source, t.overlay_id, t.panorama_key) for t in targets],
+            [("38090", "hotspot", "ov7", "pan_cantonal_2"), ("5262", "hotspot", "ov6", "pan_cantonal"),
+             ("19663", "hotspot", "ov1", "pan_musica"), ("4703", "hotspot", "ov5", "pan_hall")],
+        )
+
+    def test_hotspots_never_cut_out_keep_file_order(self) -> None:
+        (Path(self._tmp.name) / "panorama-objects-mnt.json").write_text(json.dumps({"museum_slug": "mnt", "panoramas": {}}), encoding="utf-8")
+        service = self._enabled()
+        targets = service._resolve_navigation_targets(museum_slug="mnt", museum_id="mnt", docs=[{"inventory_number": "38090"}, {"inventory_number": "5262"}])
+        self.assertEqual([(t.overlay_id, t.panorama_key) for t in targets], [("ov3", "pan_musica_2"), ("ov2", "pan_musica")])
+
+    def test_hotspots_do_not_need_object_targets(self) -> None:
+        service = self._service(self._settings(CHAT_TOUR_LOCATION_ANSWERS=True))
+        service._panorama_object_store = self.store
+        self.assertEqual(self._panorama(service, "38090"), "pan_cantonal_2")
+        self.assertIsNone(self._panorama(service, "2001"))   # sem TOUR_OBJECT_TARGETS_ENABLED não há alvos de objetos
+
+    def test_disabled_keeps_the_first_hotspots(self) -> None:
+        service = self._enabled(TOUR_TARGETS_CLOSEST_VIEW=False)
+        targets = service._resolve_navigation_targets(museum_slug="mnt", museum_id="mnt", docs=[{"inventory_number": "38090"}])
+        self.assertEqual([(t.overlay_id, t.panorama_key) for t in targets], [("ov3", "pan_musica_2")])
+
+    def test_hotspots_only_lookup(self) -> None:
+        service = self._enabled()
+        targets = service._resolve_target_dicts(museum_slug="mnt", museum_id="mnt", inventories=["38090", "2001"], objects=False)
+        self.assertEqual([(t["inventory_id"], t["overlay_id"]) for t in targets], [("38090", "ov7")])

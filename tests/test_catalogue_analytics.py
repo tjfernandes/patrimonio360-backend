@@ -160,7 +160,8 @@ class TestFastPath(_Base):
         self.assertEqual((call["order"], call["in_tour"], call["subject"], call["size"]), ("asc", True, "", 24))
         self.assertEqual(response.reply, "Entre as 93 peças com data na ficha (100% das 93 desta visita virtual), a mais antiga é «Barrete de fumador/Masculino» (19663), do século XVIII. Os cartões abaixo mostram as 3 mais antigas, por ordem.")
         self.assertEqual([a.inventory_number for a in response.artifact_results], ["19663", "5262", "9"])
-        self.assertEqual(sorted(t.inventory_id for t in response.navigation_targets), ["19663", "5262", "5262"])
+        # a 5262 tem dois hotspots: um alvo por peça (TOUR_TARGETS_CLOSEST_VIEW)
+        self.assertEqual(sorted(t.inventory_id for t in response.navigation_targets), ["19663", "5262"])
         self.assertEqual(response.model_hint, "deterministic:catalogue_analytics")
         event = service.query_logger.events[-1]
         self.assertEqual(event["retrieval_mode"], "catalogue_analytics")

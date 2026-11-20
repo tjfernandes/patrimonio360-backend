@@ -70,6 +70,23 @@ class TourGraph:
         folded = _fold(room)
         return [k for k in self.order if _fold(self.room(k) or "") == folded]
 
+    def nearby(self, panorama_key: str | None, max_hops: int = 2) -> set[str]:
+        """Os panoramas a `max_hops` ligações ou menos (o próprio incluído),
+        sem olhar ao sentido: é vizinhança física, não um caminho a percorrer."""
+        if not self.has(panorama_key):
+            return set()
+        assert panorama_key is not None
+        seen, frontier = {panorama_key}, [panorama_key]
+        for _ in range(max(max_hops, 0)):
+            reached: list[str] = []
+            for current in frontier:
+                for other in self._undirected[current]:
+                    if other not in seen:
+                        seen.add(other)
+                        reached.append(other)
+            frontier = reached
+        return seen
+
     # ------------------------------------------------------------- caminhos
     def _bfs(self, start: str, adjacency: dict[str, Any]) -> dict[str, list[str]]:
         parent: dict[str, str | None] = {start: None}
