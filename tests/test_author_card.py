@@ -270,7 +270,7 @@ class TestAuthorInTourCount(_WithObjects):
     def test_cards_of_other_authors_do_not_count(self) -> None:
         cards = [_piece("19663", "a:lopes"), _piece("38090", "a:queiros"), _piece("999", "a:porto")]
         response, _ = self._answer(cards, inventories=["19663", "0000"])
-        self.assertEqual(len(response.navigation_targets), 4)   # 19663, 38090 (dois hotspots) e 999
+        self.assertEqual(len(response.navigation_targets), 3)   # 19663, 38090 (dois hotspots, um alvo) e 999
         self.assertEqual(response.author.in_tour_count, 1)
 
     def test_never_less_than_the_authors_cards_with_a_target(self) -> None:

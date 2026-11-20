@@ -122,7 +122,13 @@ from app.services.opensearch_client import OpenSearchGateway, get_opensearch_gat
 from app.services.model_retrieval import ModelRetrievalService, get_model_retrieval_service
 from app.services.query_logger import QueryLogger, get_query_logger, utc_timestamp
 from app.services.tour_navigation import TourNavigationService, get_tour_navigation_service
-from app.services.panorama_objects import PanoramaObjectStore, get_panorama_object_store, object_navigation_target
+from app.services.panorama_objects import (
+    PanoramaObjectStore,
+    get_panorama_object_store,
+    normalize_inventory as normalize_object_inventory,
+    object_navigation_target,
+)
+from app.services.route_planning.graph import TourGraphStore, get_tour_graph_store
 
 StatusCallback = Callable[[dict[str, Any]], Awaitable[None]]
 logger = logging.getLogger(__name__)
@@ -11212,12 +11218,13 @@ class ChatService:
         navigation_lookup: dict[str, dict[str, Any]] = {}
         if all_inventories:
             try:
+                # só hotspots, como sempre aqui; de vários, o mais perto da peça
                 navigation_targets_raw = await asyncio.to_thread(
-                    self.tour_navigation_service.resolve_targets,
+                    self._resolve_target_dicts,
                     museum_slug=museum_slug,
                     museum_id=museum_id,
                     inventories=all_inventories,
-                    limit=max(len(all_inventories), 1),
+                    objects=False,
                 )
             except Exception:
                 navigation_targets_raw = []
@@ -11504,43 +11511,120 @@ class ChatService:
             self._panorama_object_store = store
         return store
 
+    # Sem limite de alvos: para escolher o melhor hotspot de cada peça é preciso vê-los todos.
+    _ALL_HOTSPOT_TARGETS = 100_000
+
+    def _nearby_panoramas(self, museum_slug: str) -> Callable[[str], set[str]] | None:
+        """panorama → panoramas a poucas ligações, pelo grafo da visita
+        (poi_tours/tour-graph-<museu>.json); None se o museu não tem grafo."""
+        try:
+            store = getattr(self, "_route_graph_store", None) or getattr(self, "_tour_graph_store", None)
+            if store is None:
+                store = get_tour_graph_store()
+                if store.directory != self.settings.poi_tours_dir_resolved:
+                    store = TourGraphStore(self.settings.poi_tours_dir_resolved)
+                self._tour_graph_store = store
+            graph = store.get(museum_slug)
+        except Exception:  # sem grafo fica a identificação mais segura
+            return None
+        if graph is None:
+            return None
+        hops = int(getattr(self.settings, "TOUR_TARGETS_CLOSEST_VIEW_HOPS", 2) or 0)
+        return lambda panorama_key: graph.nearby(panorama_key, hops)
+
+    def _hotspot_target_dicts(
+        self,
+        *,
+        museum_slug: str,
+        museum_id: str | None,
+        inventories: list[str],
+        store: PanoramaObjectStore | None,
+    ) -> list[dict[str, Any]]:
+        """Alvos dos hotspots destes n.ºs de inventário. Com `store`, um por
+        peça pedida: de uma peça assinalada em vários panoramas fica o hotspot
+        do panorama em que ela aparece maior (o 1.º do ficheiro se a indexação
+        não a recortou em nenhum). Sem `store`, os de sempre."""
+        nav = self.tour_navigation_service
+        if store is None:
+            return list(
+                nav.resolve_targets(
+                    museum_slug=museum_slug, museum_id=museum_id, inventories=inventories, limit=max(len(inventories), 1),
+                )
+            )
+        resolved: list[dict[str, Any]] = []
+        asked: set[str] = set()
+        taken: set[tuple[str, str]] = set()  # um hotspot com duas peças serve a primeira, como sempre
+        for inventory in inventories:
+            key = normalize_object_inventory(inventory)
+            if not key or key in asked:
+                continue
+            asked.add(key)
+            options = [
+                target
+                for target in nav.resolve_targets(
+                    museum_slug=museum_slug, museum_id=museum_id, inventories=[inventory], limit=self._ALL_HOTSPOT_TARGETS,
+                )
+                if (target["overlay_id"], target["panorama_key"]) not in taken
+            ]
+            if not options:
+                continue
+
+            def size(target: dict[str, Any], inventory: str = inventory) -> float:
+                try:
+                    return store.view_size(museum_slug, inventory, target.get("panorama_key"))
+                except Exception:
+                    return 0.0
+
+            # max() fica com o primeiro dos maiores: em empate, a ordem do ficheiro
+            best = max(options, key=size) if len(options) > 1 else options[0]
+            taken.add((best["overlay_id"], best["panorama_key"]))
+            # o n.º como o mapa dos POIs o escreve, a não ser que lá esteja
+            # misturado com outro texto («MNAA, Inv, 73 Tap»): aí vale o pedido
+            if normalize_object_inventory(best.get("inventory_id")) != key:
+                best = {**best, "inventory_id": inventory}
+            resolved.append(best)
+        return resolved
+
     def _resolve_target_dicts(
         self,
         *,
         museum_slug: str,
         museum_id: str | None,
         inventories: list[str],
+        objects: bool = True,
     ) -> list[dict[str, Any]]:
         """Alvos de «Ver na tour» para estes n.ºs de inventário: os hotspots do
         mapa dos POIs e, para as peças sem hotspot, a posição em que a
         indexação offline as localizou num panorama (TOUR_OBJECT_TARGETS_ENABLED;
-        só localizações definitivas, ver PanoramaObjectStore.locate)."""
+        só localizações definitivas, ver PanoramaObjectStore.locate). Com
+        TOUR_TARGETS_CLOSEST_VIEW, de uma peça vista em vários panoramas sai o
+        mais próximo dela; `objects=False` fica só pelos hotspots."""
         inventories = [str(i or "").strip() for i in inventories if str(i or "").strip()]
         if not inventories:
             return []
         nav = self.tour_navigation_service
-        resolved = list(
-            nav.resolve_targets(
-                museum_slug=museum_slug,
-                museum_id=museum_id,
-                inventories=inventories,
-                limit=max(len(inventories), 1),
-            )
+        closest = bool(getattr(self.settings, "TOUR_TARGETS_CLOSEST_VIEW", True))
+        objects = objects and bool(getattr(self.settings, "TOUR_OBJECT_TARGETS_ENABLED", False))
+        store: PanoramaObjectStore | None = None
+        if closest or objects:
+            try:
+                store = self._get_panorama_object_store()
+            except Exception:  # sem pasta de objetos não se perde o resto
+                store = None
+        resolved = self._hotspot_target_dicts(
+            museum_slug=museum_slug, museum_id=museum_id, inventories=inventories, store=store if closest else None,
         )
-        if not getattr(self.settings, "TOUR_OBJECT_TARGETS_ENABLED", False):
+        if not objects or store is None:
             return resolved
         covered = {nav.normalize_inventory_key(str(t.get("inventory_id") or "")) for t in resolved}
         min_score = float(getattr(self.settings, "TOUR_OBJECT_TARGETS_MIN_SCORE", 0.80))
-        try:
-            store = self._get_panorama_object_store()
-        except Exception:  # sem pasta de objetos não se perde o resto
-            return resolved
+        nearby = self._nearby_panoramas(museum_slug) if closest else None
         for inventory in inventories:
             key = nav.normalize_inventory_key(inventory)
             if not key or key in covered:
                 continue
             covered.add(key)
-            located = store.locate(museum_slug, inventory, min_score=min_score)
+            located = store.locate(museum_slug, inventory, min_score=min_score, nearby=nearby)
             if located is None:
                 continue
             location = nav.panorama_room(museum_slug=museum_slug, museum_id=museum_id, panorama_key=located["panorama_key"])

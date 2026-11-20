@@ -668,6 +668,16 @@ class Settings(BaseSettings):
     # visita vira a câmara para a peça (2026-10-31).
     TOUR_OBJECT_TARGETS_ENABLED: bool = False
     TOUR_OBJECT_TARGETS_MIN_SCORE: float = 0.80
+    # A mesma peça é localizada (e às vezes assinalada com hotspot) em vários
+    # panoramas: «Ver na tour» leva àquele em que ela aparece maior, o ponto
+    # da visita mais perto da peça, em vez do de maior cosseno / do 1.º
+    # hotspot do ficheiro. Só contam as localizações do mesmo sítio que a
+    # identificação mais segura: panoramas ligados a ela por vizinhos a
+    # TOUR_TARGETS_CLOSEST_VIEW_HOPS ligações ou menos em que a peça também
+    # foi localizada (as de outra zona são quase sempre uma peça parecida).
+    # Desligada, a escolha é a de antes (2026-11-20).
+    TOUR_TARGETS_CLOSEST_VIEW: bool = True
+    TOUR_TARGETS_CLOSEST_VIEW_HOPS: int = 2
     # Percursos temáticos gerados em conversa (2026-11-09, app/services/route_planning/).
     # Tudo atrás de CHAT_ROUTE_PLANNING: com a flag desligada nenhuma resposta muda.
     CHAT_ROUTE_PLANNING: bool = False
