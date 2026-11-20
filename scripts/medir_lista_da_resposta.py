@@ -14,6 +14,8 @@ gerais e os do aspeto de tests/visual_answer_cases.py. Variantes:
   negrito   lista + CHAT_ANSWER_BOLD_NAMES (o serviço põe o nome a negrito; o prompt é o da lista)
   sobrio    negrito + CHAT_TOUR_PRESENCE_ONLY_IF_ASKED + CHAT_STREAM_COMMITTED_LIST, com o streaming ligado
             (os cartões do prompt sem «Na visita virtual»; só chega ao visitante texto que fica no final)
+  rascunho  sobrio + CHAT_DRAFT_THEN_REWRITE (o pré-processamento escreve o rascunho, uma frase por ficha em
+            paralelo, e a AMÁLIA só o reescreve)
 
 Conta, por resposta: cartões com linha própria na lista, cartões ditos só fora da lista, cartões por dizer
 antes da rede, respostas cortadas, tamanho e tempo; e os itens da lista que abrem a negrito, no texto da
@@ -54,6 +56,9 @@ VARIANTES = {
     "negrito": {"CHAT_UNTITLED_CARD_BY_INVENTORY": True, "CHAT_ANSWER_LIST_PLAN": True, "CHAT_ANSWER_BOLD_NAMES": True},
     "sobrio": {"CHAT_UNTITLED_CARD_BY_INVENTORY": True, "CHAT_ANSWER_LIST_PLAN": True, "CHAT_ANSWER_BOLD_NAMES": True,
                "CHAT_TOUR_PRESENCE_ONLY_IF_ASKED": True, "CHAT_STREAM_COMMITTED_LIST": True, "CHAT_STREAM_FINAL_ANSWER": True},
+    "rascunho": {"CHAT_UNTITLED_CARD_BY_INVENTORY": True, "CHAT_ANSWER_LIST_PLAN": True, "CHAT_ANSWER_BOLD_NAMES": True,
+                 "CHAT_TOUR_PRESENCE_ONLY_IF_ASKED": True, "CHAT_STREAM_COMMITTED_LIST": True, "CHAT_STREAM_FINAL_ANSWER": True,
+                 "CHAT_DRAFT_THEN_REWRITE": True},
 }
 ITEM = re.compile(r"^[ \t]*(?:\d+[.)]|[-•*])[ \t]+(?P<body>\S.*)$")
 
@@ -169,7 +174,7 @@ async def medir(nome, extra, lista):
     tot = dict(respostas=0, cartoes=0, lista=0, fora=0, falta=0, completas=0, cortadas=0, rede=0, juntas=0,
                negrito_dela=0, itens_dela=0, negrito_final=0, itens_final=0, visita_dela=0, visita_final=0, so_nome=0,
                enviadas=0, iguais=0, prefixo=0)
-    letras, tempos = [], []
+    letras, tempos, palavras = [], [], []
     for caso in lista:
         docs = fichas(s.opensearch_gateway, caso["inventarios"])
         fixar(s, docs, caso["visual"])
@@ -205,6 +210,9 @@ async def medir(nome, extra, lista):
             tot["visita_dela"] += sum(1 for c in corpos(bruto) if VISITA.search(c))
             tot["visita_final"] += sum(1 for c in corpos(texto) if VISITA.search(c))
             tot["so_nome"] += sum(1 for c in corpos(texto) if not re.search(r"\s[–—-]\s|:\s|,\s", c))
+            palavras.extend(len(re.split(r"\s[–—-]\s|:\s", c, maxsplit=1)[-1].split()) for c in corpos(texto))
+            if "--tudo" in sys.argv:
+                print(f"\n--- [{nome}] {caso['pedido']} ({tempos[-1]:.1f} s)\n{texto}")
             if enviado:
                 visto = "".join(enviado)
                 tot["enviadas"] += 1
@@ -225,7 +233,8 @@ async def medir(nome, extra, lista):
           f"· rede usada {tot['rede']} · cortadas {tot['cortadas']} · mediana {letras[n // 2]} letras, {tempos[n // 2]:.1f} s (máx {tempos[-1]:.1f} s)"
           f" · itens a negrito: AMÁLIA {tot['negrito_dela']}/{tot['itens_dela']}, final {tot['negrito_final']}/{tot['itens_final']}"
           f" · itens que falam da visita: AMÁLIA {tot['visita_dela']}, final {tot['visita_final']} · itens finais só com o nome {tot['so_nome']}"
-          + (f" · streaming igual ao final {tot['iguais']}/{tot['enviadas']} (princípio do final {tot['prefixo']}/{tot['enviadas']})" if tot["enviadas"] else ""))
+          + (f" · streaming igual ao final {tot['iguais']}/{tot['enviadas']} (princípio do final {tot['prefixo']}/{tot['enviadas']})" if tot["enviadas"] else "")
+          + (f" · palavras por frase: mediana {sorted(palavras)[len(palavras) // 2]}, máx {max(palavras)}" if palavras else ""))
 
 
 async def principal():
