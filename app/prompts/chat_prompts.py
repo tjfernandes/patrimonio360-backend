@@ -344,7 +344,8 @@ def answer_list_plan(retrieval_context: str, language: str | None = None) -> str
 # Redações medidas a 2026-11-20 com o Qwen3-VL-8B e a AMÁLIA reais (scripts/medir_lista_da_resposta.py,
 # variante «rascunho»; docs/rascunho-e-reescrita.md). A frase de cada peça pede-se com a ficha dessa peça e mais nenhuma:
 # com todas as fichas no mesmo pedido o modelo misturava peças vizinhas («Caridade – Santa Ana com a
-# Virgem…», que é a 584 Esc). Qualquer alteração repete a medição.
+# Virgem…», que é a 584 Esc). As instruções não levam exemplos com objetos: com «a segurar um livro» de exemplo
+# contra o gerúndio, 31 de 260 linhas inventavam um livro que a ficha não tinha. Qualquer alteração repete a medição.
 
 
 def build_draft_sentence_prompt(*, user_message: str | None, card: str, language: str | None = None) -> str:
@@ -366,8 +367,8 @@ def build_draft_sentence_prompt(*, user_message: str | None, card: str, language
         "Abaixo está a ficha de uma das peças que lhe vão ser mostradas. Diz muito brevemente o que a peça é: uma frase "
         "com no máximo 15 palavras, em português de Portugal, só com o que está na ficha. Não repitas o título, não digas "
         "o número de inventário e não fales da visita virtual nem de salas. Escreve como se escreve em Portugal: "
-        "«a segurar um livro» ou «que segura um livro», nunca «segurando um livro»; usa os artigos («com um livro», "
-        "não «com livro»).\n"
+        "não uses o gerúndio (formas acabadas em -ando, -endo, -indo); em vez dele usa «a» com o infinitivo ou «que» "
+        "com o verbo. Não omitas os artigos.\n"
         'Responde só com JSON: {"frase": "..."}\n\n'
         f"FICHA:\n{card}"
     )
@@ -410,7 +411,7 @@ def build_rewrite_prompt(*, museum_name: str | None, draft: str, language: str |
     return (
         f"És a Amália, guia de uma visita virtual ao {name or 'museu'}.\n"
         "Reescreve o texto abaixo em português europeu, com frases curtas e tom cordial. Escreve como se fala em "
-        "Portugal: «a segurar um livro», nunca «segurando um livro».\n"
+        "Portugal, sem gerúndio (formas acabadas em -ando, -endo, -indo): usa «a» com o infinitivo.\n"
         "Mantém exatamente as mesmas linhas, pela mesma ordem. Não mudes os números nem o que está entre ** **. "
         "Não acrescentes nem tires informação. Não escrevas nada antes nem depois do texto.\n\n"
         f"TEXTO:\n{draft}"

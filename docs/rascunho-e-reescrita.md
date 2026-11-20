@@ -64,23 +64,26 @@ No serviço, com os dois modelos reais e o streaming ligado (`scripts/medir_list
 Nos dois pedidos por Machado de Castro, 14 respostas: texto enviado igual ao final em 14; em 3 a AMÁLIA não devolveu
 a lista no formato e ficaram as linhas do rascunho.
 
-### O gerúndio à brasileira
+### O gerúndio à brasileira, e um exemplo que saiu caro
 
-As frases saíam com «segurando livro», «chamas saindo do peito». Contaram-se as linhas finais com um gerúndio que a
-ficha da peça não tem (20 pedidos × 2, 260 linhas, os dois modelos reais):
+As frases saíam com «segurando livro», «chamas saindo do peito». Contaram-se, nas linhas finais, as que têm um
+gerúndio que a ficha da peça não tem e as que dizem «livro» sem a ficha o ter (20 pedidos × 2, 260 linhas, os dois
+modelos reais):
 
-| Prompts | Linhas com gerúndio que não vem da ficha |
-|---|---|
-| Sem instrução | 21 de 260 |
-| Instrução no prompt da frase («a segurar um livro», nunca «segurando um livro»; usa os artigos) | 13 de 260 |
-| Essa e outra no prompt da AMÁLIA | 5 de 260 |
+| Instrução nos dois prompts | Gerúndio que não vem da ficha | «livro» que não vem da ficha |
+|---|---|---|
+| Nenhuma | 21 | não contado |
+| «a segurar um livro», nunca «segurando um livro» | 5 a 7 | 31 |
+| Sem gerúndio (formas em -ando, -endo, -indo): «a» com o infinitivo | 13 | 0 |
 
-Ficaram as duas. Na medição das 288 linhas, o que estava em produção antes deste modo tinha 60. Não fica a zero:
-sobram casos como «olhando para o observador».
+A segunda redação esteve em produção cerca de 20 minutos (PR #64): os modelos copiavam o objeto do exemplo e as
+respostas inventavam livros («Cristo no Horto segura um livro», «Polvorinho… que suporta um livro»). Só se tinha
+contado o gerúndio. Ficou a terceira, sem exemplo com objeto. Na medição das 288 linhas, o que estava em produção
+antes deste modo tinha 60 linhas com gerúndio próprio.
 
 ## Limites
 
-- **Ainda escapam gerúndios à brasileira**: 5 em 260 linhas, com as instruções nos dois prompts (ver acima).
+- **Ainda escapam gerúndios à brasileira**: 13 em 260 linhas, com as instruções nos dois prompts (ver acima).
 - **A AMÁLIA enfeita a abertura** nas pesquisas que não são por autor («Bem-vindos ao Museu Nacional de Arte
   Antiga! Permita-me apresentar-lhe…») e às vezes acrescenta à frase o que não estava no rascunho. Não se limita
   (decisão de 2026-11-20).
