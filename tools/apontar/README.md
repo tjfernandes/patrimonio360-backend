@@ -23,7 +23,13 @@ O SAM recorta às vezes só parte de uma peça e o kNN dá a esse bocado outra p
 
 No MNAA: vistos os candidatos em folhas com os dois contornos, dos 129 saíram 127 (bocados de quadros, bases de cruzes e custódias, metades de esculturas e cadeiras) e 2 ficaram poupados (uma custódia à frente de um sacrário e um cofre dentro do contorno de um grupo de custódias); saíram também as outras 2 localizações da «Caridade», porque nenhuma das 3 era a peça. De 3313 objetos ficam 3184. Nalguns bocados a peça estava certa e só o recorte era parcial: essas peças perdem essa localização. Os outros cinco museus têm 3 candidatos ao todo e ficaram como estavam.
 
-As paragens dos percursos (`poi_tours/tour-stops-mnaa.ndjson` e o índice `cultural_heritage_tour_stops_v1`) são derivadas deste ficheiro e **não** foram refeitas: 75 paragens (26 delas `best_placement`) ainda apontam para recortes que saíram, até se correr `tools/percursos/construir_paragens.py` e reindexar.
+### Vantagem sobre a segunda candidata (2026-11-20)
+
+150 localizações do MNAA etiquetadas à mão depois do filtro dos bocados (50 por faixa de cosseno, tiradas à sorte, sem o cosseno à vista): a peça estava errada em 22/50 abaixo de 0,70, 21/50 entre 0,70 e 0,80 e 4/50 acima de 0,80. Ponderado pelas faixas, cerca de 27 % (± 7) do ficheiro, todas confirmadas pelo VLM par a par; em 27 das 47 erradas o recorte estava inteiro (é outra peça parecida, não um bocado). O que separa é a vantagem do cosseno sobre a segunda candidata (`score - runner_up_score`): com 0,08 ou mais, 0 erradas em 40; abaixo, 47 em 110. As localizações fora da zona da visita em que a peça tem a melhor identificação também: 21 erradas em 28.
+
+`tools/apontar/filtrar_margem.py <museu> [--apply]` deixa no ficheiro as localizações aceites pelo VLM com vantagem ≥ 0,08 ou cosseno ≥ 0,85 (e as de hotspot) e passa as outras, inteiras, para `poi_tours/panorama-audit-queue-<museu>.json`, que o backend não lê: ficam à espera de uma verificação melhor que as recupere. No MNAA ficam 1402 de 3184 (530 peças de 833) e vão 1782 para a fila. Na amostra, das 55 que ficam 2 estão erradas; das 95 que saem, 45 erradas, 42 certas e 8 sem se saber. Os limiares saíram da mesma amostra, por isso o erro real do que fica será um pouco maior. Os outros cinco museus não têm amostra etiquetada e ficaram como estavam.
+
+As paragens dos percursos (`poi_tours/tour-stops-mnaa.ndjson` e o índice `cultural_heritage_tour_stops_v1`) são derivadas deste ficheiro e **não** foram refeitas: das 712 paragens `best_placement` por objeto, 312 apontam para localizações que já não estão no ficheiro, até se correr `tools/percursos/construir_paragens.py` e reindexar.
 
 ## Ferramentas
 
