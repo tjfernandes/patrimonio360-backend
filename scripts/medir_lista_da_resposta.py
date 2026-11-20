@@ -11,9 +11,11 @@ gerais e os do aspeto de tests/visual_answer_cases.py. Variantes:
   nome      + CHAT_UNTITLED_CARD_BY_INVENTORY
   lista     + CHAT_ANSWER_LIST_PLAN (a lista decidida no prompt e garantida na resposta)
   rede      nome + CHAT_MISSING_CARDS_IN_LIST, sem a lista no prompt (o que faltar entra na lista)
+  negrito   lista + CHAT_ANSWER_BOLD_NAMES (o serviço põe o nome a negrito; o prompt é o da lista)
 
 Conta, por resposta: cartões com linha própria na lista, cartões ditos só fora da lista, cartões por dizer
-antes da rede, respostas cortadas, tamanho e tempo. Não escreve nos registos de produção.
+antes da rede, respostas cortadas, tamanho e tempo; e os itens da lista que abrem a negrito, no texto da
+AMÁLIA (o que o streaming mostra) e no texto final. Não escreve nos registos de produção.
 """
 import asyncio, os, re, sys, time
 from types import SimpleNamespace
@@ -42,6 +44,7 @@ VARIANTES = {
     "nome": {"CHAT_UNTITLED_CARD_BY_INVENTORY": True},
     "lista": {"CHAT_UNTITLED_CARD_BY_INVENTORY": True, "CHAT_ANSWER_LIST_PLAN": True},
     "rede": {"CHAT_UNTITLED_CARD_BY_INVENTORY": True, "CHAT_MISSING_CARDS_IN_LIST": True},
+    "negrito": {"CHAT_UNTITLED_CARD_BY_INVENTORY": True, "CHAT_ANSWER_LIST_PLAN": True, "CHAT_ANSWER_BOLD_NAMES": True},
 }
 ITEM = re.compile(r"^[ \t]*(?:\d+[.)]|[-•*])[ \t]+(?P<body>\S.*)$")
 
@@ -119,6 +122,12 @@ def fixar(s, docs, visual):
     s._retrieve_context, s._maybe_fuse_text_to_image, s._preselect_cards = _retrieve_context, _maybe_fuse_text_to_image, _preselect_cards
 
 
+def negrito(texto):
+    """(itens da lista que abrem a negrito, itens da lista)."""
+    itens = [m["body"] for m in map(ITEM.match, texto.split("\n")) if m]
+    return sum(1 for corpo in itens if corpo.startswith("**")), len(itens)
+
+
 def onde(texto, docs):
     """Por cartão: 'lista' (abre uma linha da lista), 'fora' (dito noutro sítio) ou 'falta'. Cartões com o
     mesmo título contam pelas linhas que abrem com ele."""
@@ -142,7 +151,8 @@ def onde(texto, docs):
 
 async def medir(nome, extra, lista):
     s = servico(extra)
-    tot = dict(respostas=0, cartoes=0, lista=0, fora=0, falta=0, completas=0, cortadas=0, rede=0, juntas=0)
+    tot = dict(respostas=0, cartoes=0, lista=0, fora=0, falta=0, completas=0, cortadas=0, rede=0, juntas=0,
+               negrito_dela=0, itens_dela=0, negrito_final=0, itens_final=0)
     letras, tempos = [], []
     for caso in lista:
         docs = fichas(s.opensearch_gateway, caso["inventarios"])
@@ -164,6 +174,9 @@ async def medir(nome, extra, lista):
             tot["completas"] += all(x == "lista" for x in depois)
             tot["rede"] += depois != antes
             tot["cortadas"] += str(getattr(s.llm_service.respostas[-1], "finish_reason", "")) == "length" if s.llm_service.respostas else 0
+            for chave, medido in (("dela", negrito(bruto)), ("final", negrito(texto))):
+                tot[f"negrito_{chave}"] += medido[0]
+                tot[f"itens_{chave}"] += medido[1]
             letras.append(len(texto))
             if VER and (caso is AUTOR or any(x != "lista" for x in depois)):
                 print(f"\n--- [{nome}] {caso['pedido']} · antes {antes} · depois {depois}\n{texto}")
@@ -174,7 +187,8 @@ async def medir(nome, extra, lista):
     n = tot["respostas"]
     print(f"{nome:7} respostas {n:3} · AMÁLIA sozinha: {tot['lista']}/{tot['cartoes']} cartões com linha na lista, "
           f"{tot['fora']} só fora da lista, {tot['falta']} por dizer · resposta final com todos na lista: {tot['completas']}/{n} "
-          f"· rede usada {tot['rede']} · cortadas {tot['cortadas']} · mediana {letras[n // 2]} letras, {tempos[n // 2]:.1f} s (máx {tempos[-1]:.1f} s)")
+          f"· rede usada {tot['rede']} · cortadas {tot['cortadas']} · mediana {letras[n // 2]} letras, {tempos[n // 2]:.1f} s (máx {tempos[-1]:.1f} s)"
+          f" · itens a negrito: AMÁLIA {tot['negrito_dela']}/{tot['itens_dela']}, final {tot['negrito_final']}/{tot['itens_final']}")
 
 
 async def principal():
