@@ -237,6 +237,15 @@ class TestDetailContextTargets(_WithObjects):
         for items in self._both(self._service_with_related()):
             self.assertEqual({i.inventory_number: i.in_tour for i in items}, {"19663": True, "777": False, "4242": False})
 
+    def test_hotspot_written_differently_in_the_poi_map_still_matches(self) -> None:
+        # o mapa dos POIs do MNAA escreve «28 tap»; a ficha da peça, «28 Tap»
+        service = self._service_with_related()
+        service._resolve_target_dicts = lambda **_kwargs: [
+            {"overlay_id": "ov-tap", "panorama_key": "pan_musica", "inventory_id": "28 tap", "location": "Sala", "title": "Baptismo"}]
+        lookup = service._build_navigation_lookup_for_related(museum_slug="mnt", museum_id="mnt", related_docs=[{"inventory_number": "28 Tap"}])
+        item = service._build_related_item({"artifact_id": "a-28", "inventory_number": "28 Tap"}, navigation_lookup=lookup)
+        self.assertEqual((item.navigation_target.overlay_id, item.navigation_target.source), ("ov-tap", "hotspot"))
+
     def test_in_tour_never_goes_from_yes_to_no(self) -> None:
         service = self._service_with_related(CHAT_IN_TOUR_FROM_NAVIGATION=True)
         item = service._build_related_item({"artifact_id": "a-4242", "inventory_number": "4242", "in_tour": True}, navigation_lookup={})
