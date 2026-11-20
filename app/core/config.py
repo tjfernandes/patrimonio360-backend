@@ -260,6 +260,17 @@ class Settings(BaseSettings):
     # lista. Sem isto o texto visto a ser escrito era trocado quando chegavam
     # os cartões (2026-11-20).
     CHAT_STREAM_COMMITTED_LIST: bool = False
+    # O pré-processamento pensa e a AMÁLIA só reescreve. Numa resposta com
+    # lista (dois ou mais cartões já escolhidos), o modelo de pré-processamento
+    # escreve a abertura e uma frase muito breve por peça, cada uma num pedido
+    # só com a ficha dessa peça, todos em paralelo; o serviço monta o rascunho
+    # («N. **nome** – frase», pela ordem dos cartões) e a AMÁLIA recebe-o para
+    # reescrever, sem cartões nem regras. Fica a linha dela quando é a do
+    # rascunho reescrita; senão fica a do rascunho. Substitui, nessas
+    # respostas, a lista decidida no prompt e a garantia que a refazia
+    # (docs/rascunho-e-reescrita.md, 2026-11-20).
+    CHAT_DRAFT_THEN_REWRITE: bool = False
+    CHAT_DRAFT_TIMEOUT_SECONDS: float = 6.0
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);

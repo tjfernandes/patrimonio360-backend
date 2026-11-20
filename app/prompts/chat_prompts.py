@@ -339,6 +339,84 @@ def answer_list_plan(retrieval_context: str, language: str | None = None) -> str
     return "\n".join([head.format(count=len(names)), *(f"{n}. {name} –" for n, name in enumerate(names, start=1))])
 
 
+# ----- O pré-processamento escreve o rascunho e a AMÁLIA só o reescreve (CHAT_DRAFT_THEN_REWRITE) ----- #
+#
+# Redações medidas a 2026-11-20 com o Qwen3-VL-8B e a AMÁLIA reais (scripts/medir_lista_da_resposta.py,
+# variante «rascunho»; docs/rascunho-e-reescrita.md). A frase de cada peça pede-se com a ficha dessa peça e mais nenhuma:
+# com todas as fichas no mesmo pedido o modelo misturava peças vizinhas («Caridade – Santa Ana com a
+# Virgem…», que é a 584 Esc). Qualquer alteração repete a medição.
+
+
+def build_draft_sentence_prompt(*, user_message: str | None, card: str, language: str | None = None) -> str:
+    """A frase muito breve de uma peça, só com a ficha dela (`card`, um cartão compacto).
+    `user_message` None: sem o pedido (pergunta pelo aspeto, ver CHAT_VISUAL_ANSWER_RULE)."""
+    if _normalize_language(language) == "en":
+        asked = f"The visitor asked:\n«{user_message}»\n\n" if user_message else ""
+        return (
+            f"You are the pre-processor of a museum guide. {asked}"
+            "Below is the record of one of the objects the visitor will be shown. Say very briefly what the object is: "
+            "one sentence of at most 15 words, in English, using only what is in the record. Do not repeat the title, "
+            "do not give the inventory number and do not mention the virtual tour or rooms.\n"
+            'Answer with JSON only: {"frase": "..."}\n\n'
+            f"RECORD:\n{card}"
+        )
+    asked = f"O visitante pediu:\n«{user_message}»\n\n" if user_message else ""
+    return (
+        f"És o pré-processador de um guia de museu. {asked}"
+        "Abaixo está a ficha de uma das peças que lhe vão ser mostradas. Diz muito brevemente o que a peça é: uma frase "
+        "com no máximo 15 palavras, em português de Portugal, só com o que está na ficha. Não repitas o título, não digas "
+        "o número de inventário e não fales da visita virtual nem de salas. Escreve como se escreve em Portugal: "
+        "«a segurar um livro» ou «que segura um livro», nunca «segurando um livro»; usa os artigos («com um livro», "
+        "não «com livro»).\n"
+        'Responde só com JSON: {"frase": "..."}\n\n'
+        f"FICHA:\n{card}"
+    )
+
+
+def build_draft_opening_prompt(*, user_message: str, cards: str, language: str | None = None) -> str:
+    """A frase de abertura da resposta, com o pedido e os cartões que vão ser mostrados."""
+    if _normalize_language(language) == "en":
+        return (
+            "You are the pre-processor of a museum guide. The visitor asked:\n"
+            f"«{user_message}»\n\n"
+            "Below are the records of the objects the visitor will be shown, in the order they appear. Write one short "
+            "sentence, in English, that introduces them in answer to the request. Do not count the objects, do not list "
+            "them and do not mention the virtual tour.\n"
+            'Answer with JSON only: {"abertura": "..."}\n\n'
+            f"RECORDS:\n{cards}"
+        )
+    return (
+        "És o pré-processador de um guia de museu. O visitante pediu:\n"
+        f"«{user_message}»\n\n"
+        "Abaixo estão as fichas das peças que lhe vão ser mostradas, pela ordem em que aparecem. Escreve uma frase "
+        "curta, em português de Portugal, que as apresente em resposta ao pedido. Não contes as peças, não as "
+        "enumeres e não fales da visita virtual.\n"
+        'Responde só com JSON: {"abertura": "..."}\n\n'
+        f"FICHAS:\n{cards}"
+    )
+
+
+def build_rewrite_prompt(*, museum_name: str | None, draft: str, language: str | None = None) -> str:
+    """O prompt final da AMÁLIA quando o rascunho já vem escrito: só o reescreve."""
+    name = (museum_name or "").strip()
+    if _normalize_language(language) == "en":
+        return (
+            f"You are Amália, the guide of a virtual tour of {name or 'the museum'}.\n"
+            "Rewrite the text below in English, with short sentences and a friendly tone.\n"
+            "Keep exactly the same lines, in the same order. Do not change the numbers or what is between ** **. "
+            "Do not add or remove information. Do not write anything before or after the text.\n\n"
+            f"TEXT:\n{draft}"
+        )
+    return (
+        f"És a Amália, guia de uma visita virtual ao {name or 'museu'}.\n"
+        "Reescreve o texto abaixo em português europeu, com frases curtas e tom cordial. Escreve como se fala em "
+        "Portugal: «a segurar um livro», nunca «segurando um livro».\n"
+        "Mantém exatamente as mesmas linhas, pela mesma ordem. Não mudes os números nem o que está entre ** **. "
+        "Não acrescentes nem tires informação. Não escrevas nada antes nem depois do texto.\n\n"
+        f"TEXTO:\n{draft}"
+    )
+
+
 _VISUAL_UP_TO_THREE_PT = "destaca até três pelo título; de cada uma diz"
 _VISUAL_ALL_CARDS_PT = "fala de todas, uma a uma e pela ordem em que vêm, uma linha por peça com o título e uma só frase curta; de cada uma diz"
 _VISUAL_UP_TO_THREE_EN = "highlight up to three by title; for each one say"

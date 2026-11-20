@@ -48,6 +48,9 @@ from app.services.catalogue_analytics import (
     readable_catalogue_date,
 )
 from app.prompts.chat_prompts import (
+    build_draft_opening_prompt,
+    build_draft_sentence_prompt,
+    build_rewrite_prompt,
     build_describe_artifact_prompt,
     build_final_answer_prompt_v2,
     build_tour_context_prompt,
@@ -118,7 +121,8 @@ from app.services.chat_session_store import (
     get_chat_session_store,
 )
 from app.services.chat_i18n import normalize_language, translate
-from app.services.llm_service import LLMService, LLMServiceError, get_llm_service, get_preprocess_llm_service
+from app.services.draft_rewrite import AnswerDraft, DraftRewriteMerger, merge_rewrite
+from app.services.llm_service import LLMResponse, LLMService, LLMServiceError, get_llm_service, get_preprocess_llm_service
 from app.services.opensearch_client import OpenSearchGateway, get_opensearch_gateway
 from app.services.model_retrieval import ModelRetrievalService, get_model_retrieval_service
 from app.services.query_logger import QueryLogger, get_query_logger, utc_timestamp
@@ -4030,6 +4034,137 @@ class ChatService:
             return text
         return f"{opening}\n\n{self._author_answer_body(text.strip(), final=True)}"
 
+    # ----- O pré-processamento escreve o rascunho, a AMÁLIA reescreve (CHAT_DRAFT_THEN_REWRITE) ----- #
+
+    @staticmethod
+    def _draft_sentence(value: Any) -> str:
+        """Uma frase do modelo de pré-processamento, numa linha, sem marcas e com ponto final."""
+        text = re.sub(r"\s+", " ", str(value or "")).replace("*", "").strip(" \"«»“”'–—-")
+        if not text or len(text) > 240:
+            return ""
+        return text if text[-1] in ".!?…" else text + "."
+
+    async def _draft_answer(
+        self,
+        *,
+        user_message: str,
+        cards: list[ArtifactResult],
+        language: str | None,
+        visual_facts: dict[str, str] | None = None,
+        fixed_opening: str | None = None,
+    ) -> AnswerDraft:
+        """O rascunho de uma resposta com lista: a abertura e uma frase muito
+        breve por cartão, escritas pelo modelo de pré-processamento.
+
+        A frase de cada peça é um pedido só com a ficha dela (com todas as
+        fichas juntas o modelo misturava peças vizinhas); os pedidos correm em
+        paralelo, com a abertura. As fichas não levam a linha da visita
+        virtual. Uma frase que falhe, demore ou venha vazia dá lugar à
+        primeira frase da descrição da ficha; a abertura, a uma frase feita.
+        `fixed_opening` é a abertura das respostas por autor (os números do
+        catálogo): não se pede outra."""
+        started = time.monotonic()
+        english = normalize_language(language) == "en"
+        timeout = float(getattr(self.settings, "CHAT_DRAFT_TIMEOUT_SECONDS", 6.0) or 6.0)
+        hide_request = bool(getattr(self.settings, "CHAT_VISUAL_ANSWER_RULE", False))
+
+        def compact(group: list[ArtifactResult]) -> str:
+            return self._format_docs_compact(
+                docs=self._artifact_results_as_prompt_docs(group, visual_facts=visual_facts, tour_presence=False)
+            )
+
+        async def ask(prompt: str, key: str, max_tokens: int) -> str:
+            try:
+                response = await asyncio.wait_for(
+                    self.preprocess_llm_service.generate(
+                        message=prompt, response_format=ResponseFormatObject(type="json_object"),
+                        system_prompt=None, model_override=None, max_tokens=max_tokens,
+                    ),
+                    timeout=timeout,
+                )
+                data = response.parsed_json
+                return self._draft_sentence(data.get(key)) if isinstance(data, dict) else ""
+            except Exception as exc:  # noqa: BLE001 — sem frase do modelo fica a da ficha
+                log_event(logger, logging.WARNING, "chat.draft.llm_error", key=key, error=exc)
+                return ""
+
+        async def sentence(card: ArtifactResult) -> str:
+            text = compact([card])
+            # numa pergunta pelo aspeto o pedido não vai: o modelo dizia de cada peça o que o visitante pediu
+            asked = None if (hide_request and "    Aspeto na fotografia: " in text) else user_message
+            return await ask(build_draft_sentence_prompt(user_message=asked, card=text, language=language), "frase", 80)
+
+        async def opening() -> str:
+            if fixed_opening:
+                return fixed_opening
+            return await ask(
+                build_draft_opening_prompt(user_message=user_message, cards=compact(cards), language=language), "abertura", 80
+            )
+
+        written_opening, *sentences = await asyncio.gather(opening(), *(sentence(card) for card in cards))
+        titles = [self._card_list_title(card) for card in cards]
+        folded = [fold(title) for title in titles]
+        lines: list[str] = []
+        from_model = 0
+        for number, (card, title, written) in enumerate(zip(cards, titles, sentences), start=1):
+            inventory = str(card.inventory_number or "").strip()
+            # títulos repetidos levam o n.º de inventário, para se saber de que cartão é a linha
+            repeated = folded.count(fold(title)) > 1 and inventory and fold(inventory) != fold(title)
+            name = f"**{title}**" + (f" ({inventory})" if repeated else "")
+            from_model += bool(written)
+            text = written or ("" if english else self._first_sentence(card.description))
+            lines.append(f"{number}. {name} – {text}" if text else f"{number}. {name}")
+        if not written_opening:
+            written_opening = "Here is what I found:" if english else "Encontrei estas peças:"
+        info = {
+            "cards": len(cards), "sentences_from_model": from_model, "opening": "fixed" if fixed_opening else "model",
+            "elapsed_ms": round((time.monotonic() - started) * 1000, 1),
+        }
+        return AnswerDraft(opening=written_opening, names=titles, lines=lines, fixed_opening=bool(fixed_opening), info=info)
+
+    def _rewrite_stream(
+        self,
+        factory: Callable[[], Callable[[str], Awaitable[None]]],
+        draft: AnswerDraft,
+        clean: Callable[[str], str],
+    ) -> tuple[Callable[[], Callable[[str], Awaitable[None]]], Callable[[str], Awaitable[None]]]:
+        """O streaming de uma resposta reescrita a partir do rascunho: cada
+        linha que a AMÁLIA acaba passa pelo DraftRewriteMerger e segue a linha
+        que fica (a dela ou a do rascunho). O que é enviado é sempre o
+        princípio do texto final; `finish(texto final)` envia o que faltar."""
+        last: dict[str, Any] = {}
+
+        def wrapped() -> Callable[[str], Awaitable[None]]:
+            emit = factory()
+            stream = {"merger": DraftRewriteMerger(draft, clean=clean), "buffer": "", "sent": ""}
+            last["emit"], last["stream"] = emit, stream
+
+            async def filtered(delta: str) -> None:
+                stream["buffer"] += delta or ""
+                while "\n" in stream["buffer"]:
+                    line, stream["buffer"] = stream["buffer"].split("\n", 1)
+                    stream["merger"].feed(line)
+                text = stream["merger"].text()
+                if len(text) > len(stream["sent"]) and text.startswith(stream["sent"]):
+                    more, stream["sent"] = text[len(stream["sent"]):], text
+                    await emit(more)
+
+            return filtered
+
+        async def finish(final_text: str) -> None:
+            stream = last.get("stream")
+            if not stream:
+                return
+            if not final_text.startswith(stream["sent"]):
+                log_event(logger, logging.INFO, "chat.stream.rewrite_mismatch", sent_chars=len(stream["sent"]))
+                return
+            more = final_text[len(stream["sent"]):]
+            if more:
+                stream["sent"] = final_text
+                await last["emit"](more)
+
+        return wrapped, finish
+
     def _committed_list_stream(
         self,
         factory: Callable[[], Callable[[str], Awaitable[None]]],
@@ -6334,18 +6469,47 @@ class ChatService:
                 select_cards=select_cards,
             )
 
-        final_message = self._build_final_prompt(
-            payload=payload,
-            state=state,
-            router_decision=router_decision,
-            retrieval_context=final_retrieval_context,
-            effective_filters=effective_filters,
-            effective_sort=effective_sort,
-            use_history_for_answer=use_history_for_answer,
-            museum_slug=search_museum_slug,
-            museum_name=search_museum_name,
-            select_cards=select_cards,
-        )
+        # CHAT_DRAFT_THEN_REWRITE: numa resposta com lista, o pré-processamento escreve o rascunho (a
+        # abertura e uma frase por cartão) e a AMÁLIA só o reescreve. Qualquer falha deixa o prompt de sempre.
+        answer_draft: AnswerDraft | None = None
+        if (
+            bool(getattr(self.settings, "CHAT_DRAFT_THEN_REWRITE", False))
+            and requested_format.type == "text"
+            and results_page <= 1
+            and len(paged_artifact_results) >= 2
+            and not select_cards
+            and not preselected_none
+            and retrieval_kind_for_log != "anchored_similarity"
+            and not self._is_treasure_list_request(retrieval_request)
+        ):
+            try:
+                answer_draft = await self._draft_answer(
+                    user_message=str(router_decision.get("rewritten_query") or "").strip() or original_message,
+                    cards=paged_artifact_results, language=language, visual_facts=visual_facts,
+                    fixed_opening=author_opening,
+                )
+                log_event(
+                    logger, logging.INFO, "chat.draft",
+                    conversation_id=conversation_id, query_id=query_id, **answer_draft.info,
+                )
+            except Exception as exc:  # noqa: BLE001
+                log_event(logger, logging.WARNING, "chat.draft.error", error=exc)
+                answer_draft = None
+        if answer_draft is not None:
+            final_message = build_rewrite_prompt(museum_name=search_museum_name, draft=answer_draft.text, language=language)
+        else:
+            final_message = self._build_final_prompt(
+                payload=payload,
+                state=state,
+                router_decision=router_decision,
+                retrieval_context=final_retrieval_context,
+                effective_filters=effective_filters,
+                effective_sort=effective_sort,
+                use_history_for_answer=use_history_for_answer,
+                museum_slug=search_museum_slug,
+                museum_name=search_museum_name,
+                select_cards=select_cards,
+            )
         self._rag_debug_json(
             "rag.final_prompt",
             {
@@ -6402,10 +6566,16 @@ class ChatService:
                 )
             return text
 
+        def clean_rewritten_line(line: str) -> str:
+            return self._sanitize_assistant_reply(line, docs=reply_docs, language=language)
+
         finish_committed: Callable[[str], Awaitable[None]] | None = None
         flush_author_opening: Callable[[], Awaitable[None]] | None = None
         flush_bold_names: Callable[[], Awaitable[None]] | None = None
-        if (
+        if stream_cb_factory is not None and answer_draft is not None:
+            # CHAT_DRAFT_THEN_REWRITE: segue, linha a linha, o que fica na resposta final
+            stream_cb_factory, finish_committed = self._rewrite_stream(stream_cb_factory, answer_draft, clean_rewritten_line)
+        elif (
             stream_cb_factory is not None
             and list_planned
             and lists_cards
@@ -6422,6 +6592,7 @@ class ChatService:
         if (
             stream_cb_factory is not None
             and finish_committed is None
+            and answer_draft is None
             and bool(getattr(self.settings, "CHAT_ANSWER_BOLD_NAMES", False))
             and paged_artifact_results
             and not preselected_none
@@ -6431,15 +6602,25 @@ class ChatService:
 
         llm_started_at = time.monotonic()
         try:
-            llm_response = await self._generate_final_answer_with_context_retries(
-                initial_message=final_message,
-                response_format=requested_format,
-                system_prompt=self._final_system_prompt(payload.system_prompt, language),
-                model_override=payload.model_override,
-                visible_result_count=retry_context_result_count,
-                build_message_for_result_count=build_text_final_message_for_result_count,
-                stream_cb_factory=stream_cb_factory,
-            )
+            try:
+                llm_response = await self._generate_final_answer_with_context_retries(
+                    initial_message=final_message,
+                    response_format=requested_format,
+                    system_prompt=self._final_system_prompt(payload.system_prompt, language),
+                    model_override=payload.model_override,
+                    visible_result_count=retry_context_result_count,
+                    build_message_for_result_count=build_text_final_message_for_result_count,
+                    stream_cb_factory=stream_cb_factory,
+                )
+            except LLMServiceError as rewrite_exc:
+                if answer_draft is None:
+                    raise
+                # a AMÁLIA falhou: a resposta é o rascunho, que já está escrito
+                log_event(logger, logging.WARNING, "chat.draft.rewrite_error", query_id=query_id, error=rewrite_exc)
+                llm_response = LLMResponse(
+                    text="", model=payload.model_override or self.settings.llm_model_resolved,
+                    response_format=requested_format, finish_reason="error",
+                )
         except LLMServiceError as exc:
             llm_latency_ms = (time.monotonic() - llm_started_at) * 1000
             log_event(
@@ -6529,7 +6710,11 @@ class ChatService:
         llm_text, model_cards = (
             self._split_card_selection(llm_response.text) if select_cards else (llm_response.text, None)
         )
-        final_reply_text = sanitize_reply(llm_text)
+        rewritten_lines: int | None = None
+        if answer_draft is not None:
+            final_reply_text, rewritten_lines = merge_rewrite(answer_draft, llm_response.text, clean=clean_rewritten_line)
+        else:
+            final_reply_text = sanitize_reply(llm_text)
         # Quick win FILT-02 (modo observação): regista títulos/inventários
         # citados que não existem nos cartões visíveis. Nunca altera a resposta.
         grounding_report = self._grounding_report(
@@ -6568,7 +6753,13 @@ class ChatService:
                 **card_selection,
             )
 
-        final_reply_text = finish_reply(final_reply_text)
+        if answer_draft is None:
+            final_reply_text = finish_reply(final_reply_text)
+        else:
+            log_event(
+                logger, logging.INFO, "chat.draft.rewritten",
+                conversation_id=conversation_id, query_id=query_id, lines=len(answer_draft.lines), rewritten=rewritten_lines,
+            )
         if finish_committed is not None:
             # o streaming enviou o princípio deste texto: segue o que falta
             await finish_committed(final_reply_text)

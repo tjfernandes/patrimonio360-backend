@@ -3,6 +3,10 @@
 Três flags novas, desligadas por omissão, todas por cima de `CHAT_ANSWER_ALL_CARDS`:
 `CHAT_UNTITLED_CARD_BY_INVENTORY`, `CHAT_ANSWER_LIST_PLAN` e `CHAT_MISSING_CARDS_IN_LIST`.
 
+> Com `CHAT_DRAFT_THEN_REWRITE` (docs/rascunho-e-reescrita.md), as respostas com lista deixam de passar por aqui: o
+> pré-processamento escreve o rascunho e a AMÁLIA só o reescreve. O que está abaixo vale com essa flag desligada e
+> para as respostas que ela não cobre.
+
 ## O problema
 
 «Encontra obras de Machado de Castro» mostra sete cartões; um deles, a 584 Esc, não tem título no catálogo. O
