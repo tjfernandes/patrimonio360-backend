@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any
 
 
@@ -282,6 +283,57 @@ _ALL_CARDS_EN = (
     "go through every object in the cards, one by one and in the order given: one line per object, with its title and "
     "a single short sentence. Do not leave any card out. "
 )
+# CHAT_ANSWER_LIST_PLAN: a lista vem decidida no prompt (que peças, por que ordem,
+# com que nome e em que formato) e a AMÁLIA só escreve a abertura e a frase de
+# cada linha. Medido com a AMÁLIA real: um modelo com campos «< >» para preencher
+# saía pior (copiava os «< >», respostas com o dobro do tamanho); a lista no fim
+# do prompt, a acabar numa frase e não numa linha da lista, é o que ela segue. Deixada a decidir,
+# saltava a peça sem título, juntava duas numa linha ou falava de uma delas num
+# parágrafo à parte (2026-11-20, «obras de Machado de Castro» com a 584 Esc).
+_LIST_PLAN_PT = (
+    "LISTA A ESCREVER, a seguir à frase de abertura. As {count} linhas já estão começadas, com o número e o nome: "
+    "acaba cada uma com uma só frase curta tirada do cartão dessa peça (a linha 1 é do cartão [doc_1], a 2 do "
+    "[doc_2], e assim por diante). Não mudes os nomes nem a ordem, não juntes duas peças numa linha, não deixes "
+    "nenhuma de fora, não acrescentes outras e não voltes a falar de nenhuma delas fora da lista. A resposta acaba "
+    "na última linha da lista."
+)
+_LIST_PLAN_EN = (
+    "LIST TO WRITE, after the opening sentence. The {count} lines are already started, with the number and the name: "
+    "finish each one with a single short sentence taken from that object's card (line 1 is card [doc_1], line 2 is "
+    "[doc_2], and so on). Do not change the names or the order, do not merge two objects into one line, do not leave "
+    "any out, do not add others and do not mention any of them again outside the list. The answer ends on the last "
+    "line of the list."
+)
+LIST_PLAN_MARKERS = ("LISTA A ESCREVER", "LIST TO WRITE")
+
+
+def has_answer_list_plan(prompt: str | None) -> bool:
+    """O prompt final levou a lista decidida (o serviço garante-a depois na resposta)."""
+    return any(f"\n{marker}," in (prompt or "") for marker in LIST_PLAN_MARKERS)
+
+
+_CARD_HEADER = re.compile(r"(?m)^\[doc_\d+\] Título: (?P<title>.*?) \| Inventário: (?P<inventory>.*)$")
+
+
+def answer_list_plan(retrieval_context: str, language: str | None = None) -> str:
+    """O bloco «LISTA A ESCREVER» para os cartões compactos de `retrieval_context`:
+    uma linha começada por cartão («N. nome –»), pela ordem dos cartões. O nome é o título do cartão (o
+    n.º de inventário quando a ficha não tem título, ver _format_docs_compact);
+    títulos repetidos levam o n.º entre parênteses. Vazio com menos de dois cartões."""
+    cards = [(m["title"].strip(), m["inventory"].strip()) for m in _CARD_HEADER.finditer(retrieval_context or "")]
+    if len(cards) < 2:
+        return ""
+    seen: dict[str, int] = {}
+    for title, _ in cards:
+        seen[title.casefold()] = seen.get(title.casefold(), 0) + 1
+    names = []
+    for title, inventory in cards:
+        repeated = seen[title.casefold()] > 1 and inventory and inventory.casefold() not in (title.casefold(), "não indicado")
+        names.append(f"{title} ({inventory})" if repeated else title)
+    head = _LIST_PLAN_EN if _normalize_language(language) == "en" else _LIST_PLAN_PT
+    return "\n".join([head.format(count=len(names)), *(f"{n}. {name} –" for n, name in enumerate(names, start=1))])
+
+
 _VISUAL_UP_TO_THREE_PT = "destaca até três pelo título; de cada uma diz"
 _VISUAL_ALL_CARDS_PT = "fala de todas, uma a uma e pela ordem em que vêm, uma linha por peça com o título e uma só frase curta; de cada uma diz"
 _VISUAL_UP_TO_THREE_EN = "highlight up to three by title; for each one say"
@@ -579,6 +631,7 @@ def build_final_answer_prompt_v2(
     no_cards_instruction: bool = False,
     visual_answer_rule: bool = False,
     all_cards: bool = False,
+    list_plan: bool = False,
 ) -> str:
     """Prompt final compacto (quick win PR-01; texto, imagem e modelo 3D).
 
@@ -624,9 +677,11 @@ def build_final_answer_prompt_v2(
         return "\n".join(parts)
 
     instructions = template.format(museum_name=name)
+    lists_every_card = False
     if all_cards:
         # CHAT_ANSWER_ALL_CARDS: o texto fala de todos os cartões mostrados, não só de três
         old, new = (_UP_TO_THREE_EN, _ALL_CARDS_EN) if en else (_UP_TO_THREE_PT, _ALL_CARDS_PT)
+        lists_every_card = old in instructions
         instructions = instructions.replace(old, new)
     parts = [instructions]
     if national_treasures:
@@ -665,6 +720,7 @@ def build_final_answer_prompt_v2(
         rule = _VISUAL_ANSWER_RULE_EN if en else _VISUAL_ANSWER_RULE_PT
         if all_cards:
             old, new = (_VISUAL_UP_TO_THREE_EN, _VISUAL_ALL_CARDS_EN) if en else (_VISUAL_UP_TO_THREE_PT, _VISUAL_ALL_CARDS_PT)
+            lists_every_card = lists_every_card or old in rule
             rule = rule.replace(old, new)
         parts.append(rule)
     else:
@@ -674,6 +730,12 @@ def build_final_answer_prompt_v2(
             parts.append(("INTERPRETED REQUEST: " if en else "PEDIDO INTERPRETADO: ") + cleaned_rewrite)
     parts.append(("ANSWER TYPE: " if en else "TIPO DE RESPOSTA: ") + kind)
     context = (retrieval_context or "").strip()
+    if list_plan and lists_every_card and not select_cards:
+        # só quando a instrução manda falar de todos os cartões e eles já estão escolhidos.
+        # Antes dos cartões: com a lista no fim do prompt a resposta abria com «Amália:».
+        plan = answer_list_plan(context, resolved_language)
+        if plan:
+            parts.append(plan)
     parts.append("CONFIRMED CARDS:" if en else "CARTÕES CONFIRMADOS:")
     parts.append(context if context else ("(none)" if en else "(nenhum)"))
     if select_cards:

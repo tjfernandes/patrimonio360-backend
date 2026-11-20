@@ -218,6 +218,21 @@ class Settings(BaseSettings):
     # O texto da resposta fala de todas as peças dos cartões mostrados, uma a uma,
     # em vez de destacar até três (docs/todos-os-cartoes.md).
     CHAT_ANSWER_ALL_CARDS: bool = False
+    # Cartões sem título no catálogo: no prompt o título passa a ser o n.º de
+    # inventário, para a AMÁLIA os pôr na lista como os outros (via «sem título»
+    # e deixava a peça de fora ou num parágrafo à parte), e a garantia de
+    # CHAT_ANSWER_ALL_CARDS chama-lhes o mesmo (docs/todos-os-cartoes.md, 2026-11-20).
+    CHAT_UNTITLED_CARD_BY_INVENTORY: bool = False
+    # O prompt final leva a lista decidida («LISTA A ESCREVER»): uma linha por
+    # cartão, pela ordem dos cartões e com o nome a usar (o título; o n.º de
+    # inventário com CHAT_UNTITLED_CARD_BY_INVENTORY). A AMÁLIA só escreve a frase
+    # de cada linha. Só com CHAT_ANSWER_ALL_CARDS e os cartões já escolhidos.
+    CHAT_ANSWER_LIST_PLAN: bool = False
+    # Os cartões que a resposta deixou por dizer entram na lista que ela escreveu,
+    # com o mesmo marcador e a primeira frase da descrição da ficha, em vez da
+    # linha «Nos cartões estão também: …» depois do fecho. Sem lista no texto
+    # fica a linha de sempre.
+    CHAT_MISSING_CARDS_IN_LIST: bool = False
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);
