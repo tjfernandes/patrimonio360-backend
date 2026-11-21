@@ -83,6 +83,14 @@ def build_implicit_artifact_prompt(*, entities: list[dict], open_piece: dict | N
     - muitas condições na resposta «nenhuma» fazem o modelo recusar referências claras;
     - uma só pergunta para tudo (peça nomeada, peça em foco, pesquisa) dá 50 a 61 de 68: o
       modelo confunde pesquisas com perguntas sobre a peça em foco. Essa parte fica nas regras.
+
+    Redação mudada a 2026-11-21. Em produção, com um só cartão no ecrã («Tentações de Santo
+    Antão»), «E gregório Lopes?» foi lida como esse cartão: a mensagem fala de «uma» coisa e
+    só havia uma letra para escolher. Em 36 seguimentos que mudam de assunto (o nome de uma
+    pessoa, uma peça que não está no ecrã, outro tipo de peças) a redação anterior acertava
+    26. Agora o modelo escreve primeiro o nome que a mensagem diz, e só depois a letra:
+    36 de 36, e 149 dos 153 casos anteriores (antes, 150). O campo «uma ou várias» chama-se
+    «fala_de»: com «quantas», «tem quantas figuras?» era lido como várias peças.
     Qualquer alteração repete a medição (docs/peca-implicita-pelo-modelo.md).
     """
 
@@ -101,14 +109,15 @@ def build_implicit_artifact_prompt(*, entities: list[dict], open_piece: dict | N
     return (
         "Um visitante de um museu fala com um assistente. O ecrã mostra estas peças, por esta ordem:\n"
         f"{listed}\n\nMensagem do visitante:\n«{message}»\n\n"
-        "Primeiro: a mensagem fala de uma peça só, ou de várias peças (um tipo de peças)?\n"
-        "Depois: se fala de uma só e diz qual é, pelo nome, pelo número de inventário ou pela posição no ecrã, a letra dessa peça. "
-        "Senão, «nenhuma»: fala de várias, é uma pergunta sem nome de peça, ou é outro assunto.\n"
-        'Responde só com JSON: {"quantas": "uma" ou "várias", "peca": "letra" ou "nenhuma"}'
+        "Primeiro: que nome diz a mensagem (de uma peça, de uma pessoa, de um tipo de peças)? Se não diz nenhum, «nenhum».\n"
+        "Segundo: a mensagem fala de uma peça só, ou de várias peças (um tipo de peças)?\n"
+        "Depois: se fala de uma só e esse nome, um número de inventário ou uma posição no ecrã aponta para uma destas peças, a letra dessa peça. "
+        "Senão, «nenhuma»: fala de várias, o nome é de uma pessoa ou de uma peça que não é nenhuma destas, ou a mensagem não diz de que peça fala.\n"
+        'Responde só com JSON: {"nome": "o nome que a mensagem diz, ou nenhum", "fala_de": "uma peça" ou "várias peças", "peca": "letra" ou "nenhuma"}'
     )
 
 
-def build_focused_author_prompt(*, message: str, title: str, author: str) -> str:
+def build_focused_author_prompt(*, message: str, title: str, author: str, previous: str | None = None) -> str:
     """Autor da peça em foco (CHAT_FOCUSED_ARTIFACT_AUTHOR): o visitante tem uma
     peça à frente (a que o minichat mostra) e a mensagem não diz nome nenhum.
     Pede as outras obras de quem a fez? Só a resposta A troca o pedido por
@@ -120,19 +129,31 @@ def build_focused_author_prompt(*, message: str, title: str, author: str) -> str
     recebe A («quem é o autor?»); dos 16 outros pedidos, um recebe A em duas das
     três peças («Há obras de Gregório Lopes?»), e é a lista de autores que o
     apanha no serviço (other_author_words). Com três respostas em vez de quatro,
-    sem a B, quatro dos outros pedidos recebiam A. Qualquer alteração repete a
-    medição.
+    sem a B, quatro dos outros pedidos recebiam A.
+
+    Mudada a 2026-11-21. Em produção, depois de «Encontra peças chinesas», «e
+    japonesas?» recebeu A e passou a «obras de Jean-Baptiste Pillement», o autor
+    do primeiro cartão. Em 20 seguimentos de uma pesquisa («e de prata?», «e do
+    século XVI?», «e portuguesas?»), 15 estavam certos. Só mudar a resposta D não
+    chegou (17 de 20): o modelo precisa de saber o que o visitante pediu antes.
+    Com o pedido anterior (`previous`) dito numa frase depois da peça, e a
+    continuação desse pedido na resposta D: 20 de 20, e as três listas como
+    estavam, com e sem pedido anterior (com ele, «quem fez isto?» também recebe
+    A, como «quem é o autor?»). Com o pedido anterior no cimo do prompt, quatro
+    perguntas sobre a peça recebiam A. Qualquer alteração repete a medição.
     """
     piece = f"«{title}»" if (title or "").strip() else "uma peça"
+    before = f" O pedido anterior do visitante foi «{previous.strip()}»." if (previous or "").strip() else ""
     return (
         f"Mensagem de um visitante do museu:\n«{message}»\n\n"
-        f"O visitante tem à frente {piece}, de {author}. O que pede a mensagem?\n"
+        f"O visitante tem à frente {piece}, de {author}.{before} O que pede a mensagem?\n"
         "A) as outras obras de quem fez esta peça, ou saber quem ele foi, sem dizer o nome "
         "(«deste autor», «do mesmo autor», «dele», «o que mais fez?», «quem foi ele?»)\n"
         "B) obras ou informação de um artista que a própria mensagem nomeia "
         "(«obras de Zurbarán», «quem foi Josefa de Óbidos?»)\n"
         "C) alguma coisa sobre esta peça (o que é, o que representa, quem a fez, de quando é, de que é feita, onde está)\n"
-        "D) peças parecidas com esta, peças que a mensagem descreve, uma sala, um percurso ou conversa\n"
+        "D) peças parecidas com esta, peças que a mensagem descreve, a continuação do pedido anterior "
+        "(«e em bronze?», «e medievais?»), uma sala, um percurso ou conversa\n"
         'Responde só com JSON: {"resposta": "A", "B", "C" ou "D"}'
     )
 

@@ -87,6 +87,26 @@ class TestFocusedAuthor(_Base):
         self.assertIn(f"«{FOLLOW_UP}»", model.prompts[0])
         self.assertIn("«A Virgem, o Menino e Anjos», de Gregório Lopes", model.prompts[0])
 
+    def test_the_model_sees_the_previous_request(self) -> None:
+        # «e japonesas?» depois de «Encontra peças chinesas» continua a pesquisa: o modelo tem de a ver
+        from app.services.chat_session_store import ChatTurn
+
+        model = _Model("D")
+        service = self._service_with(model)
+        state = service.session_store.load_or_create(conversation_id="c1", museum_slug="mnaa")
+        state.history.extend([ChatTurn(role="user", text="Encontra peças chinesas"), ChatTurn(role="assistant", text="Aqui estão.")])
+        service.session_store.save(state)
+        request = self._request("e japonesas?", museum_slug="mnaa", museum_id="mnaa", museum_name="Museu Nacional de Arte Antiga",
+                                conversation_id="c1", metadata={"context_artifact": dict(PIECE)})
+        asyncio.run(service.handle_message(request))
+        self.assertEqual(service.seen[0].message, "e japonesas?")
+        self.assertIn("de Gregório Lopes. O pedido anterior do visitante foi «Encontra peças chinesas». O que pede a mensagem?", model.prompts[0])
+        # sem conversa anterior, a frase não vai
+        other = _Model("D")
+        self._ask(self._service_with(other))
+        self.assertIn("de Gregório Lopes. O que pede a mensagem?", other.prompts[0])
+        self.assertNotIn("pedido anterior do visitante foi", other.prompts[0])
+
     def test_in_english_the_request_is_in_english(self) -> None:
         service = self._service_with(_Model("A"))
         self._ask(service, "what else did this artist make?", language="en")
