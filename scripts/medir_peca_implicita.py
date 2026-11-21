@@ -1,6 +1,6 @@
 """Mede a peça implícita pelo código do serviço: regras de hoje contra CHAT_IMPLICIT_ARTIFACT_MODEL, com o Qwen real.
 
-  python scripts/medir_peca_implicita.py afinar|validar|confirmar|aberta [x3]
+  python scripts/medir_peca_implicita.py afinar|validar|confirmar|aberta|seguimentos_afinar|seguimentos_validar [x3]
 Corre da raiz do repositório, com o .env do modelo de pré-processamento:  python scripts/medir_peca_implicita.py validar x3
 """
 import asyncio, os, sys, time
@@ -75,7 +75,8 @@ async def resolver(s, flag, nome, mensagem):
 
 
 async def main():
-    grupo = {"afinar": casos.AFINAR, "validar": casos.VALIDAR, "confirmar": casos.CONFIRMAR, "aberta": casos.ABERTA_COM_ASSUNTO}[sys.argv[1]]
+    grupo = {"afinar": casos.AFINAR, "validar": casos.VALIDAR, "confirmar": casos.CONFIRMAR, "aberta": casos.ABERTA_COM_ASSUNTO,
+             "seguimentos_afinar": casos.SEGUIMENTOS_AFINAR, "seguimentos_validar": casos.SEGUIMENTOS_VALIDAR}[sys.argv[1]]
     vezes = 3 if "x3" in sys.argv else 1
     print(f"casos: {len(grupo)}")
     for flag in (False, True):

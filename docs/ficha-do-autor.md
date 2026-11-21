@@ -151,6 +151,31 @@ A primeira redação, com três respostas, deixava passar «Há obras de Gregór
 «Quem foi Josefa de Óbidos?» e «há outras peças parecidas com esta?»: faltava uma resposta própria para o artista que
 a mensagem nomeia. Mediana de 63 ms por chamada.
 
+### Seguimentos de uma pesquisa (2026-11-21)
+
+Em produção, depois de «Encontra peças chinesas», «e japonesas?» recebeu A e o pedido passou a «obras de Jean-Baptiste
+Pillement», o autor do primeiro cartão (a peça em foco). A mensagem continuava a pesquisa anterior, e o prompt não
+dizia qual tinha sido.
+
+Juntaram-se 20 pares (pedido anterior, seguimento) a `tests/focused_author_cases.py`: «e de prata?» depois de
+«Mostra-me peças de ouro», «e do século XVI?», «e portuguesas?». O prompt passa a dizer o pedido anterior do visitante,
+numa frase a seguir à peça, e a resposta D passa a incluir a continuação desse pedido. O pedido anterior é a última
+mensagem do visitante guardada na conversa; sem conversa anterior, a frase não vai.
+
+Medido com quatro peças (juntou-se o Palanque chinês, de Pillement) × 3 execuções:
+
+| | Redação de 2026-11-19 | Só a resposta D mudada | Com o pedido anterior (a que ficou) |
+|---|---|---|---|
+| 20 seguimentos de uma pesquisa | 15 | 17 | 20 |
+| 18 pedidos das obras do autor | 18 | 18 | 18 (com e sem pedido anterior) |
+| 16 perguntas sobre a peça | 15 | 15 | 15 sem pedido anterior, 14 com |
+| 16 outros pedidos, com a lista de autores | 16 | 16 | 16 (com e sem pedido anterior) |
+
+- Com pedido anterior, «quem fez isto?» também recebe A, como «quem é o autor?»: mostra as obras e a ficha do autor.
+- Pôr o pedido anterior no cimo do prompt, antes da mensagem, fazia quatro perguntas sobre a peça receber A («de onde
+  veio?», «who made this?»).
+- Mediana de 64 ms por chamada.
+
 Quando os cartões passam a ser só do autor, a resposta escreve-se outra vez sobre eles: ver
 `docs/todos-os-cartoes.md` (`CHAT_AUTHOR_ONLY_NEW_ANSWER`).
 

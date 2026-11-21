@@ -102,6 +102,44 @@ Com dados reais (a resposta de produção a «Encontra os painéis de São Vicen
 «E o painel do infante?» dá o Painel do Infante, que é uma peça do conjunto sem cartão (hoje dá o Painel dos Frades); «o
 dos pescadores é de quando?» dá o Painel dos Pescadores (hoje, nenhuma).
 
+## Seguimentos que mudam de assunto (2026-11-21)
+
+Em produção, com a flag ligada, uma conversa ficou presa na peça anterior:
+
+1. «Qual o autor das tentações de santo antão» e «Fala-me mais do autor»: respostas certas, e o ecrã fica com um só
+   cartão, as Tentações de Santo Antão.
+2. «E gregório Lopes?» e «fala-me de gregório lopes»: as duas respostas falam outra vez das Tentações.
+
+O modelo apontou o cartão (`answer=A how_many=uma listed=1`): a mensagem fala de «uma» coisa e só havia uma letra para
+escolher. As regras, sozinhas, não erravam aqui: o erro veio deste passo. Nos casos de 2026-11-19 não havia nenhum ecrã
+com uma só peça, nem mensagens com o nome de uma pessoa ou de uma peça que não está no ecrã.
+
+Juntaram-se 36 casos assim (`SEGUIMENTOS_AFINAR` e `SEGUIMENTOS_VALIDAR`, 18 cada): «E gregório Lopes?», «E do Dürer?»,
+«e esculturas?», «E a cruz de D. Sancho?», «e japonesas?», quase todos com um só cartão no ecrã, mais perguntas que são
+mesmo sobre o cartão («As tentações são de que ano?»).
+
+Na redação nova o modelo escreve primeiro o nome que a mensagem diz, depois se fala de uma peça ou de várias, e só então
+a letra. Pelo código do serviço, três execuções iguais:
+
+| Grupo | Casos | Regras de hoje | Redação de 2026-11-19 | Redação nova |
+|---|---|---|---|---|
+| Seguimentos, afinação | 18 | 18 | 12 | 18 |
+| Seguimentos, validação | 18 | 17 | 14 | 18 |
+| Afinação | 68 | 61 | 68 | 68 |
+| Validação | 59 | 52 | 57 | 56 |
+| Confirmação | 26 | 20 | 25 | 25 |
+| Total | 189 | 168 | 176 | 185 |
+
+- Os dez seguimentos que a redação anterior errava eram todos com um só cartão: o nome de uma pessoa («E Nuno
+  Gonçalves?», «fala-me de D. Manuel») ou outro tipo de peças («e esculturas?», «e de prata?», «e relicários?»).
+- Passa a estar errado um caso de validação: «O dos pescadores tem quantas figuras?» é lido como várias peças e segue
+  sem peça. «Retratos de família», que a redação anterior errava de vez em quando, fica certo nas três execuções.
+- Outras redações medidas: só juntar «uma pessoa ou uma peça que não está na lista» às razões de «nenhuma» acerta 13
+  dos 18 de afinação; pedir primeiro «de que fala a mensagem» com três respostas acerta 17, mas estraga 7 dos 68
+  antigos; escrever o nome e depois o tipo do nome («peça da lista», «pessoa»…) fica igual à escolhida, com a peça
+  aberta na visita a falhar, por vir «fora da lista».
+- A resposta do modelo é mais comprida (leva o nome): 0,21 s de mediana por chamada, em vez de 0,11 s.
+
 ## Limites conhecidos
 
 - Uma pesquisa no plural com as mesmas palavras do título de um cartão pode ser lida como esse cartão.

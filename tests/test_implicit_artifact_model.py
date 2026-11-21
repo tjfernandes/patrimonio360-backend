@@ -46,7 +46,7 @@ class _Preprocess:
         self.prompts.append(message)
         if self.answer is None:
             raise RuntimeError("modelo em baixo")
-        return SimpleNamespace(parsed_json={"quantas": self.how_many, "peca": self.answer})
+        return SimpleNamespace(parsed_json={"nome": "nenhum", "fala_de": self.how_many, "peca": self.answer})
 
 
 class _SetGateway:
@@ -198,4 +198,7 @@ class TestImplicitArtifactByModel(_Base):
             open_piece=None, message="E a Fé?",
         )
         self.assertIn("A) «Fé» (n.º 60 Esc) — do conjunto «Devoção»\nB) peça sem título (n.º 584 Esc)\n\nMensagem do visitante:\n«E a Fé?»", prompt)
-        self.assertTrue(prompt.endswith('{"quantas": "uma" ou "várias", "peca": "letra" ou "nenhuma"}'))
+        # o modelo escreve o nome que a mensagem diz antes de escolher a letra
+        self.assertIn("Primeiro: que nome diz a mensagem", prompt)
+        self.assertTrue(prompt.endswith('{"nome": "o nome que a mensagem diz, ou nenhum", "fala_de": "uma peça" ou "várias peças", '
+                                        '"peca": "letra" ou "nenhuma"}'))

@@ -3254,8 +3254,19 @@ class ChatService:
             )
             return payload
         title = str(doc.get("title") or piece.get("title") or "").strip()
+        # O pedido anterior do visitante: «e japonesas?» depois de «Encontra peças chinesas»
+        # continua essa pesquisa, e o modelo só o sabe se o vir.
+        state = self.session_store.get(payload.conversation_id) if payload.conversation_id else None
+        previous = next(
+            (
+                re.sub(r"\s+", " ", str(getattr(turn, "text", "") or "")).strip()[:200]
+                for turn in reversed(list(getattr(state, "history", None) or []))
+                if str(getattr(turn, "role", "")) == "user" and str(getattr(turn, "text", "") or "").strip()
+            ),
+            None,
+        )
         llm_response = await self.preprocess_llm_service.generate(
-            message=build_focused_author_prompt(message=message, title=title, author=author),
+            message=build_focused_author_prompt(message=message, title=title, author=author, previous=previous),
             response_format=ResponseFormatObject(type="json_object"),
             system_prompt=None,
             model_override=None,
@@ -3266,7 +3277,7 @@ class ChatService:
         log_event(
             logger, logging.INFO, "chat.focused_author.decision",
             conversation_id=payload.conversation_id, artifact_id=piece["artifact_id"], author=author, answer=answer,
-            message=message[:120],
+            message=message[:120], previous=(previous or "")[:120],
         )
         if answer != "A":
             return payload
@@ -5397,6 +5408,7 @@ class ChatService:
         ):
             answer: Any = None
             how_many: Any = None
+            named: Any = None
             try:
                 llm_response = await asyncio.wait_for(
                     self.preprocess_llm_service.generate(
@@ -5404,19 +5416,19 @@ class ChatService:
                         response_format=ResponseFormatObject(type="json_object"),
                         system_prompt=None,
                         model_override=None,
-                        max_tokens=40,
+                        max_tokens=90,  # a resposta leva o nome que a mensagem diz
                     ),
                     timeout=4.0,
                 )
                 data = llm_response.parsed_json
                 if isinstance(data, dict):
-                    answer, how_many = data.get("peca"), data.get("quantas")
+                    answer, how_many, named = data.get("peca"), data.get("fala_de"), data.get("nome")
             except Exception as exc:  # noqa: BLE001
                 log_event(logger, logging.WARNING, "chat.implicit_artifact.model_error", error=exc)
             chosen = self._implicit_entity_from_answer(answer, entities, open_piece)
             log_event(
                 logger, logging.INFO, "chat.implicit_artifact.model",
-                conversation_id=conversation_id, answer=answer, how_many=how_many, listed=len(entities),
+                conversation_id=conversation_id, answer=answer, how_many=how_many, named=str(named or "")[:80], listed=len(entities),
                 set_members=sum(1 for entity in entities if entity.get("set_member")),
                 artifact_id=(chosen or {}).get("artifact_id"),
             )

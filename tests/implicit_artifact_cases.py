@@ -13,8 +13,9 @@ ecrã por baixo dele, mas o frontend só envia o cartão.
 AFINAR serviu para escolher a redação do prompt; VALIDAR só foi corrido no fim; CONFIRMAR foi
 escrito depois de tudo fechado. Mede-se com scripts/medir_peca_implicita.py. Os casos do
 cenário «traje» são os de tests/test_implicit_artifact.py (TUNE e VALID), que as regras
-acertam todos. Resultado de 2026-11-19 em docs/peca-implicita-pelo-modelo.md. Qualquer
-alteração ao prompt repete a medição.
+acertam todos. SEGUIMENTOS_AFINAR e SEGUIMENTOS_VALIDAR (2026-11-21) são mensagens que mudam
+de assunto, quase todas com um só cartão no ecrã. Resultados em
+docs/peca-implicita-pelo-modelo.md. Qualquer alteração ao prompt repete a medição.
 """
 
 TRAJE = [
@@ -82,6 +83,20 @@ PINTURA = [
 ANUNCIACAO_ABERTA = {"artifact_id": "h3", "inventory_number": "1211 Pint", "title": "Anunciação", "source": "tour_hotspot"}
 
 
+BOSCH = [{"artifact_id": "b1", "inventory_number": "1498 Pint", "title": "Tentações de Santo Antão"}]
+CUSTODIA = [{"artifact_id": "c1", "inventory_number": "740 Our", "title": "Custódia de Belém"}]
+CHINESAS = [
+    {"artifact_id": "k1", "inventory_number": "3106 Des", "title": "Palanque chinês"},
+    {"artifact_id": "k2", "inventory_number": "3103 Des", "title": "Palanque chinês"},
+    {"artifact_id": "k3", "inventory_number": "3104 Des", "title": "Palanque chinês"},
+    {"artifact_id": "k4", "inventory_number": "3105 Des", "title": "Palanque chinês"},
+    {"artifact_id": "k5", "inventory_number": "7581 Cer", "title": "Prato"},
+    {"artifact_id": "k6", "inventory_number": "1653 Mov", "title": "Mesa de costura"},
+    {"artifact_id": "k7", "inventory_number": "896 Div", "title": "Fole"},
+    {"artifact_id": "k8", "inventory_number": "6710 Cer", "title": "Pote"},
+]
+
+
 def _primeiro(cartoes):
     return {key: cartoes[0][key] for key in ("artifact_id", "inventory_number", "title")} | {"source": "first_result"}
 
@@ -96,6 +111,9 @@ CENARIOS = {
     "azulejo": {"museu": "mnaz", "visiveis": AZULEJO, "foco": _primeiro(AZULEJO)},
     "ourivesaria": {"museu": "mnaa", "visiveis": OURIVESARIA, "foco": _primeiro(OURIVESARIA)},
     "pintura_aberta": {"museu": "mnaa", "visiveis": PINTURA, "foco": ANUNCIACAO_ABERTA},
+    "bosch_so": {"museu": "mnaa", "visiveis": BOSCH, "foco": _primeiro(BOSCH)},
+    "custodia_so": {"museu": "mnaa", "visiveis": CUSTODIA, "foco": _primeiro(CUSTODIA)},
+    "chinesas": {"museu": "mnaa", "visiveis": CHINESAS, "foco": _primeiro(CHINESAS)},
 }
 
 AFINAR = [
@@ -171,6 +189,30 @@ CONFIRMAR = [
     ("pintura_aberta", "Mostra-me pintura flamenga", None), ("pintura_aberta", "o segundo está na visita?", "t2"),
     ("pintura_aberta", "Que santo é este?", "h3"), ("pintura_aberta", "Pinturas de santos", None),
     ("pintura_aberta", "A adoração dos magos tem quantas figuras?", "t3"),
+]
+
+# Seguimentos que mudam de assunto (2026-11-21). Em produção, com um só cartão no ecrã («Tentações de Santo
+# Antão»), «E gregório Lopes?» e «fala-me de gregório lopes» foram lidas como esse cartão: nos grupos de cima não
+# havia nenhum ecrã com uma só peça nem mensagens com o nome de uma pessoa ou de uma peça que não está no ecrã.
+SEGUIMENTOS_AFINAR = [
+    ("bosch_so", "E gregório Lopes?", None), ("bosch_so", "fala-me de gregório lopes", None), ("bosch_so", "E do Dürer?", None),
+    ("bosch_so", "As tentações são de que ano?", "b1"), ("bosch_so", "De que é feito?", "b1"), ("bosch_so", "e esculturas?", None),
+    ("bosch_so", "E a Custódia de Belém?", None),
+    ("custodia_so", "E a cruz de D. Sancho?", None), ("custodia_so", "A custódia é de ouro?", "c1"), ("custodia_so", "e de prata?", None),
+    ("custodia_so", "E o Mestre João?", None),
+    ("chinesas", "e japonesas?", None), ("chinesas", "E o fole?", "k7"), ("chinesas", "o prato é de porcelana?", "k5"),
+    ("chinesas", "E biombos?", None), ("chinesas", "E gregório lopes?", None),
+    ("castro", "E Soares dos Reis?", None), ("paineis", "E o Bosch?", None),
+]
+SEGUIMENTOS_VALIDAR = [
+    ("bosch_so", "E Nuno Gonçalves?", None), ("bosch_so", "fala-me do Grão Vasco", None), ("bosch_so", "e pinturas flamengas?", None),
+    ("bosch_so", "O tríptico das tentações está na visita?", "b1"), ("bosch_so", "Quem o pintou?", "b1"),
+    ("bosch_so", "E os painéis de São Vicente?", None),
+    ("custodia_so", "E o cálice de Alcobaça?", None), ("custodia_so", "Quanto pesa a custódia?", "c1"), ("custodia_so", "e relicários?", None),
+    ("custodia_so", "fala-me de D. Manuel", None),
+    ("chinesas", "e indianas?", None), ("chinesas", "A mesa de costura é de marfim?", "k6"), ("chinesas", "E o pote, de quando é?", "k8"),
+    ("chinesas", "e do Japão?", None), ("chinesas", "fala-me de Pillement", None), ("chinesas", "E leques?", None),
+    ("castro", "E a Josefa de Óbidos?", None), ("ourivesaria", "E o Germain?", None),
 ]
 
 # Com uma peça aberta na visita, as regras dão-lhe prioridade mesmo quando a pergunta traz um assunto
