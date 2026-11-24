@@ -167,6 +167,11 @@ class Settings(BaseSettings):
     # OpenSearch agrega o campo em todas as fichas e a resposta sai por modelo de
     # texto, sem cartões. Só para mensagens que não são seguimento.
     CHAT_CATALOGUE_LISTINGS: bool = False
+    # Contagens e listagens pelos campos enriquecidos (docs/enriquecimento-por-campos.md): «quantas cadeiras há?»
+    # conta as peças cujo tipo é cadeira, e não as fichas em que a palavra aparece; «que materiais há?» lista os
+    # materiais normalizados. Só entra quando todas as palavras do assunto são valores das listas e o museu tem
+    # enriquecimento; senão fica tudo como sem a flag.
+    CHAT_ENRICHED_FIELDS: bool = False
     # Ficha do autor: quando a mensagem diz o nome de um autor das peças
     # mostradas («obras de Gregório Lopes», «quem foi Soares dos Reis?»), a
     # resposta leva `author` com os dados do catálogo (atividade, datas,
@@ -332,6 +337,9 @@ class Settings(BaseSettings):
     OPENSEARCH_INDEX_AUTOR: str = "cultural_heritage_authors"
     OPENSEARCH_INDEX_CONJUNTO: str = "cultural_heritage_sets"
     OPENSEARCH_INDEX_EXPOSICAO: str = "cultural_heritage_exhibitions"
+    # Campos enriquecidos por regras (tipo de objeto, materiais, técnicas…), um documento por peça com o mesmo
+    # artifact_id; escrito pelo tools/enriquecimento e lido só com CHAT_ENRICHED_FIELDS.
+    OPENSEARCH_INDEX_ENRICHMENT: str = "cultural_heritage_enrichment_v1"
     # Top N de artefactos por conjunto / exposicao a mostrar no modal.
     CHAT_RELATED_ARTIFACTS_TOP_K: int = 24
 

@@ -3409,6 +3409,117 @@ class OpenSearchGateway:
             "query_body": body,
         }
 
+    # ----- Campos enriquecidos (CHAT_ENRICHED_FIELDS): índice OPENSEARCH_INDEX_ENRICHMENT ----- #
+
+    def _enriched_vocabulary_sync(self, *, museum_id: str, fields: tuple[str, ...]) -> dict[str, list[str]]:
+        """Os valores que o museu tem em cada campo enriquecido, como estão escritos
+        (com acentos). Museu sem enriquecimento, ou índice por criar: tudo vazio."""
+        client = self._ensure_client()
+        index = self.settings.OPENSEARCH_INDEX_ENRICHMENT
+        if not client.indices.exists(index=index):
+            return {field: [] for field in fields}
+        body = {
+            "size": 0,
+            "query": {"term": {"museum_id": museum_id}},
+            "aggs": {
+                field: {"terms": {"field": field, "size": 1000}, "aggs": {"ficha": {"top_hits": {"size": 1, "_source": [field]}}}}
+                for field in fields
+            },
+        }
+        aggregations = client.search(index=index, body=body).get("aggregations") or {}
+        vocabulary: dict[str, list[str]] = {}
+        for field in fields:
+            values: list[str] = []
+            for bucket in (aggregations.get(field) or {}).get("buckets") or []:
+                key = str(bucket.get("key") or "")
+                hits = ((bucket.get("ficha") or {}).get("hits") or {}).get("hits") or []
+                originals = self._as_list_of_strings(((hits[0].get("_source") or {}) if hits else {}).get(field))
+                values.append(next((o for o in originals if self._keyword_form(o) == key), key))
+            vocabulary[field] = values
+        return vocabulary
+
+    async def enriched_vocabulary(self, *, museum_id: str, fields: tuple[str, ...]) -> dict[str, list[str]]:
+        return await self._to_thread_logged(
+            "opensearch.enriched_vocabulary",
+            self._enriched_vocabulary_sync,
+            log_fields={"museum_id": museum_id, "fields": len(fields)},
+            result_size=lambda result: sum(len(values) for values in result.values()),
+            museum_id=museum_id,
+            fields=fields,
+        )
+
+    def _enriched_artifact_ids_sync(self, *, museum_id: str, clauses: list[dict[str, list[str]]]) -> list[str]:
+        """As peças do museu que cumprem todas as condições; cada condição cumpre-se
+        com um dos valores em qualquer dos campos dela."""
+        client = self._ensure_client()
+        filters: list[dict[str, Any]] = [{"term": {"museum_id": museum_id}}]
+        for clause in clauses:
+            filters.append({"bool": {"should": [{"terms": {field: values}} for field, values in clause.items()], "minimum_should_match": 1}})
+        response = client.search(
+            index=self.settings.OPENSEARCH_INDEX_ENRICHMENT,
+            body={"size": 10000, "_source": False, "track_total_hits": True, "query": {"bool": {"filter": filters}}},
+        )
+        return [str(hit["_id"]) for hit in (response.get("hits") or {}).get("hits") or []]
+
+    async def enriched_artifact_ids(self, *, museum_id: str, clauses: list[dict[str, list[str]]]) -> list[str]:
+        return await self._to_thread_logged(
+            "opensearch.enriched_artifact_ids",
+            self._enriched_artifact_ids_sync,
+            log_fields={"museum_id": museum_id, "clauses": len(clauses)},
+            result_size=len,
+            museum_id=museum_id,
+            clauses=clauses,
+        )
+
+    def _aggregate_enriched_facet_sync(self, *, museum_id: str, field: str, in_tour: bool, category: str | None, size: int) -> dict[str, Any]:
+        """Como _aggregate_facet_sync, mas sobre um campo enriquecido: valores já
+        normalizados («prata», «madeira»), com contagem."""
+        client = self._ensure_client()
+        filters: list[dict[str, Any]] = [{"term": {"museum_id": museum_id}}]
+        if in_tour:
+            filters.append({"term": {"in_tour": True}})
+        if category:
+            filters.append({"term": {"category": category}})
+        body = {
+            "size": 0,
+            "track_total_hits": True,
+            "query": {"bool": {"filter": filters}},
+            "aggs": {
+                "valores": {"terms": {"field": field, "size": max(int(size), 1)}, "aggs": {"ficha": {"top_hits": {"size": 1, "_source": [field]}}}},
+                "distintos": {"cardinality": {"field": field}},
+                "preenchidas": {"filter": {"exists": {"field": field}}},
+            },
+        }
+        response = client.search(index=self.settings.OPENSEARCH_INDEX_ENRICHMENT, body=body)
+        aggregations = response.get("aggregations") or {}
+        values: list[tuple[str, int]] = []
+        for bucket in (aggregations.get("valores") or {}).get("buckets") or []:
+            key = str(bucket.get("key") or "")
+            hits = ((bucket.get("ficha") or {}).get("hits") or {}).get("hits") or []
+            originals = self._as_list_of_strings(((hits[0].get("_source") or {}) if hits else {}).get(field))
+            values.append((next((o for o in originals if self._keyword_form(o) == key), key), int(bucket.get("doc_count") or 0)))
+        return {
+            "values": sorted(values, key=lambda v: (-v[1], v[0])),
+            "distinct": int((aggregations.get("distintos") or {}).get("value") or 0),
+            "filled": int((aggregations.get("preenchidas") or {}).get("doc_count") or 0),
+            "total": self._total_hits_value(response),
+            "query_body": body,
+        }
+
+    async def aggregate_enriched_facet(
+        self, *, museum_id: str, field: str, in_tour: bool = False, category: str | None = None, size: int = 60
+    ) -> dict[str, Any]:
+        return await self._to_thread_logged(
+            "opensearch.aggregate_enriched_facet",
+            self._aggregate_enriched_facet_sync,
+            log_fields={"museum_id": museum_id, "field": field, "in_tour": in_tour, "category": category, "size": size},
+            museum_id=museum_id,
+            field=field,
+            in_tour=in_tour,
+            category=category,
+            size=size,
+        )
+
     async def aggregate_facet(
         self,
         *,

@@ -260,6 +260,15 @@ _TRANSLATIONS: dict[str, dict[ChatLanguage, TranslationValue]] = {
         "pt": "A técnica está indicada em {filled} das {total} fichas{subject} {scope}, pelas palavras do catálogo ({distinct} formas diferentes). As {shown} mais frequentes: {listing}.",
         "en": "The technique is given in {filled} of {total} records{subject} {scope}, in the catalogue's own words ({distinct} different wordings). The {shown} most frequent: {listing}.",
     },
+    # CHAT_ENRICHED_FIELDS: os valores já vêm normalizados (uma peça de «prata fundida, cinzelada» conta em «prata»)
+    "message.listing_materials_enriched": {
+        "pt": "Sabe-se o material de {filled} das {total} peças{subject} {scope}, pelo que as fichas dizem. Os {shown} mais frequentes: {listing}. Uma peça pode ter mais de um.",
+        "en": "The material is known for {filled} of {total} objects{subject} {scope}, from what the records say. The {shown} most frequent: {listing}. An object may have more than one.",
+    },
+    "message.listing_techniques_enriched": {
+        "pt": "Sabe-se a técnica de {filled} das {total} peças{subject} {scope}, pelo que as fichas dizem. As {shown} mais frequentes: {listing}. Uma peça pode ter mais de uma.",
+        "en": "The technique is known for {filled} of {total} objects{subject} {scope}, from what the records say. The {shown} most frequent: {listing}. An object may have more than one.",
+    },
     "message.listing_places": {
         "pt": "O local de fabrico está indicado em {filled} das {total} fichas{subject} {scope}. Os {shown} mais frequentes: {listing}.",
         "en": "The place of manufacture is given in {filled} of {total} records{subject} {scope}. The {shown} most frequent: {listing}.",
