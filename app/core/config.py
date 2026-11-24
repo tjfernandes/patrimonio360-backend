@@ -303,6 +303,11 @@ class Settings(BaseSettings):
     BACKEND_LOG_HEALTHCHECKS: bool = False
     BACKEND_RAG_DEBUG_ENABLED: bool = True
     BACKEND_RAG_DEBUG_MAX_CHARS: int = 40000
+    # Com BACKEND_RAG_DEBUG_ENABLED: cada chamada ao modelo deixa no log o prompt
+    # e a resposta por extenso (rag.llm_call), e cada pedido a resposta que saiu
+    # para o visitante com os cartões mostrados (rag.answer). É o que o
+    # deploy/amalia_logs.sh mostra em cada passo; sem isto só se veem tamanhos.
+    BACKEND_RAG_DEBUG_LLM_IO: bool = False
 
     CORS_ALLOW_ORIGINS: str = "*"
     CORS_ALLOW_METHODS: str = "*"

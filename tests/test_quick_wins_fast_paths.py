@@ -235,7 +235,7 @@ class TestRouterCompactSchema(unittest.TestCase):
             self.payload = payload
             self.prompts: list[str] = []
 
-        async def generate(self, *, message, response_format, system_prompt=None, model_override=None):
+        async def generate(self, *, message, response_format, system_prompt=None, model_override=None, **_kwargs):
             self.prompts.append(message)
             from app.services.llm_service import LLMResponse
             import json as _json

@@ -1430,6 +1430,7 @@ class ChatService:
         try:
             llm_response = await asyncio.wait_for(
                 self.preprocess_llm_service.generate(
+                    step="intencao_visual",
                     message=build_visual_request_prompt(message=message),
                     response_format=ResponseFormatObject(type="json_object"),
                     system_prompt=None,
@@ -1902,6 +1903,7 @@ class ChatService:
         async def _call(message: str):
             if stream_cb_factory is not None:
                 return await self.llm_service.generate_stream(
+                    step="resposta_final",
                     message=message,
                     response_format=response_format,
                     system_prompt=system_prompt,
@@ -1909,6 +1911,7 @@ class ChatService:
                     on_delta=stream_cb_factory(),
                 )
             return await self.llm_service.generate(
+                step="resposta_final",
                 message=message,
                 response_format=response_format,
                 system_prompt=system_prompt,
@@ -2046,6 +2049,7 @@ class ChatService:
         )
         try:
             llm_response = await self.llm_service.generate(
+                step="resposta_da_pagina_de_resultados",
                 message=prompt,
                 response_format=ResponseFormatObject(type="text"),
                 system_prompt=self._final_system_prompt(None, language),
@@ -3266,6 +3270,7 @@ class ChatService:
             None,
         )
         llm_response = await self.preprocess_llm_service.generate(
+            step="autor_da_peca_em_foco",
             message=build_focused_author_prompt(message=message, title=title, author=author, previous=previous),
             response_format=ResponseFormatObject(type="json_object"),
             system_prompt=None,
@@ -3355,6 +3360,7 @@ class ChatService:
             return None
         try:
             llm_response = await self.preprocess_llm_service.generate(
+                step="ficha_do_autor",
                 message=build_author_name_prompt(message=message, words=words),
                 response_format=ResponseFormatObject(type="json_object"),
                 system_prompt=None,
@@ -4088,6 +4094,7 @@ class ChatService:
             try:
                 response = await asyncio.wait_for(
                     self.preprocess_llm_service.generate(
+                        step=f"rascunho_{key}",
                         message=prompt, response_format=ResponseFormatObject(type="json_object"),
                         system_prompt=None, model_override=None, max_tokens=max_tokens,
                     ),
@@ -4335,6 +4342,7 @@ class ChatService:
                 list_plan=bool(getattr(self.settings, "CHAT_ANSWER_LIST_PLAN", False)),
             )
             llm_response = await self.llm_service.generate(
+                step="resposta_so_do_autor",
                 message=prompt,
                 response_format=ResponseFormatObject(type="text"),
                 system_prompt=self._final_system_prompt(payload.system_prompt, language),
@@ -4408,6 +4416,7 @@ class ChatService:
             return response
         try:
             llm_response = await self.preprocess_llm_service.generate(
+                step="so_pecas_do_autor",
                 message=build_author_only_prompt(message=message, words=words),
                 response_format=ResponseFormatObject(type="json_object"),
                 system_prompt=None,
@@ -5412,6 +5421,7 @@ class ChatService:
             try:
                 llm_response = await asyncio.wait_for(
                     self.preprocess_llm_service.generate(
+                        step="peca_implicita",
                         message=build_implicit_artifact_prompt(entities=entities, open_piece=open_piece, message=(message or "").strip()),
                         response_format=ResponseFormatObject(type="json_object"),
                         system_prompt=None,
@@ -8101,6 +8111,7 @@ class ChatService:
         async def letter(prompt: str, key: str) -> str:
             try:
                 response = await self.preprocess_llm_service.generate(
+                    step="leitura_de_listagem",
                     message=prompt,
                     response_format=ResponseFormatObject(type="json_object"),
                     system_prompt=None,
@@ -9492,6 +9503,7 @@ class ChatService:
         )
 
         router_response = await self.preprocess_llm_service.generate(
+            step="router",
             message=router_prompt,
             response_format=ResponseFormatObject(type="json_object"),
             system_prompt=get_router_system_prompt(language=state.language),
@@ -10523,6 +10535,7 @@ class ChatService:
 
         try:
             response = await self.preprocess_llm_service.generate(
+                step="interpretacao_temporal",
                 message=self._build_temporal_interpretation_prompt(text),
                 response_format=ResponseFormatObject(type="json_object"),
                 system_prompt=(
@@ -10839,6 +10852,7 @@ class ChatService:
         )
         try:
             response = await self.preprocess_llm_service.generate(
+                step="leitura_do_pedido",
                 message=prompt,
                 response_format=ResponseFormatObject(type="json_object"),
                 system_prompt=None,
@@ -10921,6 +10935,7 @@ class ChatService:
         )
         try:
             response = await self.preprocess_llm_service.generate(
+                step="resolucao_do_seguimento",
                 message=prompt,
                 response_format=ResponseFormatObject(type="json_object"),
                 system_prompt=FOLLOW_UP_RESOLUTION_SYSTEM_PROMPT,
@@ -10953,6 +10968,7 @@ class ChatService:
         )
         try:
             response = await self.preprocess_llm_service.generate(
+                step="reescrita_da_pesquisa",
                 message=prompt,
                 response_format=ResponseFormatObject(type="json_object"),
                 system_prompt=RETRIEVAL_QUERY_REWRITE_SYSTEM_PROMPT,
@@ -12741,6 +12757,7 @@ class ChatService:
         try:
             response = await asyncio.wait_for(
                 self.preprocess_llm_service.generate(
+                    step="escolha_visual",
                     message=prompt, response_format=ResponseFormatObject(type="json_object"),
                     max_tokens=40 + 12 * len(lines),
                 ),
@@ -12823,6 +12840,7 @@ class ChatService:
         try:
             response = await asyncio.wait_for(
                 self.preprocess_llm_service.generate(
+                    step="pre_selecao_dos_cartoes",
                     message=prompt, response_format=ResponseFormatObject(type="json_object"),
                     # a lista de rótulos gasta ~6 tokens por cartão: com 120 cabiam 20, e uma
                     # escolha de mais cartões saía cortada e contava como falha

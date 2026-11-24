@@ -9,6 +9,12 @@ from typing import Any
 
 from app.core.config import Settings
 
+# O tools/registos/amalia_logs.py lê as linhas neste formato (tests/test_amalia_logs.py
+# escreve com este e lê com aquele). Milésimos: sem eles não se vê onde um
+# pedido de 3 s gasta o tempo.
+BACKEND_LOG_FORMAT = "%(asctime)s.%(msecs)03d %(levelname)-8s [%(name)s] [rid=%(request_id)s] %(message)s"
+BACKEND_LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+
 _REQUEST_ID = contextvars.ContextVar("request_id", default="-")
 _CONFIGURED = False
 
@@ -46,12 +52,7 @@ def configure_backend_logging(settings: Settings) -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(level)
     handler.addFilter(_RequestIdFilter())
-    handler.setFormatter(
-        logging.Formatter(
-            fmt="%(asctime)s %(levelname)-8s [%(name)s] [rid=%(request_id)s] %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-    )
+    handler.setFormatter(logging.Formatter(fmt=BACKEND_LOG_FORMAT, datefmt=BACKEND_LOG_DATEFMT))
 
     app_logger = logging.getLogger("app")
     app_logger.handlers.clear()
@@ -162,10 +163,11 @@ def log_json_event(
     payload: Any,
     *,
     max_chars: int = 40000,
+    max_string_chars: int = 1200,
 ) -> None:
     if not logger.isEnabledFor(level):
         return
-    sanitized = sanitize_for_terminal_json(payload)
+    sanitized = sanitize_for_terminal_json(payload, max_string_chars=max_string_chars)
     try:
         rendered = json.dumps(sanitized, ensure_ascii=False, indent=2, sort_keys=True, default=str)
     except Exception:

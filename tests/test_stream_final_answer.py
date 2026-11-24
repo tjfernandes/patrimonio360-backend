@@ -29,7 +29,7 @@ class _StreamingLLM:
         self.stream_calls = 0
         self.plain_calls = 0
 
-    async def generate_stream(self, *, message, response_format, system_prompt=None, model_override=None, on_delta=None):
+    async def generate_stream(self, *, message, response_format, system_prompt=None, model_override=None, on_delta=None, **_kwargs):
         self.stream_calls += 1
         if self.fail_first_with and self.stream_calls == 1:
             raise LLMServiceError(self.fail_first_with)
