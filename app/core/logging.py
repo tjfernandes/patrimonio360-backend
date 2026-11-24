@@ -152,6 +152,9 @@ def sanitize_for_terminal_json(value: Any, *, max_string_chars: int = 1200) -> A
                 "dimension": len(first),
                 "first_head": [round(float(item), 6) for item in first[:8]],
             }
+        if len(value) > 40 and all(isinstance(item, str) for item in value):
+            # um filtro por centenas de identificadores cortava o resto do bloco (os documentos recuperados)
+            return {"_type": "long_list", "length": len(value), "head": value[:5]}
         return [sanitize_for_terminal_json(item, max_string_chars=max_string_chars) for item in value]
     return str(value)
 

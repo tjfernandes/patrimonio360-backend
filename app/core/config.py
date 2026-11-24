@@ -172,6 +172,10 @@ class Settings(BaseSettings):
     # materiais normalizados. Só entra quando todas as palavras do assunto são valores das listas e o museu tem
     # enriquecimento; senão fica tudo como sem a flag.
     CHAT_ENRICHED_FIELDS: bool = False
+    # Com CHAT_ENRICHED_FIELDS: um pedido de pesquisa que junta um tipo de peça ao que se vê nela («pinturas com
+    # animais») fica limitado às peças desse tipo em que o modelo de visão viu isso na fotografia, e a fusão com as
+    # legendas não entra (traria peças de outros tipos). Qualquer outro pedido fica como estava.
+    CHAT_ENRICHED_SEARCH_FILTER: bool = False
     # Ficha do autor: quando a mensagem diz o nome de um autor das peças
     # mostradas («obras de Gregório Lopes», «quem foi Soares dos Reis?»), a
     # resposta leva `author` com os dados do catálogo (atividade, datas,
