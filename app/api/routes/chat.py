@@ -5,13 +5,14 @@ import asyncio
 import contextlib
 from functools import lru_cache
 import os
+import time
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from app.core.config import get_settings
-from app.core.logging import log_event
+from app.core.logging import log_event, log_json_event
 from app.schemas.chat import (
     ArtifactDetailContextResponse,
     ArtifactResult,
@@ -68,17 +69,88 @@ def _to_sse(event_type: str, payload: dict[str, Any]) -> str:
     return f"event: {event_type}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
+def _log_chat_response(
+    response: ChatMessageResponse,
+    *,
+    started_at: float,
+    message: str | None = None,
+) -> ChatMessageResponse:
+    """O fecho de um pedido de conversa nos logs, seja qual for o caminho que
+    seguiu (os percursos e o apontar sem peça escolhida não passam pelo
+    chat.message.finish). Com BACKEND_RAG_DEBUG_LLM_IO junta a resposta tal como
+    sai para o visitante (depois das correções e da ficha do autor) e os cartões
+    que a acompanham. Devolve a resposta como veio; um erro aqui nunca chega ao
+    visitante."""
+    try:
+        log_event(
+            logger,
+            logging.INFO,
+            "chat.response",
+            conversation_id=response.conversation_id,
+            query_id=response.query_id,
+            message=message,
+            reply_chars=len(response.reply or ""),
+            cards=len(response.artifact_results),
+            results_total=response.results_total,
+            duration_ms=round((time.perf_counter() - started_at) * 1000, 1),
+        )
+        settings = get_settings()
+        if not (settings.BACKEND_RAG_DEBUG_ENABLED and settings.BACKEND_RAG_DEBUG_LLM_IO):
+            return response
+        log_json_event(
+            logger,
+            logging.INFO,
+            "rag.answer",
+            {
+                "conversation_id": response.conversation_id,
+                "query_id": response.query_id,
+                "message": message,
+                "reply": response.reply,
+                "cards": [
+                    {
+                        "inventory_number": card.inventory_number,
+                        "title": card.title,
+                        "creator": card.creator,
+                        "date_or_period": card.date_or_period,
+                    }
+                    for card in response.artifact_results
+                ],
+                "image_matches": len(response.image_matches),
+                "navigation_targets": len(response.navigation_targets),
+                "results_total": response.results_total,
+                "results_has_more": response.results_has_more,
+                "author": response.author.name if response.author else None,
+                "route": (
+                    {"title": response.route.title, "stops": len(response.route.stops)}
+                    if response.route
+                    else None
+                ),
+                "tour_room": bool(response.tour_room),
+                "tour_rooms": len(response.tour_rooms),
+                "selected_artifact_status": response.selected_artifact_status,
+            },
+            max_chars=0,
+            max_string_chars=max(int(settings.BACKEND_RAG_DEBUG_MAX_CHARS) // 2, 1000),
+        )
+    except Exception as exc:  # noqa: BLE001 — é só um registo
+        log_event(logger, logging.WARNING, "chat.response.log_error", error=exc)
+    return response
+
+
 def _build_streaming_response(
-    run: Callable[[Callable[[dict[str, Any]], Awaitable[None]]], Awaitable[ChatMessageResponse]]
+    run: Callable[[Callable[[dict[str, Any]], Awaitable[None]]], Awaitable[ChatMessageResponse]],
+    *,
+    message: str | None = None,
 ) -> StreamingResponse:
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    started_at = time.perf_counter()
 
     async def status_cb(event: dict[str, Any]) -> None:
         await queue.put(event)
 
     async def runner() -> None:
         try:
-            result = await run(status_cb)
+            result = _log_chat_response(await run(status_cb), started_at=started_at, message=message)
             await queue.put({"type": "result", "payload": result.model_dump(mode="json")})
         except Exception as exc:
             log_event(logger, logging.ERROR, "chat.stream.error", error=exc)
@@ -161,7 +233,10 @@ async def post_chat_message(
     payload: ChatMessageRequest,
     service: ChatService = Depends(get_chat_service),
 ) -> ChatMessageResponse:
-    return await service.handle_message(payload)
+    started_at = time.perf_counter()
+    return _log_chat_response(
+        await service.handle_message(payload), started_at=started_at, message=payload.message
+    )
 
 
 @router.post("/messages/results", response_model=ChatResultsPageResponse)
@@ -336,7 +411,9 @@ async def post_chat_message_stream(
     payload: ChatMessageRequest,
     service: ChatService = Depends(get_chat_service),
 ) -> StreamingResponse:
-    return _build_streaming_response(lambda status_cb: service.handle_message(payload, status_cb=status_cb))
+    return _build_streaming_response(
+        lambda status_cb: service.handle_message(payload, status_cb=status_cb), message=payload.message
+    )
 
 
 @router.post("/messages/regenerate", response_model=ChatMessageResponse)
@@ -345,7 +422,8 @@ async def post_chat_regenerate_message(
     service: ChatService = Depends(get_chat_service),
 ) -> ChatMessageResponse:
     try:
-        return await service.regenerate_last_reply(payload)
+        started_at = time.perf_counter()
+        return _log_chat_response(await service.regenerate_last_reply(payload), started_at=started_at)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -400,11 +478,16 @@ async def post_chat_image_message(
         results_page_size=results_page_size,
         metadata=metadata_payload,
     )
-    return await service.handle_image_message(
-        payload,
-        image_bytes=content,
-        image_filename=image.filename,
-        image_content_type=image.content_type,
+    started_at = time.perf_counter()
+    return _log_chat_response(
+        await service.handle_image_message(
+            payload,
+            image_bytes=content,
+            image_filename=image.filename,
+            image_content_type=image.content_type,
+        ),
+        started_at=started_at,
+        message=payload.message,
     )
 
 
@@ -456,7 +539,8 @@ async def post_chat_image_message_stream(
             image_filename=image.filename,
             image_content_type=image.content_type,
             status_cb=status_cb,
-        )
+        ),
+        message=payload.message,
     )
 
 
@@ -501,11 +585,16 @@ async def post_chat_model_message(
         results_page_size=results_page_size,
         metadata=metadata_payload,
     )
-    return await service.handle_model_message(
-        payload,
-        model_bytes=content,
-        model_filename=validated_file_name,
-        model_content_type=model_file.content_type,
+    started_at = time.perf_counter()
+    return _log_chat_response(
+        await service.handle_model_message(
+            payload,
+            model_bytes=content,
+            model_filename=validated_file_name,
+            model_content_type=model_file.content_type,
+        ),
+        started_at=started_at,
+        message=payload.message,
     )
 
 
@@ -557,7 +646,8 @@ async def post_chat_model_message_stream(
             model_filename=validated_file_name,
             model_content_type=model_file.content_type,
             status_cb=status_cb,
-        )
+        ),
+        message=payload.message,
     )
 
 

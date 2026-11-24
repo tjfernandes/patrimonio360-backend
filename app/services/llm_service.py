@@ -9,7 +9,7 @@ import httpx
 from openai import APIConnectionError, APIError, APITimeoutError, AsyncOpenAI
 
 from app.core.config import Settings, get_settings
-from app.core.logging import log_event
+from app.core.logging import log_event, log_json_event
 from app.schemas.chat import ResponseFormatObject
 
 logger = logging.getLogger(__name__)
@@ -142,6 +142,44 @@ class LLMService:
             payload["max_tokens"] = resolved
         return payload, provider, model, user_content
 
+    def _log_llm_call(
+        self,
+        *,
+        step: str | None,
+        model: str,
+        system_prompt: str | None,
+        prompt: str,
+        response: str | None,
+        error: Exception | None = None,
+        **details: Any,
+    ) -> None:
+        """BACKEND_RAG_DEBUG_LLM_IO: o prompt e a resposta de uma chamada, por
+        extenso. Um texto maior do que metade do BACKEND_RAG_DEBUG_MAX_CHARS sai
+        cortado; o bloco não, para continuar a ser JSON que se lê de volta."""
+        if not (
+            bool(getattr(self.settings, "BACKEND_RAG_DEBUG_ENABLED", False))
+            and bool(getattr(self.settings, "BACKEND_RAG_DEBUG_LLM_IO", False))
+        ):
+            return
+        payload: dict[str, Any] = {
+            "step": step,
+            "model": model,
+            "system_prompt": (system_prompt or "").strip() or None,
+            "prompt": prompt,
+            "response": response,
+        }
+        if error is not None:
+            payload["error"] = f"{type(error).__name__}: {error}"
+        payload.update({key: value for key, value in details.items() if value is not None})
+        log_json_event(
+            logger,
+            logging.INFO,
+            "rag.llm_call",
+            payload,
+            max_chars=0,
+            max_string_chars=max(int(getattr(self.settings, "BACKEND_RAG_DEBUG_MAX_CHARS", 40000)) // 2, 1000),
+        )
+
     async def generate(
         self,
         *,
@@ -150,7 +188,9 @@ class LLMService:
         system_prompt: str | None = None,
         model_override: str | None = None,
         max_tokens: int | None = None,
+        step: str | None = None,
     ) -> LLMResponse:
+        # `step` é só o nome do passo nos logs (ex.: "leitura_do_pedido")
         payload, provider, model, user_content = self._build_payload(
             message=message,
             response_format=response_format,
@@ -165,6 +205,7 @@ class LLMService:
             logger,
             logging.INFO,
             "llm.generate.start",
+            step=step,
             provider=provider,
             model=model,
             response_format=response_format.type,
@@ -200,9 +241,14 @@ class LLMService:
                 logger,
                 logging.ERROR,
                 "llm.generate.error",
+                step=step,
                 model=model,
                 duration_ms=round(duration_ms, 1),
                 error=exc,
+            )
+            self._log_llm_call(
+                step=step, model=model, system_prompt=system_prompt, prompt=user_content,
+                response=None, error=exc, duration_ms=round(duration_ms, 1),
             )
             raise LLMServiceError(f"LLM request failed: {exc}") from exc
         except Exception as exc:
@@ -211,9 +257,14 @@ class LLMService:
                 logger,
                 logging.ERROR,
                 "llm.generate.error",
+                step=step,
                 model=model,
                 duration_ms=round(duration_ms, 1),
                 error=exc,
+            )
+            self._log_llm_call(
+                step=step, model=model, system_prompt=system_prompt, prompt=user_content,
+                response=None, error=exc, duration_ms=round(duration_ms, 1),
             )
             raise LLMServiceError(f"LLM request failed: {exc}") from exc
 
@@ -238,9 +289,14 @@ class LLMService:
                     logger,
                     logging.ERROR,
                     "llm.generate.parse_error",
+                    step=step,
                     model=model,
                     duration_ms=round(duration_ms, 1),
                     error=exc,
+                )
+                self._log_llm_call(
+                    step=step, model=model, system_prompt=system_prompt, prompt=user_content,
+                    response=content, error=exc, duration_ms=round(duration_ms, 1),
                 )
                 raise
         duration_ms = (time.perf_counter() - started_at) * 1000
@@ -250,6 +306,7 @@ class LLMService:
             logger,
             logging.INFO,
             "llm.generate.finish",
+            step=step,
             model=model,
             response_format=response_format.type,
             response_chars=len(content.strip()),
@@ -258,6 +315,13 @@ class LLMService:
             completion_tokens=(usage or {}).get("completion_tokens"),
             endpoint=endpoint,
             duration_ms=round(duration_ms, 1),
+        )
+        self._log_llm_call(
+            step=step, model=model, system_prompt=system_prompt, prompt=user_content,
+            response=content.strip(), finish_reason=finish_reason, endpoint=endpoint,
+            response_format=response_format.type, duration_ms=round(duration_ms, 1),
+            prompt_tokens=(usage or {}).get("prompt_tokens"),
+            completion_tokens=(usage or {}).get("completion_tokens"),
         )
 
         return LLMResponse(
@@ -278,6 +342,7 @@ class LLMService:
         system_prompt: str | None = None,
         model_override: str | None = None,
         on_delta: Callable[[str], Awaitable[None]] | None = None,
+        step: str | None = None,
     ) -> LLMResponse:
         """Geração com `stream=True` (quick win LLM-03).
 
@@ -301,6 +366,7 @@ class LLMService:
             logger,
             logging.INFO,
             "llm.generate.start",
+            step=step,
             provider=provider,
             model=model,
             response_format=response_format.type,
@@ -360,10 +426,15 @@ class LLMService:
                 logger,
                 logging.ERROR,
                 "llm.generate.error",
+                step=step,
                 model=model,
                 duration_ms=round(duration_ms, 1),
                 stream=True,
                 error=exc,
+            )
+            self._log_llm_call(
+                step=step, model=model, system_prompt=system_prompt, prompt=user_content,
+                response="".join(parts) or None, error=exc, duration_ms=round(duration_ms, 1),
             )
             raise LLMServiceError(f"LLM request failed: {exc}") from exc
         except Exception as exc:
@@ -372,10 +443,15 @@ class LLMService:
                 logger,
                 logging.ERROR,
                 "llm.generate.error",
+                step=step,
                 model=model,
                 duration_ms=round(duration_ms, 1),
                 stream=True,
                 error=exc,
+            )
+            self._log_llm_call(
+                step=step, model=model, system_prompt=system_prompt, prompt=user_content,
+                response="".join(parts) or None, error=exc, duration_ms=round(duration_ms, 1),
             )
             raise LLMServiceError(f"LLM request failed: {exc}") from exc
 
@@ -398,6 +474,7 @@ class LLMService:
             logger,
             logging.INFO,
             "llm.generate.finish",
+            step=step,
             model=model,
             response_format=response_format.type,
             response_chars=len(content.strip()),
@@ -408,6 +485,14 @@ class LLMService:
             stream=True,
             endpoint=endpoint,
             duration_ms=round(duration_ms, 1),
+        )
+        self._log_llm_call(
+            step=step, model=model, system_prompt=system_prompt, prompt=user_content,
+            response=content.strip(), finish_reason=finish_reason, endpoint=endpoint,
+            response_format=response_format.type, duration_ms=round(duration_ms, 1),
+            prompt_tokens=(usage or {}).get("prompt_tokens"),
+            completion_tokens=(usage or {}).get("completion_tokens"),
+            first_delta_ms=None if first_delta_ms is None else round(first_delta_ms, 1),
         )
         return LLMResponse(
             text=content.strip(),

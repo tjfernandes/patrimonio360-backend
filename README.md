@@ -74,6 +74,7 @@ O LLM local tem o seu próprio script, `deploy/llm/amalia_llm.sh`, com `--status
 Registos:
 
 - `~/.amalia_backend.log` (uvicorn), `~/.amalia_tunnel.log` (autossh) e `~/.amalia_llm.log` (vLLM);
+- `deploy/amalia_logs.sh`: os passos do RAG de cada pedido, lidos do `~/.amalia_backend.log` (`-f` segue em direto, `-l` dá o índice; ver `tools/registos/README.md`);
 - `logs/production/`: os pedidos e os eventos do frontend (`QUERY_LOG_PATH` e `FRONTEND_EVENT_LOG_PATH`);
 - `logs/evaluation/`: os registos do estudo com utilizadores, que não se mexem.
 
