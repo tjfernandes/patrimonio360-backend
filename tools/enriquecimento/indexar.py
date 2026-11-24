@@ -32,7 +32,7 @@ MAPEAMENTO = {
             "enr_versao": {"type": "keyword"}, "enr_tipo": K, "enr_tipo_caminho": K,
             "enr_materiais": K, "enr_materiais_ficha": K, "enr_tecnicas": K, "enr_tecnicas_ficha": K, "enr_estilo": K, "enr_cores": K,
             "enr_funcao": K, "enr_origem_pais": K, "enr_origem_regiao": K, "enr_tamanho": K,
-            "enr_temas": K, "enr_temas_palavras": K,
+            "enr_temas": K, "enr_temas_palavras": K, "enr_foto": K, "enr_foto_palavras": K,
             "enr_altura_cm": {"type": "float"}, "enr_largura_cm": {"type": "float"}, "enr_comprimento_cm": {"type": "float"},
             "enr_profundidade_cm": {"type": "float"}, "enr_diametro_cm": {"type": "float"},
             "enr_detalhe": {"type": "object", "enabled": False},   # a fonte e o excerto de cada valor: guardados, não pesquisáveis

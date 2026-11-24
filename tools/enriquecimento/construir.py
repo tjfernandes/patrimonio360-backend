@@ -16,7 +16,7 @@ from opensearchpy import OpenSearch
 from opensearchpy.helpers import scan
 
 from app.core.config import get_settings
-from tools.enriquecimento import regras, temas, vocab
+from tools.enriquecimento import fotografia, regras, temas, vocab
 
 CACHE = Path(__file__).resolve().parent / ".cache"
 CAMPOS = ["artifact_id", "museum_id", "inventory_number", "title", "category", "technique", "support_or_material", "production_center",
@@ -41,6 +41,7 @@ def main() -> None:
     if not fichas:
         raise SystemExit(f"nenhuma ficha com museum_id={args.museu} em {s.OPENSEARCH_INDEX_ARTIFACT}")
     respostas = temas.ler_cache(args.museu)   # vazio enquanto o temas.py não tiver corrido para este museu
+    vistas = fotografia.ler_cache(args.museu)  # idem para o fotografia.py
     docs = []
     for f in fichas:
         enr = regras.enriquecer(f)
@@ -50,6 +51,10 @@ def main() -> None:
         if "temas" in enr:
             doc["enr_temas"] = [t["valor"] for t in enr["temas"]]
             doc["enr_temas_palavras"] = temas.palavras(enr["temas"])
+        if f["artifact_id"] in vistas:
+            doc["enr_foto"] = fotografia.aceitar(vistas[f["artifact_id"]])
+            doc["enr_foto_palavras"] = fotografia.palavras(doc["enr_foto"])
+            doc["enr_detalhe"]["fotografia"] = {k: vistas[f["artifact_id"]].get(k) for k in fotografia.VISTO}
         docs.append(doc)
     CACHE.mkdir(exist_ok=True)
     saida = CACHE / f"{args.museu}.jsonl"
@@ -58,10 +63,10 @@ def main() -> None:
             fh.write(json.dumps(d, ensure_ascii=False) + "\n")
 
     n = len(docs)
-    print(f"{n} peças de «{args.museu}» · listas {vocab.VERSAO} · temas respondidos pelo modelo: {len(respostas)} · {saida}\n")
+    print(f"{n} peças de «{args.museu}» · listas {vocab.VERSAO} · temas respondidos pelo modelo: {len(respostas)} · fotografias vistas: {len(vistas)} · {saida}\n")
     print(f"{'campo':<20} {'com valor':>10} {'valores distintos':>18}")
     for campo in ("enr_tipo", "enr_materiais", "enr_materiais_ficha", "enr_tecnicas", "enr_tecnicas_ficha", "enr_funcao", "enr_cores",
-                  "enr_origem_pais", "enr_estilo", "enr_tamanho", "enr_temas"):
+                  "enr_origem_pais", "enr_estilo", "enr_tamanho", "enr_temas", "enr_foto"):
         valores = collections.Counter(v for d in docs for v in (d.get(campo) if isinstance(d.get(campo), list) else [d.get(campo)] if d.get(campo) else []))
         print(f"{campo:<20} {100 * sum(bool(d.get(campo)) for d in docs) / n:9.1f}% {len(valores):>18}")
     # o que as listas ainda não sabem ler, para as fazer crescer

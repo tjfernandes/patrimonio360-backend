@@ -9,6 +9,7 @@ os campos, como o backend os usa e o que foi medido está em `docs/enriqueciment
 | `vocab.py` | as listas fechadas e os padrões que levam o texto da ficha até elas |
 | `regras.py` | `enriquecer(ficha)`: os valores de uma ficha, cada um com a fonte e o excerto; `documento(...)`: o que vai para o índice |
 | `temas.py` | pergunta ao modelo de pré-processamento os temas de cada peça (resposta presa a um esquema, excerto verificado na ficha) e decide, sem modelo, quais entram; as regras de aceitação vêm da validação de 2026-11-24 |
+| `fotografia.py` | pergunta ao modelo de visão se na fotografia se veem pessoas, animais ou letras |
 | `construir.py` | lê as fichas (só leitura), escreve `.cache/<museu>.jsonl` e mostra a cobertura e o que ficou sem correspondência |
 | `indexar.py` | escreve no índice de enriquecimento; simula por omissão, recusa outros índices e não apaga nenhum |
 

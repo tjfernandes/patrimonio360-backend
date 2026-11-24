@@ -4,7 +4,8 @@
 na técnica ou na descrição: entram pinturas com uma cadeira e cadeirais. Com os campos
 enriquecidos (tools/enriquecimento) conta-se o que a peça é: tipo de objeto, material,
 técnica, função, país de origem e tema (`enr_temas_palavras` tem as palavras com que
-se pede cada tema: «religiosa», «animal», «paisagem»).
+se pede cada tema: «religiosa», «animal», «paisagem»; `enr_foto_palavras`, o que o
+modelo de visão viu na fotografia: pessoas, animais, letras).
 
 Aqui só se decide se o assunto se lê por inteiro com os valores que o museu tem nesses
 campos. É uma comparação com dados, sem modelo: se sobrar uma palavra que não é valor
@@ -17,7 +18,8 @@ import re
 import unicodedata
 
 # campos em que se procura o assunto, por esta ordem
-SUBJECT_FIELDS = ("enr_tipo", "enr_materiais", "enr_tecnicas", "enr_funcao", "enr_origem_pais", "enr_temas_palavras")
+SUBJECT_FIELDS = ("enr_tipo", "enr_materiais", "enr_tecnicas", "enr_funcao", "enr_origem_pais", "enr_temas_palavras",
+                  "enr_foto_palavras")
 MAX_PHRASE_TOKENS = 4
 # palavras de ligação: não contam nem no assunto nem nos valores («pintura a óleo» lê-se em «pinturas óleo»,
 # que é como o assunto chega depois de a analítica lhe tirar as palavras vazias)
