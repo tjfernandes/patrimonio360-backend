@@ -314,6 +314,11 @@ class ArtifactResult(BaseModel):
     group_size: int = 1
     group_inventory_numbers: list[str] = Field(default_factory=list)
     group_artifact_ids: list[str] = Field(default_factory=list)
+    # O que há a dizer desta peça em resposta ao pedido (CHAT_CARD_SUMMARIES):
+    # texto simples, numa linha, sem o título nem o n.º de inventário. None =
+    # sem frase; o frontend passa à lista de uma coluna quando algum cartão da
+    # resposta traz o campo. Um cartão com fichas juntas (group_size > 1) leva uma só.
+    card_summary: str | None = None
     # Número total de peças de cada conjunto, pela ordem de set_ids (0 se o
     # conjunto não tiver contagem; vazio se a peça não estiver em nenhum). É o
     # `artifact_count` do índice de conjuntos, que coincide com as fichas do

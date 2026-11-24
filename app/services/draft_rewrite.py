@@ -37,10 +37,13 @@ class AnswerDraft:
     # a abertura já é a final (a dos números do catálogo, numa resposta por autor): a da AMÁLIA não a troca
     fixed_opening: bool = False
     info: dict[str, object] = field(default_factory=dict)
+    # CHAT_CARD_SUMMARIES: a frase de cada cartão, pela ordem dos cartões (None = sem frase). Com isto o
+    # rascunho não tem linhas: o texto é só a abertura e as frases vão nos cartões.
+    summaries: list[str | None] | None = None
 
     @property
     def text(self) -> str:
-        return "\n".join([self.opening, "", *self.lines])
+        return "\n".join([self.opening, "", *self.lines]) if self.lines else self.opening
 
 
 class DraftRewriteMerger:
@@ -52,6 +55,7 @@ class DraftRewriteMerger:
         self.out: list[str] = [draft.opening, ""] if draft.fixed_opening else []
         self.next = 0             # o próximo cartão por decidir
         self.rewritten = 0        # linhas em que ficou a da AMÁLIA
+        self.opening_rewritten = False   # a abertura que ficou é a dela
         self.done = False
 
     def _open(self, opening: str | None = None) -> None:
@@ -82,6 +86,7 @@ class DraftRewriteMerger:
                 # uma abertura que já fala das peças (com negrito, ou um parágrafo) repetia a lista: fica a do rascunho
                 usable = bool(opening) and "**" not in opening and len(opening) <= _OPENING_MAX_CHARS
                 self._open(opening if usable else None)
+                self.opening_rewritten = usable
             return
         number = int(item["number"])
         position = number - 1
@@ -109,6 +114,8 @@ class DraftRewriteMerger:
         """O texto decidido até agora (acaba numa mudança de linha enquanto houver mais para vir)."""
         if not self.out:
             return ""
+        if not self.draft.lines:   # sem lista (as frases vão nos cartões): o texto é a abertura
+            return self.out[0]
         joined = "\n".join(self.out)
         return joined if (self.done or self.next >= len(self.draft.lines)) else joined + "\n"
 

@@ -280,6 +280,19 @@ class Settings(BaseSettings):
     # (docs/rascunho-e-reescrita.md, 2026-11-20).
     CHAT_DRAFT_THEN_REWRITE: bool = False
     CHAT_DRAFT_TIMEOUT_SECONDS: float = 6.0
+    # O texto responde à pergunta e o que há a dizer de cada peça vai no cartão
+    # dela. Nas respostas em que o rascunho se aplica (CHAT_DRAFT_THEN_REWRITE,
+    # que tem de estar ligada), a frase de cada peça deixa de entrar em
+    # «N. **nome** – frase» e vai para `card_summary` do cartão; o texto é só a
+    # abertura, que passa a responder ao que foi perguntado. Os cartões de
+    # «Ver mais resultados» levam a sua frase quando a primeira página levou.
+    # O frontend mostra a lista de uma coluna quando algum cartão traz o campo
+    # (docs/frases-nos-cartoes.md, 2026-11-24).
+    CHAT_CARD_SUMMARIES: bool = False
+    # Com CHAT_CARD_SUMMARIES: a AMÁLIA reescreve a abertura (um pedido ao
+    # modelo final). Desligada, a abertura é a do pré-processamento e o modelo
+    # final não é chamado nessas respostas.
+    CHAT_CARD_SUMMARIES_REWRITE_OPENING: bool = False
     # Analítica do acervo por regras: «qual é a peça mais antiga/recente?»,
     # «quantas peças há nesta visita?», «de que século é a maioria?», «que autor
     # tem mais obras?». Calculado no OpenSearch (datas normalizadas a 2026-10-12);
