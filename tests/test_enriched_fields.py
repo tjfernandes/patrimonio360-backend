@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.services import enriched_fields as E
 from app.services.opensearch_client import OpenSearchGateway
 from tests.test_catalogue_analytics import DOCS, TestFastPath, _AnalyticsGateway
+from tools.enriquecimento import fotografia as F
 from tools.enriquecimento import regras as R
 from tools.enriquecimento import temas as T
 
@@ -295,10 +296,13 @@ class TestTemas(unittest.TestCase):
         self.assertEqual(self._temas(ficha, _sim("religioso", excerto="um santo com o seu cão")), {})        # o excerto não está na ficha
         self.assertEqual(self._temas(ficha, None), {})
 
-    def test_themes_still_waiting_do_not_enter(self) -> None:
+    def test_themes_accepted_as_they_are(self) -> None:
+        # decisão de 2026-11-24: os sete temas abaixo da fasquia entram tal como o modelo os dá
         ficha = _ficha(title="Terrina", category="Ourivesaria", description="De cada lado vêem-se as Armas Reais Portuguesas, entre folhas de acanto.")
         saida = _sim("heraldica", "flora", "arquitetura", excerto="Armas Reais Portuguesas, entre folhas de acanto")
-        self.assertEqual(self._temas(ficha, saida), {"Flora e ornamento vegetal": "texto"})
+        self.assertEqual(set(self._temas(ficha, saida)), {"Flora e ornamento vegetal", "Heráldica e poder", "Arquitetura e cidade"})
+        self.assertTrue(set(T.NOME.values()) - {"Escrita e texto", "Retrato"} - T.SO_EM_OBJETOS <= T.ACEITES_DO_MODELO)
+        self.assertEqual(set(T.PALAVRAS), set(T.NOME.values()))
 
     def test_decoration_themes_stay_out_of_paintings(self) -> None:
         saida = _sim("flora", "geometrico", "religioso", excerto="com decoração fitomórfica")
@@ -320,6 +324,19 @@ class TestTemas(unittest.TestCase):
         retrato = _ficha(title="Auto-retrato de D. Maria", category="Pintura")
         self.assertEqual(self._temas(retrato, None), {"Retrato": "campo"})
         self.assertEqual(T.palavras(T.aceitar(retrato, None, "pintura")), ["retrato"])
+
+    def test_what_the_photo_shows(self) -> None:
+        saida = {"cores_principais": ["vermelho"], "cores": ["vermelho"], "motivos": ["cenas narrativas"], "temas": ["Ciência e ofícios"],
+                 "tem_figura_humana": "sim", "tem_animais": "não", "tem_inscricao": "sim"}
+        self.assertEqual(F.aceitar(saida), ["pessoas", "letras"])        # só os três campos confirmados na validação
+        self.assertEqual(F.aceitar({"tem_animais": "não se sabe"}), [])
+        self.assertEqual(F.aceitar(None), [])
+        self.assertEqual(F.palavras(["animais"]), ["animal", "bicho"])
+        self.assertEqual(F.IMPRESSAO, "f419f58168ca3e9d")                   # a instrução conferida; mudá-la refaz a cache
+        # «pinturas com animais»: o animal tanto pode vir do tema (ficha) como da fotografia
+        vocabulary = {"enr_tipo": ["pintura"], "enr_temas_palavras": T.PALAVRAS["Animais"], "enr_foto_palavras": F.PALAVRAS["animais"]}
+        self.assertEqual(E.match_subject("pinturas animais", vocabulary),
+                         [{"enr_tipo": ["pintura"]}, {"enr_temas_palavras": ["animal"], "enr_foto_palavras": ["animal"]}])
 
     def test_the_prompt_is_the_one_that_was_validated(self) -> None:
         # mudar a instrução ou as definições muda as respostas: a validação deixa de valer e a cache é refeita

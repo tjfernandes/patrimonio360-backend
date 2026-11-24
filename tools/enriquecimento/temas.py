@@ -10,7 +10,8 @@ o que entra no índice decide-se em `aceitar`, sem modelo, por isso mudar as reg
 voltar a perguntar.
 
 As regras de aceitação vêm de 200 peças do MNAA conferidas uma a uma pelo Tiago (docs/enriquecimento-por-campos.md):
-só entram os temas com pelo menos 95% de valores certos e pelo menos 15 valores conferidos.
+os temas com pelo menos 95% de valores certos em pelo menos 15 conferidos, mais sete que ficaram abaixo disso e que o
+Tiago decidiu aceitar como estão (ver ACEITES_DO_MODELO).
 
 A instrução e as definições abaixo são as que foram conferidas. Mudá-las muda as respostas: a validação deixa
 de valer e a cache é refeita (a impressão digital da instrução faz parte de cada linha).
@@ -67,6 +68,11 @@ IMPRESSAO = hashlib.sha256((SISTEMA + PEDIDO + json.dumps(ESQUEMA, sort_keys=Tru
 # ---- o que a validação de 2026-11-24 deixa entrar (certos / conferidos, nas 200 peças) ----
 # pelo modelo, em qualquer peça: Religioso 86/86, Vida quotidiana 37/38, Animais 29/30, Paisagem 19/19, Ciência e ofícios 18/18
 ACEITES_DO_MODELO = {"Religioso", "Vida quotidiana", "Animais", "Paisagem e natureza", "Ciência e ofícios"}
+# abaixo da fasquia ou com poucos casos, aceites tal como estão por decisão do Tiago (2026-11-24): Arquitetura e cidade
+# 30/34, Heráldica e poder 22/25, Guerra e vida militar 9/11, Mitologia e alegoria 8/9, Oriente e contactos entre
+# culturas 6/7, Mar e navegação 6/6, Jogo e infância 3/4. Nos dois primeiros conta-se com cerca de 1 errado em cada 8.
+ACEITES_DO_MODELO |= {"Arquitetura e cidade", "Heráldica e poder", "Guerra e vida militar", "Mitologia e alegoria",
+                      "Oriente e contactos entre culturas", "Mar e navegação", "Jogo e infância"}
 # pelo modelo, só fora da categoria Pintura: aí são a decoração da própria peça (Flora 71/72, Geométrico 59/59); numa
 # pintura ou num fólio iluminado eram um pormenor da cena ou as linhas da página (Flora 7 certos em 21, Geométrico 3 em 18)
 SO_EM_OBJETOS = {"Flora e ornamento vegetal", "Ornamento geométrico"}
@@ -74,8 +80,6 @@ SO_EM_OBJETOS = {"Flora e ornamento vegetal", "Ornamento geométrico"}
 # com um livro na mão não é uma peça de escrita; pelo modelo eram 33 certos em 41), e «Retrato» só quando o título o diz
 # (os 4 erros em 21 vinham todos do modelo: um rosto entalhado numa cadeira, um busto num aparador)
 RETRATO_NO_TITULO = re.compile(r"(?<![a-z])(?:auto-?)?retratos?(?![a-z])")
-# à espera de uma instrução melhor: Arquitetura e cidade 30/34, Heráldica e poder 22/25, Guerra e vida militar 9/11,
-# Mitologia e alegoria 8/9, Oriente e contactos entre culturas 6/7, Mar e navegação 6/6, Jogo e infância 3/4
 
 # as palavras com que um visitante pede cada tema (o backend compara-as com o assunto de uma contagem)
 PALAVRAS = {
@@ -88,6 +92,13 @@ PALAVRAS = {
     "Ornamento geométrico": ["geométrico", "geométrica"],
     "Escrita e texto": ["manuscrito", "escrita", "texto"],
     "Retrato": ["retrato"],
+    "Arquitetura e cidade": ["arquitetura", "cidade", "edifício"],
+    "Heráldica e poder": ["heráldica", "brasão", "armas reais"],
+    "Guerra e vida militar": ["guerra", "batalha", "militar", "soldado"],
+    "Mitologia e alegoria": ["mitologia", "mitológico", "mitológica", "alegoria", "alegórico", "alegórica"],
+    "Oriente e contactos entre culturas": ["oriente", "oriental"],
+    "Mar e navegação": ["mar", "navegação", "navio", "barco", "marinha"],
+    "Jogo e infância": ["jogo", "brinquedo", "infância"],
 }
 
 

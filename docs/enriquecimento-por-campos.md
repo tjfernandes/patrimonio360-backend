@@ -32,7 +32,8 @@ peças não é tocado.
 | `enr_cores` | fechada | título e descrição |
 | `enr_estilo` | fechada | só quando a ficha o escreve |
 | `enr_tamanho` e as medidas em centímetros | cinco classes | campo das dimensões |
-| `enr_temas`, `enr_temas_palavras` | fechada (nove temas) | o modelo de pré-processamento lê a ficha; ver «Temas» |
+| `enr_temas`, `enr_temas_palavras` | fechada (16 temas) | o modelo de pré-processamento lê a ficha; ver «Temas» |
+| `enr_foto`, `enr_foto_palavras` | pessoas, animais, letras | o modelo de visão olha para a fotografia; ver «Pela fotografia» |
 
 Os campos `_ficha` têm só o que veio de um campo estruturado da ficha. `enr_detalhe` guarda, para cada valor, a fonte
 (`campo`, `texto` ou `regra`) e o excerto; não é pesquisável.
@@ -40,8 +41,8 @@ Os campos `_ficha` têm só o que veio de um campo estruturado da ficha. `enr_de
 ### Como o assunto é lido
 
 O assunto de uma contagem («cadeiras», «esculturas madeira») é comparado com os valores que o museu tem em `enr_tipo`,
-`enr_materiais`, `enr_tecnicas`, `enr_funcao`, `enr_origem_pais` e `enr_temas_palavras` (as palavras com que se pede cada
-tema: «religiosas», «animais», «paisagens»). É uma comparação com dados, sem modelo
+`enr_materiais`, `enr_tecnicas`, `enr_funcao`, `enr_origem_pais`, `enr_temas_palavras` (as palavras com que se pede cada
+tema: «religiosas», «animais», «paisagens») e `enr_foto_palavras` (o que se vê na fotografia). É uma comparação com dados, sem modelo
 (`app/services/enriched_fields.py`):
 
 - plurais e particípios («texteis» → «têxtil», «bordadas» → «bordado») e valores de várias palavras («pintura a óleo»);
@@ -130,12 +131,33 @@ Três decisões que a validação pediu:
   iluminado o modelo dava-os por um pormenor da cena ou pelas linhas que guiam o texto.
 - **«Retrato» só pelo título.** Os quatro erros vinham do modelo: um rosto entalhado numa cadeira, um busto num aparador.
 
-Ficam de fora, à espera de uma instrução melhor: Arquitetura e cidade (30 de 34), Heráldica e poder (22 de 25), Guerra e
-vida militar (9 de 11), Mitologia e alegoria (8 de 9), Oriente e contactos entre culturas (6 de 7), Mar e navegação (6
-de 6) e Jogo e infância (3 de 4). O Tiago marcou ainda 15 temas em falta em 14 peças.
+Sete temas ficaram abaixo da fasquia ou com poucos casos: Arquitetura e cidade (30 de 34), Heráldica e poder (22 de 25),
+Guerra e vida militar (9 de 11), Mitologia e alegoria (8 de 9), Oriente e contactos entre culturas (6 de 7), Mar e
+navegação (6 de 6) e Jogo e infância (3 de 4). O Tiago decidiu a 2026-11-24 que entram tal como o modelo os dá: conta-se
+com cerca de 1 errado em cada 8 nos dois primeiros, e nos outros cinco não se sabe. Marcou ainda 15 temas em falta em 14
+peças.
 
-Pela fotografia (o modelo de visão a olhar para a imagem), também conferido mas ainda fora do índice: «tem pessoas»,
-«tem animais» e «tem letras» certos em 599 de 600; a cor principal em 468 de 486.
+## Pela fotografia
+
+`tools/enriquecimento/fotografia.py` mostra ao modelo de visão até duas fotografias de cada peça. Na validação, «tem
+pessoas», «tem animais» e «tem letras ou inscrição» estavam certos em 599 de 600, e são os três que vão para o índice
+(`enr_foto`: pessoas, animais, letras). A cor principal (468 de 486) falha nas fotografias a preto e branco e fica de
+fora; os motivos e os temas vistos na imagem saíram maus e não se usam.
+
+Ao contrário dos temas, isto não depende do que a ficha escreve: uma pintura com um cão que a descrição não menciona
+conta em «pinturas com animais». Não se sabe quantas ficam por apanhar: a validação mediu os valores atribuídos.
+
+## A pesquisa normal não filtra por estes campos (medido a 2026-11-24)
+
+Antes de ligar os campos à pesquisa («mostra-me cadeiras», «peças em marfim») mediram-se 20 perguntas no backend em
+produção. Das 15 que se leem pelos campos enriquecidos, em 9 os cartões já eram todos peças do conjunto certo, e em mais
+duas eram 7 em 8 (nas cadeiras, a que sobra é uma duchesse). Nas outras, o que fica de fora do conjunto são peças certas que o
+enriquecimento não apanha: em «peças vindas do Japão» ficavam de fora os biombos Namban, cuja ficha não tem centro de
+produção; em «esculturas em madeira», esculturas cuja ficha não diz o material. Um filtro tirava-as da resposta.
+
+Um filtro só serve com campos que cobrem quase todas as peças. O tipo (99%) e a fotografia (99%) cobrem; o material
+(92%, e 21% nas esculturas) e a origem (33%) não. Fica por fazer, e por medir, o filtro só para pedidos que juntam um
+tipo ao que se vê («pinturas com animais»), que é onde a pesquisa de hoje mistura desenhos com pinturas.
 
 ## Limites
 
@@ -158,13 +180,15 @@ Pela fotografia (o modelo de visão a olhar para a imagem), também conferido ma
 conda activate visitas_virtuais
 cd ~/Projects/AMALIA/patrimonio360-backend
 python -m tools.enriquecimento.temas --museu mnaa                # pergunta ao modelo os temas das peças que faltam (retoma sozinho)
+python -m tools.enriquecimento.fotografia --museu mnaa           # pergunta ao modelo de visão o que se vê nas fotografias (idem)
 python -m tools.enriquecimento.construir --museu mnaa            # lê as fichas, aplica as regras, junta os temas, mostra a cobertura
 python -m tools.enriquecimento.indexar --museu mnaa              # simula
 python -m tools.enriquecimento.indexar --museu mnaa --executar   # cria o índice se faltar e escreve
 ```
 
 As regras não precisam da GPU nem de parar o backend. Os temas usam o modelo de pré-processamento que já está de pé (o
-mesmo que serve produção: cerca de 1 segundo por peça com 3 a 4 pedidos em paralelo). O backend guarda os valores do museu durante dez minutos; depois de
+mesmo que serve produção: cerca de 1 segundo por peça com 3 a 4 pedidos em paralelo; enquanto corre, as perguntas dos
+visitantes demoram 10 a 16 segundos em vez de 3 a 6, por isso é para fazer sem ninguém a usar). O backend guarda os valores do museu durante dez minutos; depois de
 reindexar, as contagens mudam sozinhas nesse prazo.
 
 Testes: `python -m unittest tests.test_enriched_fields`.
