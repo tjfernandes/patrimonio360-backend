@@ -348,9 +348,54 @@ def answer_list_plan(retrieval_context: str, language: str | None = None) -> str
 # contra o gerúndio, 31 de 260 linhas inventavam um livro que a ficha não tinha. Qualquer alteração repete a medição.
 
 
-def build_draft_sentence_prompt(*, user_message: str | None, card: str, language: str | None = None) -> str:
+def _card_summary_prompt(*, user_message: str | None, card: str, language: str | None) -> str:
+    """O texto do cartão de uma peça (CHAT_CARD_SUMMARIES): o que a peça é e, quando o pedido pergunta por uma
+    coisa que a ficha responde, o que a ficha diz. Sem exemplos com objetos: o modelo copiava-os."""
+    if _normalize_language(language) == "en":
+        asked = f"The visitor asked:\n«{user_message}»\n\n" if user_message else ""
+        about_request = (
+            "When the request asks for something specific that the record answers (who made it, when, what it is made "
+            "of, what kind of object it is), say what the record says, even when it is not what was asked for. "
+            if user_message else ""
+        )
+        return (
+            f"You are the pre-processor of a museum guide. {asked}"
+            "Below is the record of one of the objects the visitor will be shown. Write the text that goes on the card "
+            "of that object: say briefly what the object is, in one or two short sentences, at most 25 words in all, in "
+            f"English, using only what is in the record. {about_request}"
+            "Do not repeat the title, do not give the inventory number and do not mention the virtual tour or rooms. "
+            "Plain text, no bold and no lists.\n"
+            'Answer with JSON only: {"frase": "..."}\n\n'
+            f"RECORD:\n{card}"
+        )
+    asked = f"O visitante pediu:\n«{user_message}»\n\n" if user_message else ""
+    about_request = (
+        "Quando o pedido pergunta por uma coisa concreta que a ficha responde (quem a fez, de quando é, de que é feita, "
+        "que tipo de peça é), diz o que a ficha diz, mesmo quando não é o que foi pedido. "
+        if user_message else ""
+    )
+    return (
+        f"És o pré-processador de um guia de museu. {asked}"
+        "Abaixo está a ficha de uma das peças que lhe vão ser mostradas. Escreve o texto que vai no cartão dessa peça: "
+        "diz brevemente o que a peça é, em uma ou duas frases curtas, com no máximo 25 palavras ao todo, em português "
+        f"de Portugal, só com o que está na ficha. {about_request}"
+        "Não repitas o título, não digas o número de inventário e não fales da visita virtual nem de salas. Escreve "
+        "como se escreve em Portugal, com o verbo conjugado («que representa», «que mostra») e nunca com o gerúndio "
+        "(formas acabadas em -ando, -endo, -indo, como «representando» ou «mostrando»). Não omitas os artigos. Texto "
+        "simples, sem negrito nem listas.\n"
+        'Responde só com JSON: {"frase": "..."}\n\n'
+        f"FICHA:\n{card}"
+    )
+
+
+def build_draft_sentence_prompt(
+    *, user_message: str | None, card: str, language: str | None = None, card_summary: bool = False
+) -> str:
     """A frase muito breve de uma peça, só com a ficha dela (`card`, um cartão compacto).
-    `user_message` None: sem o pedido (pergunta pelo aspeto, ver CHAT_VISUAL_ANSWER_RULE)."""
+    `user_message` None: sem o pedido (pergunta pelo aspeto, ver CHAT_VISUAL_ANSWER_RULE).
+    `card_summary`: a frase vai no cartão da peça e não numa lista do texto (CHAT_CARD_SUMMARIES)."""
+    if card_summary:
+        return _card_summary_prompt(user_message=user_message, card=card, language=language)
     if _normalize_language(language) == "en":
         asked = f"The visitor asked:\n«{user_message}»\n\n" if user_message else ""
         return (
@@ -374,8 +419,51 @@ def build_draft_sentence_prompt(*, user_message: str | None, card: str, language
     )
 
 
-def build_draft_opening_prompt(*, user_message: str, cards: str, language: str | None = None) -> str:
-    """A frase de abertura da resposta, com o pedido e os cartões que vão ser mostrados."""
+def _answer_opening_prompt(*, user_message: str, cards: str, language: str | None) -> str:
+    """O texto da resposta quando as peças se dizem nos cartões (CHAT_CARD_SUMMARIES): responde ao que foi perguntado."""
+    if _normalize_language(language) == "en":
+        return (
+            "You are the pre-processor of a museum guide. The visitor asked:\n"
+            f"«{user_message}»\n\n"
+            "Below are the records of the objects the visitor will be shown on cards, in the order they appear. Each "
+            "card already says what its object is. You write only the answer to the request: one short sentence, of at "
+            "most 25 words, in English, that holds for the objects as a whole and speaks of none in particular. What "
+            "answers the request is enough: do not add periods, styles, techniques or provenances that were not asked "
+            "for. Use only what is in the records. If the visitor asked who, when, where or whether there are any, the "
+            "sentence answers that; if the records give different answers (several makers, several dates), the sentence "
+            "says there are several, without picking one, and a date is given as it is in the records, without "
+            "rounding it. If the objects are not what was asked for, the sentence says what "
+            "they are. Do not write titles of objects or inventory numbers, do not say how many there are, do not say "
+            "which museum they are in and do not mention the virtual tour. Plain text, no bold and no lists.\n"
+            'Answer with JSON only: {"abertura": "..."}\n\n'
+            f"RECORDS:\n{cards}"
+        )
+    return (
+        "És o pré-processador de um guia de museu. O visitante pediu:\n"
+        f"«{user_message}»\n\n"
+        "Abaixo estão as fichas das peças que lhe vão ser mostradas em cartões, pela ordem em que aparecem. Cada cartão "
+        "já diz o que a sua peça é. Tu escreves só a resposta ao pedido: uma frase curta, com 25 palavras no máximo, "
+        "em português de Portugal, que valha para o conjunto das peças e não fale de nenhuma em particular. Basta o "
+        "que responde ao pedido: não juntes épocas, estilos, técnicas ou proveniências que não foram pedidos. Usa só o "
+        "que está nas fichas. Se o visitante perguntou quem, quando, onde ou se há, a frase responde a isso; se as "
+        "fichas dão respostas diferentes (vários autores, várias datas), a frase diz que são várias, sem escolher uma, "
+        "e uma data diz-se como está nas fichas, sem a arredondar. Se as "
+        "peças não são o que foi pedido, a frase diz o que são. Não escrevas títulos de peças nem números de "
+        "inventário, não digas quantas são, não digas em que museu estão e não fales da visita virtual. Escreve como "
+        "se escreve em Portugal, com o verbo conjugado e nunca com o gerúndio (formas acabadas em -ando, -endo, "
+        "-indo). Texto simples, sem negrito nem listas.\n"
+        'Responde só com JSON: {"abertura": "..."}\n\n'
+        f"FICHAS:\n{cards}"
+    )
+
+
+def build_draft_opening_prompt(
+    *, user_message: str, cards: str, language: str | None = None, card_summaries: bool = False
+) -> str:
+    """A frase de abertura da resposta, com o pedido e os cartões que vão ser mostrados.
+    `card_summaries`: as peças dizem-se nos cartões e a abertura é a resposta toda (CHAT_CARD_SUMMARIES)."""
+    if card_summaries:
+        return _answer_opening_prompt(user_message=user_message, cards=cards, language=language)
     if _normalize_language(language) == "en":
         return (
             "You are the pre-processor of a museum guide. The visitor asked:\n"

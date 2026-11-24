@@ -2,6 +2,9 @@
 
 Flag `CHAT_DRAFT_THEN_REWRITE`, desligada por omissão.
 
+Com `CHAT_CARD_SUMMARIES` a frase de cada peça vai no cartão dela e o texto fica só com a abertura: ver
+`docs/frases-nos-cartoes.md` (2026-11-24).
+
 ## O problema
 
 Numa resposta com lista, a AMÁLIA recebia um prompt de 6 600 caracteres (regras, a lista começada, os cartões com

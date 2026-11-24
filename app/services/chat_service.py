@@ -2128,6 +2128,9 @@ class ChatService:
             docs=docs,
             conversation_id=payload.conversation_id,
         )
+        artifact_results = await self._results_page_card_summaries(
+            request=request, cards=artifact_results, language=payload.language
+        )
         reported_total = self._reported_results_total(request, page_result.total)
         reply = await self._generate_results_page_reply(
             payload=payload,
@@ -4055,12 +4058,107 @@ class ChatService:
     # ----- O pré-processamento escreve o rascunho, a AMÁLIA reescreve (CHAT_DRAFT_THEN_REWRITE) ----- #
 
     @staticmethod
-    def _draft_sentence(value: Any) -> str:
+    def _draft_sentence(value: Any, limit: int = 240) -> str:
         """Uma frase do modelo de pré-processamento, numa linha, sem marcas e com ponto final."""
         text = re.sub(r"\s+", " ", str(value or "")).replace("*", "").strip(" \"«»“”'–—-")
-        if not text or len(text) > 240:
+        if not text or len(text) > limit:
             return ""
         return text if text[-1] in ".!?…" else text + "."
+
+    # o cartão do frontend corta ao fim de três linhas
+    _CARD_SUMMARY_MAX_CHARS = 220
+    # um gerúndio em minúsculas, com ou sem «-se»; nomes próprios e o início da frase ficam de fora
+    _GERUND = re.compile(r"(?<![\w-])(?P<stem>[a-zà-ü]{2,}?)(?P<vowel>[aei])ndo(?P<se>-se)?(?![\w-])")
+    # acabam em -ando, -endo, -indo e ficam como estão: não são gerúndio, ou são-no num uso que em Portugal
+    # também se escreve assim («tendo», «incluindo», «datando do século XVI»)
+    _GERUND_KEPT = frozenset("""quando bando comando contrabando brando mando desmando memorando nefando venerando
+        educando ordenando graduando examinando doutorando mestrando formando normando lindo infindo vindo provindo
+        advindo tamarindo reverendo tremendo horrendo estupendo dividendo adendo remendo crescendo sendo tendo estando
+        havendo podendo devendo incluindo excluindo seguindo usando utilizando empregando recorrendo combinando
+        partindo dependendo considerando tratando datando variando medindo pesando totalizando perfazendo
+        constituindo resultando permitindo destacando""".split())
+
+    @classmethod
+    def _without_gerund(cls, text: str) -> str:
+        """O gerúndio à brasileira que escapa às instruções («um anjo segurando uma coroa») passa a «a» com
+        o infinitivo («um anjo a segurar uma coroa»), que é o que os prompts pedem."""
+        def infinitive(match: re.Match[str]) -> str:
+            if match[0].removesuffix("-se") in cls._GERUND_KEPT:
+                return match[0]
+            return f"a {match['stem']}{match['vowel']}r{match['se'] or ''}"
+
+        return cls._GERUND.sub(infinitive, text)
+
+    def _card_summary_text(self, value: Any) -> str:
+        """O texto de um cartão (CHAT_CARD_SUMMARIES): como `_draft_sentence`, sem gerúndio e com 220
+        caracteres no máximo. Do que passar disso ficam as frases inteiras que couberem; se nem a primeira
+        couber, não há texto do modelo (entra a primeira frase da descrição da ficha)."""
+        text = self._without_gerund(self._draft_sentence(value, limit=600))
+        limit = self._CARD_SUMMARY_MAX_CHARS
+        if len(text) <= limit:
+            return text
+        end = 0
+        for match in re.finditer(r"[.!?]\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕ\"«])", text):
+            before = text[: match.start()].rsplit(" ", 1)[-1].strip("(«\"").casefold()
+            if text[match.start()] == "." and before in self._SENTENCE_ABBREVIATIONS:
+                continue
+            if match.start() + 1 > limit:
+                break
+            end = match.start() + 1
+        return text[:end]
+
+    async def _draft_ask(self, prompt: str, key: str, max_tokens: int, *, clean: Callable[[Any], str] | None = None) -> str:
+        """Um pedido do rascunho ao modelo de pré-processamento: o valor de `key` no JSON, limpo; vazio se falhar ou demorar."""
+        timeout = float(getattr(self.settings, "CHAT_DRAFT_TIMEOUT_SECONDS", 6.0) or 6.0)
+        try:
+            response = await asyncio.wait_for(
+                self.preprocess_llm_service.generate(
+                    step=f"rascunho_{key}",
+                    message=prompt, response_format=ResponseFormatObject(type="json_object"),
+                    system_prompt=None, model_override=None, max_tokens=max_tokens,
+                ),
+                timeout=timeout,
+            )
+            data = response.parsed_json
+            return (clean or self._draft_sentence)(data.get(key)) if isinstance(data, dict) else ""
+        except Exception as exc:  # noqa: BLE001 — sem frase do modelo fica a da ficha
+            log_event(logger, logging.WARNING, "chat.draft.llm_error", key=key, error=exc)
+            return ""
+
+    def _draft_cards_text(self, cards: list[ArtifactResult], visual_facts: dict[str, str] | None) -> str:
+        """As fichas como vão nos pedidos do rascunho: compactas e sem a linha da visita virtual."""
+        return self._format_docs_compact(
+            docs=self._artifact_results_as_prompt_docs(cards, visual_facts=visual_facts, tour_presence=False)
+        )
+
+    async def _draft_card_sentence(
+        self,
+        card: ArtifactResult,
+        *,
+        user_message: str,
+        language: str | None,
+        visual_facts: dict[str, str] | None,
+        card_summary: bool = False,
+    ) -> str:
+        """A frase de uma peça, num pedido só com a ficha dela. Vazio se o modelo falhar."""
+        text = self._draft_cards_text([card], visual_facts)
+        # numa pergunta pelo aspeto o pedido não vai: o modelo dizia de cada peça o que o visitante pediu
+        hide_request = bool(getattr(self.settings, "CHAT_VISUAL_ANSWER_RULE", False))
+        asked = None if (hide_request and "    Aspeto na fotografia: " in text) else user_message
+        if card_summary:
+            return await self._draft_ask(
+                build_draft_sentence_prompt(user_message=asked, card=text, language=language, card_summary=True),
+                "frase", 130, clean=self._card_summary_text,
+            )
+        return await self._draft_ask(build_draft_sentence_prompt(user_message=asked, card=text, language=language), "frase", 80)
+
+    def _card_summary_or_record(self, card: ArtifactResult, written: str, *, language: str | None) -> str | None:
+        """O texto do cartão: a frase do modelo ou, sem ela, a primeira frase da descrição da ficha."""
+        if written:
+            return written
+        if normalize_language(language) == "en":
+            return None   # a descrição da ficha está em português
+        return self._first_sentence(card.description) or None
 
     async def _draft_answer(
         self,
@@ -4070,6 +4168,7 @@ class ChatService:
         language: str | None,
         visual_facts: dict[str, str] | None = None,
         fixed_opening: str | None = None,
+        card_summaries: bool = False,
     ) -> AnswerDraft:
         """O rascunho de uma resposta com lista: a abertura e uma frase muito
         breve por cartão, escritas pelo modelo de pré-processamento.
@@ -4080,66 +4179,105 @@ class ChatService:
         virtual. Uma frase que falhe, demore ou venha vazia dá lugar à
         primeira frase da descrição da ficha; a abertura, a uma frase feita.
         `fixed_opening` é a abertura das respostas por autor (os números do
-        catálogo): não se pede outra."""
+        catálogo): não se pede outra.
+
+        `card_summaries` (CHAT_CARD_SUMMARIES): as frases vão nos cartões
+        (`summaries`) e o rascunho não tem lista; a abertura responde ao que
+        foi perguntado e é o texto todo."""
         started = time.monotonic()
         english = normalize_language(language) == "en"
-        timeout = float(getattr(self.settings, "CHAT_DRAFT_TIMEOUT_SECONDS", 6.0) or 6.0)
-        hide_request = bool(getattr(self.settings, "CHAT_VISUAL_ANSWER_RULE", False))
-
-        def compact(group: list[ArtifactResult]) -> str:
-            return self._format_docs_compact(
-                docs=self._artifact_results_as_prompt_docs(group, visual_facts=visual_facts, tour_presence=False)
-            )
-
-        async def ask(prompt: str, key: str, max_tokens: int) -> str:
-            try:
-                response = await asyncio.wait_for(
-                    self.preprocess_llm_service.generate(
-                        step=f"rascunho_{key}",
-                        message=prompt, response_format=ResponseFormatObject(type="json_object"),
-                        system_prompt=None, model_override=None, max_tokens=max_tokens,
-                    ),
-                    timeout=timeout,
-                )
-                data = response.parsed_json
-                return self._draft_sentence(data.get(key)) if isinstance(data, dict) else ""
-            except Exception as exc:  # noqa: BLE001 — sem frase do modelo fica a da ficha
-                log_event(logger, logging.WARNING, "chat.draft.llm_error", key=key, error=exc)
-                return ""
-
-        async def sentence(card: ArtifactResult) -> str:
-            text = compact([card])
-            # numa pergunta pelo aspeto o pedido não vai: o modelo dizia de cada peça o que o visitante pediu
-            asked = None if (hide_request and "    Aspeto na fotografia: " in text) else user_message
-            return await ask(build_draft_sentence_prompt(user_message=asked, card=text, language=language), "frase", 80)
 
         async def opening() -> str:
             if fixed_opening:
                 return fixed_opening
-            return await ask(
-                build_draft_opening_prompt(user_message=user_message, cards=compact(cards), language=language), "abertura", 80
+            if card_summaries:
+                return await self._draft_ask(
+                    build_draft_opening_prompt(
+                        user_message=user_message, cards=self._draft_cards_text(cards, visual_facts), language=language,
+                        card_summaries=True,
+                    ),
+                    "abertura", 150, clean=lambda value: self._without_gerund(self._draft_sentence(value, limit=300)),
+                )
+            return await self._draft_ask(
+                build_draft_opening_prompt(
+                    user_message=user_message, cards=self._draft_cards_text(cards, visual_facts), language=language
+                ),
+                "abertura", 80,
             )
 
-        written_opening, *sentences = await asyncio.gather(opening(), *(sentence(card) for card in cards))
+        written_opening, *sentences = await asyncio.gather(
+            opening(),
+            *(
+                self._draft_card_sentence(
+                    card, user_message=user_message, language=language, visual_facts=visual_facts, card_summary=card_summaries
+                )
+                for card in cards
+            ),
+        )
+        from_model = sum(1 for written in sentences if written)
+        info: dict[str, object] = {
+            "cards": len(cards), "sentences_from_model": from_model, "opening": "fixed" if fixed_opening else "model",
+        }
+        if card_summaries:
+            summaries = [
+                self._card_summary_or_record(card, written, language=language) for card, written in zip(cards, sentences)
+            ]
+            if not written_opening:
+                info["opening"] = "fallback"
+                written_opening = "Here is what I found." if english else "Encontrei estas peças."
+            info.update(card_summaries=sum(1 for summary in summaries if summary),
+                        elapsed_ms=round((time.monotonic() - started) * 1000, 1))
+            return AnswerDraft(
+                opening=written_opening, names=[], lines=[], fixed_opening=bool(fixed_opening), info=info, summaries=summaries
+            )
         titles = [self._card_list_title(card) for card in cards]
         folded = [fold(title) for title in titles]
         lines: list[str] = []
-        from_model = 0
         for number, (card, title, written) in enumerate(zip(cards, titles, sentences), start=1):
             inventory = str(card.inventory_number or "").strip()
             # títulos repetidos levam o n.º de inventário, para se saber de que cartão é a linha
             repeated = folded.count(fold(title)) > 1 and inventory and fold(inventory) != fold(title)
             name = f"**{title}**" + (f" ({inventory})" if repeated else "")
-            from_model += bool(written)
             text = written or ("" if english else self._first_sentence(card.description))
             lines.append(f"{number}. {name} – {text}" if text else f"{number}. {name}")
         if not written_opening:
             written_opening = "Here is what I found:" if english else "Encontrei estas peças:"
-        info = {
-            "cards": len(cards), "sentences_from_model": from_model, "opening": "fixed" if fixed_opening else "model",
-            "elapsed_ms": round((time.monotonic() - started) * 1000, 1),
-        }
+        info["elapsed_ms"] = round((time.monotonic() - started) * 1000, 1)
         return AnswerDraft(opening=written_opening, names=titles, lines=lines, fixed_opening=bool(fixed_opening), info=info)
+
+    async def _results_page_card_summaries(
+        self, *, request: dict[str, Any], cards: list[ArtifactResult], language: str | None
+    ) -> list[ArtifactResult]:
+        """CHAT_CARD_SUMMARIES em «Ver mais resultados»: os cartões desta página com a sua frase, quando os
+        da primeira página a levaram (senão a primeira ficava em lista e as seguintes em grelha). O pedido e
+        se era pelo aspeto vêm guardados da primeira página. Sem frase do modelo fica a da ficha."""
+        marker = request.get("card_summaries")
+        if not (bool(getattr(self.settings, "CHAT_CARD_SUMMARIES", False)) and isinstance(marker, dict) and cards):
+            return cards
+        started = time.monotonic()
+        try:
+            visual_facts = (
+                await self._fetch_visual_card_facts([card.artifact_id for card in cards]) if marker.get("visual") else {}
+            )
+            sentences = await asyncio.gather(*(
+                self._draft_card_sentence(
+                    card, user_message=str(marker.get("question") or ""), language=language, visual_facts=visual_facts,
+                    card_summary=True,
+                )
+                for card in cards
+            ))
+        except Exception as exc:  # noqa: BLE001 — sem as frases do modelo ficam as das fichas
+            log_event(logger, logging.WARNING, "chat.card_summaries.error", error=exc)
+            sentences = ["" for _ in cards]
+        log_event(
+            logger, logging.INFO, "chat.card_summaries", where="results_page", cards=len(cards),
+            sentences_from_model=sum(1 for written in sentences if written),
+            elapsed_ms=round((time.monotonic() - started) * 1000, 1),
+        )
+        return [
+            card.model_copy(update={"card_summary": self._card_summary_or_record(card, written, language=language)})
+            for card, written in zip(cards, sentences)
+        ]
 
     def _rewrite_stream(
         self,
@@ -6500,6 +6638,7 @@ class ChatService:
         # CHAT_DRAFT_THEN_REWRITE: numa resposta com lista, o pré-processamento escreve o rascunho (a
         # abertura e uma frase por cartão) e a AMÁLIA só o reescreve. Qualquer falha deixa o prompt de sempre.
         answer_draft: AnswerDraft | None = None
+        draft_question = str(router_decision.get("rewritten_query") or "").strip() or original_message
         if (
             bool(getattr(self.settings, "CHAT_DRAFT_THEN_REWRITE", False))
             and requested_format.type == "text"
@@ -6512,9 +6651,10 @@ class ChatService:
         ):
             try:
                 answer_draft = await self._draft_answer(
-                    user_message=str(router_decision.get("rewritten_query") or "").strip() or original_message,
+                    user_message=draft_question,
                     cards=paged_artifact_results, language=language, visual_facts=visual_facts,
                     fixed_opening=author_opening,
+                    card_summaries=bool(getattr(self.settings, "CHAT_CARD_SUMMARIES", False)),
                 )
                 log_event(
                     logger, logging.INFO, "chat.draft",
@@ -6523,6 +6663,21 @@ class ChatService:
             except Exception as exc:  # noqa: BLE001
                 log_event(logger, logging.WARNING, "chat.draft.error", error=exc)
                 answer_draft = None
+        # CHAT_CARD_SUMMARIES: a frase de cada peça vai no cartão dela e o texto é só a abertura. Sem
+        # CHAT_CARD_SUMMARIES_REWRITE_OPENING (e sempre na abertura do autor, que nunca é trocada) o texto
+        # já está escrito e o modelo final não é chamado.
+        answer_is_final = False
+        if answer_draft is not None and answer_draft.summaries is not None:
+            paged_artifact_results = [
+                card.model_copy(update={"card_summary": summary})
+                for card, summary in zip(paged_artifact_results, answer_draft.summaries)
+            ]
+            if isinstance(state.last_paged_retrieval_request, dict):
+                # os cartões de «Ver mais resultados» levam a sua frase, escrita com o mesmo pedido
+                state.last_paged_retrieval_request["card_summaries"] = {"question": draft_question, "visual": bool(visual_facts)}
+            answer_is_final = answer_draft.fixed_opening or not bool(
+                getattr(self.settings, "CHAT_CARD_SUMMARIES_REWRITE_OPENING", False)
+            )
         if answer_draft is not None:
             final_message = build_rewrite_prompt(museum_name=search_museum_name, draft=answer_draft.text, language=language)
         else:
@@ -6602,7 +6757,8 @@ class ChatService:
         flush_bold_names: Callable[[], Awaitable[None]] | None = None
         if stream_cb_factory is not None and answer_draft is not None:
             # CHAT_DRAFT_THEN_REWRITE: segue, linha a linha, o que fica na resposta final
-            stream_cb_factory, finish_committed = self._rewrite_stream(stream_cb_factory, answer_draft, clean_rewritten_line)
+            if not answer_is_final:
+                stream_cb_factory, finish_committed = self._rewrite_stream(stream_cb_factory, answer_draft, clean_rewritten_line)
         elif (
             stream_cb_factory is not None
             and list_planned
@@ -6631,15 +6787,31 @@ class ChatService:
         llm_started_at = time.monotonic()
         try:
             try:
-                llm_response = await self._generate_final_answer_with_context_retries(
-                    initial_message=final_message,
-                    response_format=requested_format,
-                    system_prompt=self._final_system_prompt(payload.system_prompt, language),
-                    model_override=payload.model_override,
-                    visible_result_count=retry_context_result_count,
-                    build_message_for_result_count=build_text_final_message_for_result_count,
-                    stream_cb_factory=stream_cb_factory,
-                )
+                if answer_is_final and answer_draft is not None:
+                    # CHAT_CARD_SUMMARIES: o texto é a abertura do rascunho; quem a escreveu foi o
+                    # pré-processamento (ou os números do catálogo, numa resposta por autor)
+                    llm_response = LLMResponse(
+                        text=answer_draft.opening,
+                        model=(
+                            "deterministic:author_counts" if answer_draft.fixed_opening
+                            else str(
+                                getattr(self.settings, "CHAT_PREPROCESS_LLM_MODEL", "")
+                                if bool(getattr(self.settings, "CHAT_PREPROCESS_LLM_ENABLED", False))
+                                else self.settings.llm_model_resolved
+                            )
+                        ),
+                        response_format=requested_format, finish_reason="stop",
+                    )
+                else:
+                    llm_response = await self._generate_final_answer_with_context_retries(
+                        initial_message=final_message,
+                        response_format=requested_format,
+                        system_prompt=self._final_system_prompt(payload.system_prompt, language),
+                        model_override=payload.model_override,
+                        visible_result_count=retry_context_result_count,
+                        build_message_for_result_count=build_text_final_message_for_result_count,
+                        stream_cb_factory=stream_cb_factory,
+                    )
             except LLMServiceError as rewrite_exc:
                 if answer_draft is None:
                     raise
@@ -6739,7 +6911,9 @@ class ChatService:
             self._split_card_selection(llm_response.text) if select_cards else (llm_response.text, None)
         )
         rewritten_lines: int | None = None
-        if answer_draft is not None:
+        if answer_draft is not None and answer_is_final:
+            final_reply_text, rewritten_lines = answer_draft.opening, 0
+        elif answer_draft is not None:
             final_reply_text, rewritten_lines = merge_rewrite(answer_draft, llm_response.text, clean=clean_rewritten_line)
         else:
             final_reply_text = sanitize_reply(llm_text)
@@ -6787,7 +6961,15 @@ class ChatService:
             log_event(
                 logger, logging.INFO, "chat.draft.rewritten",
                 conversation_id=conversation_id, query_id=query_id, lines=len(answer_draft.lines), rewritten=rewritten_lines,
+                **(
+                    {"card_summaries": sum(1 for summary in answer_draft.summaries if summary),
+                     "opening": "final" if answer_is_final else ("rewritten" if final_reply_text != answer_draft.opening else "draft")}
+                    if answer_draft.summaries is not None else {}
+                ),
             )
+        if answer_is_final and stream_cb_factory is not None:
+            # o modelo final não escreveu: o texto segue de uma vez
+            await stream_cb_factory()(final_reply_text)
         if finish_committed is not None:
             # o streaming enviou o princípio deste texto: segue o que falta
             await finish_committed(final_reply_text)

@@ -26,6 +26,7 @@ FRONTEND_EVENT_TYPES = {
     "artifact_info_closed",
     "tour_window_opened",
     "tour_window_closed",
+    "objects_loaded",
     "task_started",
     "task_completed",
     "feedback_clicked",
