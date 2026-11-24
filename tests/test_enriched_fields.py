@@ -8,6 +8,7 @@ import asyncio
 import unittest
 
 from app.core.config import Settings
+from app.core.logging import sanitize_for_terminal_json
 from app.services import enriched_fields as E
 from app.services.opensearch_client import OpenSearchGateway
 from tests.test_catalogue_analytics import DOCS, TestFastPath, _AnalyticsGateway
@@ -66,12 +67,40 @@ class TestMatchSubject(unittest.TestCase):
         self.assertEqual(E.describe(E.match_subject("tapecarias", VOCABULARY)), "enr_tipo=tapeçaria ou enr_tecnicas=tapeçaria")
 
 
+class TestMatchSearch(unittest.TestCase):
+    """Na pesquisa só entra o filtro «tipo + o que se vê na fotografia» (medição de 2026-11-24)."""
+
+    VOCABULARY = {"enr_tipo": ["pintura", "escultura", "cadeira", "cruz"], "enr_foto_palavras": ["animal", "bicho", "pessoa", "inscrição", "letra"],
+                  "enr_materiais": ["marfim", "madeira"], "enr_origem_pais": ["Japão"], "enr_temas_palavras": ["animal", "religiosa"]}
+
+    def test_type_plus_what_is_seen(self) -> None:
+        self.assertEqual(E.match_search("Pinturas com animais.", self.VOCABULARY), [{"enr_tipo": ["pintura"]}, {"enr_foto_palavras": ["animal"]}])
+        self.assertEqual(E.match_search("mostra-me quadros com animais", self.VOCABULARY), [{"enr_tipo": ["pintura"]}, {"enr_foto_palavras": ["animal"]}])
+        self.assertEqual(E.match_search("há estátuas com inscrições?", self.VOCABULARY), [{"enr_tipo": ["escultura"]}, {"enr_foto_palavras": ["inscrição"]}])
+
+    def test_everything_else_is_left_to_the_search_of_today(self) -> None:
+        for pedido in ("Mostra-me cadeiras.", "Tens cruzes?",                 # só o tipo
+                       "peças com animais",                                    # só o que se vê
+                       "Peças em marfim.", "Há esculturas em madeira?",        # o material não cobre as peças todas
+                       "Peças vindas do Japão.",                               # a origem também não (os biombos Namban)
+                       "pinturas religiosas",                                  # os temas vêm da ficha, não filtram a pesquisa
+                       "pinturas com cães", "Tentações de Santo Antão", ""):
+            self.assertIsNone(E.match_search(pedido, self.VOCABULARY), pedido)
+
+
 class _Indices:
     def __init__(self, exists: bool = True) -> None:
         self._exists = exists
 
     def exists(self, *, index):
         return self._exists
+
+
+class TestLogging(unittest.TestCase):
+    def test_a_long_id_list_does_not_fill_the_debug_block(self) -> None:
+        compact = sanitize_for_terminal_json({"filters": {"artifact_id": [f"raiz:movel:{n}" for n in range(300)]}, "few": ["a", "b"]})
+        self.assertEqual(compact["filters"]["artifact_id"], {"_type": "long_list", "length": 300, "head": [f"raiz:movel:{n}" for n in range(5)]})
+        self.assertEqual(compact["few"], ["a", "b"])
 
 
 class _EnrichmentClient:
@@ -186,6 +215,20 @@ class TestCountByEnrichedFields(TestFastPath):
         gateway = _EnrichedGateway(DOCS)
         asyncio.run(self._service_with(gateway, CHAT_ENRICHED_FIELDS=False).handle_message(self._request("quantas cadeiras há?")))
         self.assertEqual((gateway.calls[0]["subject"], gateway.enriched_calls), ("cadeiras", []))
+
+    def test_search_filter_asks_only_with_both_flags(self) -> None:
+        gateway = _EnrichedGateway(DOCS, vocabulary={"enr_tipo": ["pintura"], "enr_foto_palavras": ["animal"]}, ids=("a-9",))
+        service = self._service_with(gateway, CHAT_ENRICHED_SEARCH_FILTER=True)
+        self.assertEqual(asyncio.run(service._enriched_search_filter("pinturas com animais", museum_id="mnt")),
+                         {"ids": ["a-9"], "read_as": "enr_tipo=pintura E enr_foto_palavras=animal", "pieces": 1})
+        self.assertIsNone(asyncio.run(service._enriched_search_filter("mostra-me cadeiras", museum_id="mnt")))
+        self.assertIsNone(asyncio.run(service._enriched_search_filter("pinturas com animais", museum_id=None)))
+        vazio = _EnrichedGateway(DOCS, vocabulary={"enr_tipo": ["pintura"], "enr_foto_palavras": ["animal"]}, ids=())
+        self.assertIsNone(asyncio.run(self._service_with(vazio, CHAT_ENRICHED_SEARCH_FILTER=True)._enriched_search_filter("pinturas com animais", museum_id="mnt")))
+        desligado = self._service_with(gateway)                                # só CHAT_ENRICHED_FIELDS
+        gateway.enriched_calls.clear()
+        self.assertIsNone(asyncio.run(desligado._enriched_search_filter("pinturas com animais", museum_id="mnt")))
+        self.assertEqual(gateway.enriched_calls, [])
 
     def test_a_failing_enrichment_keeps_the_old_count(self) -> None:
         class _Broken(_EnrichedGateway):

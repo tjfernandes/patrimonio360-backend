@@ -6030,7 +6030,12 @@ class ChatService:
             # retrieval textual tenha sido tentado (kind=="text").
             # Numa lista fechada (Tesouros Nacionais) a fusão visual não entra:
             # traria peças de fora da lista.
-            if str(retrieval_request.get("kind") or "") == "text" and not self._is_treasure_list_request(retrieval_request):
+            # O mesmo com o filtro «tipo + o que se vê» (CHAT_ENRICHED_SEARCH_FILTER): as legendas trariam outros tipos.
+            if (
+                str(retrieval_request.get("kind") or "") == "text"
+                and not self._is_treasure_list_request(retrieval_request)
+                and not retrieval_request.get("enriched_filter")
+            ):
                 multimodal_outcome = await self._maybe_fuse_text_to_image(
                     query_text=retrieval_query,
                     message_text=search_query_message,
@@ -8265,6 +8270,26 @@ class ChatService:
         )
         return ids
 
+    async def _enriched_search_filter(self, query: str, *, museum_id: str | None) -> dict[str, Any] | None:
+        """As peças a que um pedido de pesquisa fica limitado (CHAT_ENRICHED_SEARCH_FILTER), ou None: flags
+        desligadas, museu sem enriquecimento, pedido que não é «tipo + o que se vê», ou nenhuma peça assim."""
+        if not museum_id or not (
+            bool(getattr(self.settings, "CHAT_ENRICHED_FIELDS", False))
+            and bool(getattr(self.settings, "CHAT_ENRICHED_SEARCH_FILTER", False))
+        ):
+            return None
+        try:
+            clauses = enriched_fields.match_search(query, await self._enriched_vocabulary(museum_id))
+            if clauses is None:
+                return None
+            ids = await self.opensearch_gateway.enriched_artifact_ids(museum_id=museum_id, clauses=clauses)
+        except Exception as exc:  # noqa: BLE001 — sem enriquecimento a pesquisa segue como sempre
+            log_event(logger, logging.WARNING, "chat.enriched_fields.error", where="search", error=exc)
+            return None
+        log_event(logger, logging.INFO, "chat.enriched_fields", where="search", query=query,
+                  read_as=enriched_fields.describe(clauses), pieces=len(ids))
+        return {"ids": ids, "read_as": enriched_fields.describe(clauses), "pieces": len(ids)} if ids else None
+
     async def _answer_catalogue_listing_fast_path(
         self,
         *,
@@ -10051,6 +10076,12 @@ class ChatService:
         )
         if national_treasure_info is not None:
             search_query = strip_treasure_words(search_query)
+        # «pinturas com animais»: só as peças desse tipo em que o modelo de visão viu animais
+        enriched_search: dict[str, Any] | None = None
+        if national_treasure_info is None and "artifact_id" not in retrieval_filters:
+            enriched_search = await self._enriched_search_filter(search_query, museum_id=museum_id)
+        if enriched_search is not None:
+            retrieval_filters = {**retrieval_filters, "artifact_id": enriched_search["ids"]}
         if not search_query:
             search_query = "objetos"
         original_search_query = search_query
@@ -10237,6 +10268,8 @@ class ChatService:
         }
         if national_treasure_info is not None:
             retrieval_request["national_treasure"] = national_treasure_info
+        if enriched_search is not None:
+            retrieval_request["enriched_filter"] = {"read_as": enriched_search["read_as"], "pieces": enriched_search["pieces"]}
 
         if not docs:
             return "", results_total, [], retrieval_request

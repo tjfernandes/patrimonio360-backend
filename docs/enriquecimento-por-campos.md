@@ -17,6 +17,7 @@ A ficha sabe mais do que o campo do material diz: «Prata fundida, cinzelada e i
 | Flag | O que faz |
 |---|---|
 | `CHAT_ENRICHED_FIELDS` | As contagens e as perguntas «a mais antiga» / «a mais recente» leem o assunto pelos campos enriquecidos, e as listagens de materiais e de técnicas mostram os valores normalizados |
+| `CHAT_ENRICHED_SEARCH_FILTER` | Com a anterior: um pedido de pesquisa que junta um tipo de peça ao que se vê nela («pinturas com animais») fica limitado a essas peças; ver «A pesquisa» |
 
 Os campos enriquecidos estão num índice próprio, `OPENSEARCH_INDEX_ENRICHMENT` (por omissão
 `cultural_heritage_enrichment_v1`): um documento por peça, com o mesmo `artifact_id` da ficha, sem vetores. O índice das
@@ -147,7 +148,7 @@ fora; os motivos e os temas vistos na imagem saíram maus e não se usam.
 Ao contrário dos temas, isto não depende do que a ficha escreve: uma pintura com um cão que a descrição não menciona
 conta em «pinturas com animais». Não se sabe quantas ficam por apanhar: a validação mediu os valores atribuídos.
 
-## A pesquisa normal não filtra por estes campos (medido a 2026-11-24)
+## A pesquisa (medido a 2026-11-24)
 
 Antes de ligar os campos à pesquisa («mostra-me cadeiras», «peças em marfim») mediram-se 20 perguntas no backend em
 produção. Das 15 que se leem pelos campos enriquecidos, em 9 os cartões já eram todos peças do conjunto certo, e em mais
@@ -156,8 +157,33 @@ enriquecimento não apanha: em «peças vindas do Japão» ficavam de fora os bi
 produção; em «esculturas em madeira», esculturas cuja ficha não diz o material. Um filtro tirava-as da resposta.
 
 Um filtro só serve com campos que cobrem quase todas as peças. O tipo (99%) e a fotografia (99%) cobrem; o material
-(92%, e 21% nas esculturas) e a origem (33%) não. Fica por fazer, e por medir, o filtro só para pedidos que juntam um
-tipo ao que se vê («pinturas com animais»), que é onde a pesquisa de hoje mistura desenhos com pinturas.
+(92%, e 21% nas esculturas) e a origem (33%) não. Por isso a pesquisa não filtra por material nem por origem, nem só
+pelo tipo («mostra-me cadeiras» já devolve cadeiras, e um tipo de uma palavra, como «cruz» ou «painel», tanto é a peça
+como o assunto dela).
+
+### O filtro «tipo + o que se vê» (`CHAT_ENRICHED_SEARCH_FILTER`)
+
+Só para pedidos que juntam um tipo de peça ao que o modelo de visão viu na fotografia: pessoas, animais, letras. As
+peças desse conjunto vão para a pesquisa de sempre como filtro por `artifact_id`, e a fusão com as legendas não entra
+(traria peças de outros tipos). Todas as palavras do pedido têm de se ler assim; senão a pesquisa fica como estava.
+
+Medido com a pesquisa híbrida de produção (o mesmo corpo, com a pergunta embebida pelo código da aplicação), nos 15
+primeiros resultados, sem a escolha de cartões pelo modelo que vem depois:
+
+| Pedido | Conjunto | Hoje: dentro do conjunto | Com o filtro |
+|---|---|---|---|
+| Pinturas com animais | 65 pinturas | 2 de 15 (o resto: desenhos e iluminuras) | 15 de 15 |
+| Quadros com animais | 65 | 1 de 15 | 15 de 15 |
+| Esculturas com animais | 30 | 4 de 15 | 15 de 15 |
+| Pinturas com inscrições | 70 | 3 de 15 | 15 de 15 |
+| Esculturas com inscrições | 19 | 3 de 15 | 15 de 15 |
+| Desenhos com animais | 61 | 12 de 15 | 15 de 15 |
+| Gravuras com pessoas | 213 | 15 de 15 | 15 de 15 |
+| Desenhos com pessoas | 356 | 15 de 15 | 15 de 15 |
+
+O total anunciado passa de cerca de 1 000 para o tamanho do conjunto. Dois limites: um fólio iluminado é do tipo
+«manuscrito iluminado» e não «pintura», por isso sai de «pinturas com animais»; e o que se vê são só três coisas
+(pessoas, animais, letras), por isso «pinturas com cães» ou «com barcos» continuam pela pesquisa de sempre.
 
 ## Limites
 

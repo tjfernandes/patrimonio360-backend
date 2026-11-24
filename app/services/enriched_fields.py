@@ -20,6 +20,18 @@ import unicodedata
 # campos em que se procura o assunto, por esta ordem
 SUBJECT_FIELDS = ("enr_tipo", "enr_materiais", "enr_tecnicas", "enr_funcao", "enr_origem_pais", "enr_temas_palavras",
                   "enr_foto_palavras")
+# Na pesquisa (CHAT_ENRICHED_SEARCH_FILTER) só servem de filtro os campos que cobrem quase todas as peças: o tipo
+# (99%) e o que se vê na fotografia (99%). O material (21% nas esculturas) e a origem (33%) deixavam de fora peças
+# certas: em «peças vindas do Japão», os biombos Namban, cuja ficha não tem centro de produção.
+SEARCH_FIELDS = ("enr_tipo", "enr_foto_palavras")
+# palavras de um pedido que não dizem o que se procura
+_REQUEST_WORDS = frozenset(
+    "mostra mostrame me ha tens tem existem existe quero queria ver procuro procura encontra encontrar que quais qual peca pecas obra "
+    "obras objeto objetos algum alguma alguns algumas onde aparece aparecem se ve veem tenham tenha show find are there any with".split()
+)
+# como um visitante chama aos tipos do catálogo
+_TYPE_SYNONYMS = {"quadro": "pintura", "quadros": "pinturas", "tela": "pintura", "telas": "pinturas", "estatua": "escultura",
+                  "estatuas": "esculturas"}
 MAX_PHRASE_TOKENS = 4
 # palavras de ligação: não contam nem no assunto nem nos valores («pintura a óleo» lê-se em «pinturas óleo»,
 # que é como o assunto chega depois de a analítica lhe tirar as palavras vazias)
@@ -80,6 +92,18 @@ def match_subject(subject: str, vocabulary: dict[str, list[str]]) -> list[dict[s
             return None
         clauses.append({field: list(values) for field, values in found.items()})
     return clauses
+
+
+def match_search(query: str, vocabulary: dict[str, list[str]]) -> list[dict[str, list[str]]] | None:
+    """As condições de um pedido de pesquisa que junta um tipo de peça ao que se vê nela («pinturas com animais»,
+    «esculturas com inscrições»), ou None. Só o tipo («mostra-me cadeiras») não chega: aí a pesquisa de hoje já
+    devolve as peças certas, e um tipo de uma palavra só («cruz», «painel») tanto é a peça como o assunto dela."""
+    tokens = [_TYPE_SYNONYMS.get(token, token) for token in fold(query).split() if token not in _REQUEST_WORDS]
+    clauses = match_subject(" ".join(tokens), {field: vocabulary.get(field) or [] for field in SEARCH_FIELDS})
+    if not clauses:
+        return None
+    fields = {field for clause in clauses for field in clause}
+    return clauses if {"enr_tipo", "enr_foto_palavras"} <= fields else None
 
 
 def describe(clauses: list[dict[str, list[str]]]) -> str:
