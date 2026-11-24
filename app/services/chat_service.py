@@ -32,6 +32,7 @@ from app.services.national_treasures import (
     strip_treasure_words,
     subject_matches,
 )
+from app.services import enriched_fields
 from app.services.catalogue_analytics import (
     CENTURIES,
     COUNT,
@@ -8223,6 +8224,47 @@ class ChatService:
                 return True
         return False
 
+    # ----- Campos enriquecidos (CHAT_ENRICHED_FIELDS) ----- #
+
+    async def _enriched_vocabulary(self, museum_id: str | None) -> dict[str, list[str]]:
+        """Os valores que o museu tem nos campos enriquecidos, guardados dez minutos.
+        Tudo vazio quando o museu ainda não tem enriquecimento."""
+        if not museum_id:
+            return {}
+        cache = getattr(self, "_enriched_vocabulary_cache", None)
+        if cache is None:
+            cache = self._enriched_vocabulary_cache = {}
+        cached = cache.get(museum_id)
+        if cached is not None and time.monotonic() - cached[0] < 600:
+            return cached[1]
+        vocabulary = await self.opensearch_gateway.enriched_vocabulary(museum_id=museum_id, fields=enriched_fields.SUBJECT_FIELDS)
+        cache[museum_id] = (time.monotonic(), vocabulary)
+        return vocabulary
+
+    async def _enriched_subject_ids(
+        self, *, subject: str, museum_id: str | None, conversation_id: str, query_id: str
+    ) -> list[str] | None:
+        """As peças que o assunto de uma contagem designa, lido pelos campos
+        enriquecidos («cadeiras» → tipo de objeto; «prata» → material). None quando
+        não se aplica: flag desligada, museu sem enriquecimento, ou uma palavra do
+        assunto que não é valor de nenhuma lista. Aí a contagem fica como era."""
+        if not bool(getattr(self.settings, "CHAT_ENRICHED_FIELDS", False)) or not subject or not museum_id:
+            return None
+        try:
+            vocabulary = await self._enriched_vocabulary(museum_id)
+            clauses = enriched_fields.match_subject(subject, vocabulary) if any(vocabulary.values()) else None
+            if clauses is None:
+                return None
+            ids = await self.opensearch_gateway.enriched_artifact_ids(museum_id=museum_id, clauses=clauses)
+        except Exception as exc:  # noqa: BLE001 — sem enriquecimento a contagem segue pelo texto
+            log_event(logger, logging.WARNING, "chat.enriched_fields.error", conversation_id=conversation_id, query_id=query_id, error=exc)
+            return None
+        log_event(
+            logger, logging.INFO, "chat.enriched_fields",
+            conversation_id=conversation_id, query_id=query_id, subject=subject, read_as=enriched_fields.describe(clauses), pieces=len(ids),
+        )
+        return ids
+
     async def _answer_catalogue_listing_fast_path(
         self,
         *,
@@ -8258,6 +8300,7 @@ class ChatService:
         scope = translate("message.analytics_scope_tour" if in_tour else "message.analytics_scope_museum", language)
         category: tuple[str, str] | None = None
         result: dict[str, Any] = {}
+        listing_key = f"message.listing_{facet.key}"
         if facet.field is None:
             intro = translate(f"message.listing_{facet.key}", language, scope=scope)
         else:
@@ -8272,10 +8315,22 @@ class ChatService:
                 ignored |= set(self._fold_query_text(category[1]).split()) if category else set()
                 if self._message_names_a_listed_value(folded_message, phrases, words, ignored):
                     return None
-                result = await self.opensearch_gateway.aggregate_facet(
-                    museum_slug=museum_slug, museum_id=museum_id, field=facet.field, in_tour=in_tour,
-                    category=category[0] if category else None, size=max(facet.top * 4, 60),
-                )
+                enriched_field = {"materials": "enr_materiais", "techniques": "enr_tecnicas"}.get(facet.key)
+                if (
+                    enriched_field and museum_id and bool(getattr(self.settings, "CHAT_ENRICHED_FIELDS", False))
+                    and any((await self._enriched_vocabulary(museum_id)).values())
+                ):
+                    # os valores normalizados («prata», «madeira») em vez do texto livre do campo
+                    listing_key += "_enriched"
+                    result = await self.opensearch_gateway.aggregate_enriched_facet(
+                        museum_id=museum_id, field=enriched_field, in_tour=in_tour,
+                        category=category[0] if category else None, size=max(facet.top * 4, 60),
+                    )
+                else:
+                    result = await self.opensearch_gateway.aggregate_facet(
+                        museum_slug=museum_slug, museum_id=museum_id, field=facet.field, in_tour=in_tour,
+                        category=category[0] if category else None, size=max(facet.top * 4, 60),
+                    )
             except Exception as exc:
                 log_event(logger, logging.WARNING, "chat.catalogue_listing.error", conversation_id=conversation_id, query_id=query_id, error=exc)
                 return None
@@ -8284,7 +8339,7 @@ class ChatService:
                 return None
             shown = values[: facet.top]
             intro = translate(
-                f"message.listing_{facet.key}", language, scope=scope,
+                listing_key, language, scope=scope,
                 subject=translate("message.listing_category", language, category=category[1]) if category else "",
                 distinct=int(result.get("distinct") or 0), filled=int(result.get("filled") or 0), total=int(result.get("total") or 0),
                 shown=len(shown), listing=", ".join(f"{label} ({count})" for label, count in shown),
@@ -8381,6 +8436,16 @@ class ChatService:
         )
         if treasure_info is not None:
             subject = " ".join(treasure_subject)
+        # o assunto lido pelos campos enriquecidos: conta-se o que a peça é, e não as
+        # fichas em que a palavra aparece
+        enriched_ids: list[str] | None = None
+        if treasure_info is None:
+            enriched_ids = await self._enriched_subject_ids(
+                subject=subject, museum_id=museum_id, conversation_id=conversation_id, query_id=query_id
+            )
+        if enriched_ids is not None:
+            # lista vazia = nenhuma peça: um id que não existe faz a contagem dar zero
+            filters = {**filters, "artifact_id": enriched_ids or ["(nenhuma)"]}
         cards = max(int(getattr(self.settings, "CHAT_CATALOGUE_ANALYTICS_CARDS", 24)), 1)
         kind = analytics.kind
         try:
@@ -8388,7 +8453,7 @@ class ChatService:
                 museum_slug=museum_slug,
                 museum_id=museum_id,
                 in_tour=analytics.in_tour,
-                subject="" if treasure_info is not None else subject,
+                subject="" if (treasure_info is not None or enriched_ids is not None) else subject,
                 filters=filters,
                 order=("asc" if kind == OLDEST else "desc") if kind in {OLDEST, NEWEST} else None,
                 size=cards if kind in {OLDEST, NEWEST} else (8 if kind == COUNT and subject else 0),
